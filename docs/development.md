@@ -3,6 +3,14 @@
 RiverLB builds on Linux and WSL. Use a native Linux Rust toolchain; the application
 uses Unix signals and Linux networking interfaces. Work from the repository root.
 
+## Release 2.0 development
+
+Create feature branches from `release-2.0` and target that branch in child-issue
+PRs. The complete approved release will later be proposed for `main`. Follow the
+[2.0 scope and readiness plan](releases/2.0-scope.md) for dependencies, proposed
+support claims, evidence and decisions; a merged planning document is not release
+approval. Keep the parent tracker #8 open until the release gates are met.
+
 ## Set up a development machine
 
 Install Rust with rustup, including `rustfmt` and `clippy`. The RPM builder uses
