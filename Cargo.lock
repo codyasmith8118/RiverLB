@@ -2143,7 +2143,7 @@ dependencies = [
  "anyhow",
  "argon2",
  "axum",
- "base64 0.22.1",
+ "base64 0.23.1",
  "clap",
  "fs2",
  "http-body-util",
