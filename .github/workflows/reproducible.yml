@@ -1,5 +1,18 @@
 name: Reproducible appliance inputs
 on:
+  pull_request:
+    paths:
+      - 'Cargo.lock'
+      - 'deploy/ha/vendor/openstack-requirements.txt'
+      - 'packaging/**'
+      - 'appliance/base-media.json'
+      - 'appliance/tools/**'
+      - 'appliance/packer/**'
+      - 'scripts/*inputs.py'
+      - 'scripts/build-rpm.sh'
+      - 'scripts/compare-builds.py'
+      - 'scripts/test-reproducible-build.sh'
+      - '.github/workflows/reproducible.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,6 +33,8 @@ jobs:
         run: python3 tests/appliance/build_inputs.py
       - name: Build twice with retained inputs and compare
         run: scripts/test-reproducible-build.sh
+      - name: Reject actual unsigned, untrusted and corrupted RPMs
+        run: python3 tests/appliance/build_input_signatures.py dist/reproducibility/second/riverlb-appliance-*.rpm
       - name: Qualify disconnected installation of the second build
         run: |
           RIVERLB_RPM_DIR=dist/reproducibility/second scripts/test-rpm.sh

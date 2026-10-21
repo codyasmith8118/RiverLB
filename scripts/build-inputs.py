@@ -183,7 +183,7 @@ rpmkeys --dbpath /tmp/riverlb-rpmkeys --checksig /inputs/rpm-repository/*.rpm
 '''
     result = subprocess.run(['podman', 'run', '--rm', '--pull=never', '--network=none',
         '--security-opt=no-new-privileges', '--entrypoint', '/bin/bash',
-        '-v', f'{root}:/inputs:ro,Z', runtime, '-c', script], check=True, text=True, capture_output=True)
+        '-v', f'{root}:/inputs:ro,z', runtime, '-c', script], check=True, text=True, capture_output=True)
     lines = [line for line in result.stdout.splitlines() if line.strip()]
     if len(lines) != len(list((root / 'rpm-repository').glob('*.rpm'))) or not lines or not all(line.endswith('digests signatures OK') for line in lines):
         raise ValueError('Repository RPMs must have valid signatures from the pinned OS key')

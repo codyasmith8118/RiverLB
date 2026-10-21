@@ -41,7 +41,10 @@ trap 'rm -rf -- "$stage_dir"' EXIT
 [[ -d "$rpm_dir/ha-dependencies" ]] || { echo 'Rebuild RPMs to stage offline HA dependencies.' >&2; exit 1; }
 cp "$rpm_dir"/riverlb-*.rpm "$stage_dir/"
 cp -a "$rpm_dir/ha-dependencies" "$stage_dir/ha-dependencies"
-(cd "$stage_dir"; tar -cf riverlb-packages.tar ./*.rpm ./ha-dependencies)
+source_epoch=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source_date_epoch"])' "$rpm_dir/build-manifest.json")
+[[ "$source_epoch" =~ ^[0-9]+$ ]] || { echo 'Invalid source epoch.' >&2; exit 1; }
+(cd "$stage_dir"; tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \
+    -cf riverlb-packages.tar ./*.rpm ./ha-dependencies)
 cp appliance/kickstart/common.ks "$stage_dir/riverlb-common.ks"
 cp "$rpm_dir/update-trust.json" "$stage_dir/update-trust.json"
 # Refuse to advertise graphics if the reviewed media lacks the offline runtime.

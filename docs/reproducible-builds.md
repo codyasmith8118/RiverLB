@@ -102,7 +102,9 @@ or resolve current repositories as a substitute.
 
 ```sh
 python3 tests/appliance/build_inputs.py
+python3 tests/appliance/compare_builds.py
 python3 tests/appliance/build_workflow.py
+python3 tests/appliance/build_input_signatures.py dist/rpm/riverlb-appliance-*.rpm
 ```
 
 The input tests reject absent/altered/extra files, corrupt cached archives,
@@ -110,3 +112,5 @@ source-lock drift, unavailable snapshots, non-HTTPS URLs/redirects, oversize
 archives, traversal, links, duplicate entries, and unsigned/untrusted RPM
 verification results. Actual vendor signature validation and disconnected
 installation run in the package qualification path.
+
+The Reproducible appliance inputs workflow runs on dependency/build-input PRs and can also be dispatched manually. Shared input mounts use the shared SELinux label so simultaneous verification cannot revoke another build’s access.
