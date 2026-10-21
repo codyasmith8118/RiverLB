@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y iputils-ping libclang-dev node-jsdom openssl
+      - run: sudo apt-get update && sudo apt-get install -y iputils-ping libclang-dev openssl
       - uses: dtolnay/rust-toolchain@stable
         with:
           # Match the compiler used to build the AlmaLinux appliance RPMs.
@@ -74,17 +74,28 @@ jobs:
       - run: sudo unshare --net -- python3 tests/two_arm.py
       - run: sudo unshare --net -- python3 tests/two_arm.py --tagged
       - run: sudo unshare --net -- bash tests/nat_namespace.sh
+      - name: Verify firewall detection under packaged systemd sandboxes
+        run: |
+          sudo apt-get install -y firewalld
+          sudo systemctl start firewalld
+          sudo python3 tests/appliance/firewall_sandbox.py --binary target/debug/riverlb
+  portal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Hosted Node does not include Ubuntu's packaged module directory.
+      NODE_PATH: /usr/share/nodejs
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y node-jsdom
+      - name: Verify browser fixture dependency
+        run: node -p "require.resolve('jsdom')"
       - run: node --check web/app.js && node --check web/fencing.js && node --check web/login.js && node --check web/statistics.js && node --check web/accounts.js && node --check web/operations.js && node --check web/release.js && node tests/portal.cjs
       - run: node tests/fencing.cjs
       - run: node tests/statistics.cjs
       - run: node --check web/appearance.js && node tests/appearance.cjs
       - run: node tests/operations.cjs
       - run: node tests/release.cjs
-      - name: Verify firewall detection under packaged systemd sandboxes
-        run: |
-          sudo apt-get install -y firewalld
-          sudo systemctl start firewalld
-          sudo python3 tests/appliance/firewall_sandbox.py --binary target/debug/riverlb
   hyperv-receiver:
     runs-on: windows-latest
     timeout-minutes: 10
