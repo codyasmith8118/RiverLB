@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>RiverLB</title>
+  <rect width="64" height="64" rx="16" fill="#0066cc"/>
+  <path d="M16 12h17c12 0 19 6 19 16 0 7-4 12-10 14l11 12H38L27 41v13H16V12zm11 11v10h6c5 0 8-2 8-5s-3-5-8-5h-6z" fill="#fff" fill-rule="evenodd"/>
+  <path d="M13 39c12-9 22 8 39-3" fill="none" stroke="#0066cc" stroke-width="4" stroke-linecap="round"/>
+</svg>

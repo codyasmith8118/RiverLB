@@ -1,0 +1,40 @@
+# Two data-plane adapters plus an independent management adapter are recommended.
+# Replace adapter names and documentation-only addresses for your environment.
+# Linux networking is provisioned by default; --external-network opts out.
+management = "127.0.0.1:18090"
+connect_timeout_ms = 1000
+session_timeout_secs = 300
+health_interval_secs = 2
+max_connections = 4096
+
+[[virtual_servers]]
+name = "application"
+listen = "192.0.2.10:8080"
+ingress_vlan = "external"
+backend_vlan = "internal"
+algorithm = "least_connections"
+source_nat = { mode = "automap" }
+members = ["198.51.100.20:8001", "198.51.100.21:8001"]
+
+[[network.vlans]]
+name = "external"
+interface = "eth1"
+role = "external"
+
+[[network.vlans]]
+name = "internal"
+interface = "eth2"
+role = "internal"
+
+[[network.self_ips]]
+name = "external-self"
+address = "192.0.2.10/24"
+vlan = "external"
+
+[[network.self_ips]]
+name = "internal-self"
+address = "198.51.100.10/24"
+vlan = "internal"
+
+# Add network.routes entries for backends outside the internal connected subnet.
+# Avoid a data-plane default route unless that is explicitly your desired routing.

@@ -1,0 +1,76 @@
+name: Appliance disk candidate
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: disk-v2-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  rpm:
+    uses: ./.github/workflows/rpm.yml
+  image:
+    needs: rpm
+    # This protected runner must be disposable and never a deployed appliance.
+    environment: appliance-build
+    runs-on: [self-hosted, linux, x64, riverlb-kvm]
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - firmware: bios
+            image_dir: dist/image
+            test_dir: dist/test-vm
+          - firmware: uefi
+            image_dir: dist/image-uefi
+            test_dir: dist/test-vm-uefi
+    env:
+      RIVERLB_IMAGE_FIRMWARE: ${{ matrix.firmware }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check dedicated builder prerequisites
+        run: |
+          test -r /dev/kvm && test -w /dev/kvm
+          command -v podman
+          command -v packer
+          test ! -e '${{ matrix.image_dir }}'
+          test ! -e '${{ matrix.test_dir }}'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: rpm-${{ github.run_id }}
+          path: dist/rpm
+      - run: scripts/fetch-base-iso.py
+      - name: Assemble and inspect automatic installation media
+        run: |
+          iso=$(python3 -c 'import json; print("dist/base/" + json.load(open("appliance/base-media.json"))["filename"])')
+          checksum=$(python3 -c 'import json; print(json.load(open("appliance/base-media.json"))["sha256"])')
+          scripts/build-iso.sh "$iso" "$checksum" image
+          scripts/test-iso.sh image
+      - run: scripts/build-image.sh
+      - run: scripts/test-image.sh
+      - name: Test RiverLB graphical installer and text-console storage safety
+        if: matrix.firmware == 'bios'
+        run: |
+          iso=$(python3 -c 'import json; print("dist/base/" + json.load(open("appliance/base-media.json"))["filename"])')
+          checksum=$(python3 -c 'import json; print(json.load(open("appliance/base-media.json"))["sha256"])')
+          scripts/build-iso.sh "$iso" "$checksum" installer
+          scripts/test-iso.sh installer
+          scripts/test-installer.sh
+      - name: Upload unconfigured candidates and credential-free test report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: disk-${{ matrix.firmware }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ matrix.image_dir }}/riverlb.qcow2
+            ${{ matrix.image_dir }}/riverlb.raw
+            ${{ matrix.image_dir }}/efivars.fd
+            ${{ matrix.image_dir }}/SHA256SUMS
+            ${{ matrix.test_dir }}/report.json
+            dist/test-installer-vm/report.json
+          if-no-files-found: error
+          retention-days: 7

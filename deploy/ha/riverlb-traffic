@@ -1,0 +1,59 @@
+#!/usr/bin/python3
+"""OCF primitive: daemons stay running; this resource owns the data plane."""
+import json
+import os
+import subprocess
+import sys
+
+METADATA = '''<?xml version="1.0"?>
+<resource-agent name="traffic" version="1.0">
+<version>1.0</version>
+<longdesc lang="en">Own RiverLB floating addresses and listeners. Requires Pacemaker quorum, real STONITH fencing, and a local RiverLB daemon started with --ha-config. A two-node cluster requires wait-for-all and fencing coverage of both appliances; a qdevice witness is optional.</longdesc>
+<shortdesc lang="en">RiverLB active traffic owner</shortdesc>
+<parameters>
+<parameter name="binary"><longdesc lang="en">RiverLB executable</longdesc><shortdesc lang="en">Executable</shortdesc><content type="string" default="/usr/bin/riverlb"/></parameter>
+<parameter name="socket"><longdesc lang="en">Private local HA control socket</longdesc><shortdesc lang="en">HA socket</shortdesc><content type="string" default="/run/riverlb/ha.sock"/></parameter>
+</parameters>
+<actions><action name="start" timeout="90s"/><action name="stop" timeout="90s"/><action name="monitor" timeout="15s" interval="10s"/><action name="validate-all" timeout="15s"/><action name="meta-data" timeout="5s"/></actions>
+</resource-agent>'''
+
+
+def call(action):
+    binary = os.environ.get("OCF_RESKEY_binary", "/usr/bin/riverlb")
+    socket = os.environ.get("OCF_RESKEY_socket", "/run/riverlb/ha.sock")
+    output = subprocess.check_output([binary, "ha", "--socket", socket, action], timeout=65)
+    return json.loads(output)
+
+
+def main(action):
+    if action == "meta-data":
+        print(METADATA)
+        return 0
+    if action in {"usage", "help"}:
+        print("Usage: riverlb-traffic {start|stop|monitor|validate-all|meta-data}")
+        return 0
+    if action == "start":
+        call("activate")
+        status = call("status")
+        return 0 if status["role"] == "active" and status["data_ready"] else 1
+    if action == "stop":
+        # An unreachable daemon is NOT successful stop: Pacemaker must fence it.
+        call("deactivate")
+        return 0 if call("status")["role"] == "standby" else 1
+    if action in {"monitor", "status"}:
+        status = call("status")
+        if status["role"] == "standby":
+            return 7
+        return 0 if status["role"] == "active" and status["data_ready"] else 1
+    if action == "validate-all":
+        status = call("status")
+        return 0 if status["role"] in {"standby", "active"} else 6
+    return 3
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv[1] if len(sys.argv) > 1 else "usage"))
+    except Exception as error:
+        print(str(error), file=sys.stderr)
+        sys.exit(1)

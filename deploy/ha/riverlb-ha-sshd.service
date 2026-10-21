@@ -1,0 +1,12 @@
+[Unit]
+Description=RiverLB restricted HA synchronization transport
+After=network-online.target
+
+[Service]
+ExecStart=/usr/sbin/sshd -D -f /etc/ssh/riverlb-ha-sshd_config
+Restart=on-failure
+User=root
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

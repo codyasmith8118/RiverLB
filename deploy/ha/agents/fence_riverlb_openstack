@@ -1,0 +1,7 @@
+#!/usr/bin/python3
+"""Run the vendor OpenStack fence agent with RiverLB's pinned private SDK."""
+import runpy
+import sys
+
+sys.path.insert(0, '/usr/lib/riverlb/fencing/openstack')
+runpy.run_path('/usr/sbin/fence_openstack', run_name='__main__')

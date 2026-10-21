@@ -1,0 +1,55 @@
+[Unit]
+Description=RiverLB appliance (HA standby at boot)
+After=network-online.target firewalld.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+UMask=0077
+RuntimeDirectory=riverlb
+RuntimeDirectoryMode=0700
+StateDirectory=riverlb
+StateDirectoryMode=0700
+ExecStart=/usr/bin/riverlb serve --config /etc/riverlb/riverlb.toml --database /var/lib/riverlb/riverlb.db --ha-config /etc/riverlb/ha.json
+Restart=on-failure
+RestartSec=2s
+TimeoutStopSec=90s
+KillMode=control-group
+# The fixed pcs helpers need root identity and read-only SSH identity access.
+# AF_PACKET and CAP_NET_RAW permit gratuitous ARP during floating VIP takeover.
+NoNewPrivileges=true
+# Pacemaker/pcsd state and IPC are hacluster-owned. Fixed pcs provisioning also
+# needs ownership and identity operations; these broader HA privileges require
+# live qualification before removing them or moving setup into a separate unit.
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_CHOWN CAP_FOWNER CAP_SETUID CAP_SETGID CAP_DAC_OVERRIDE
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/etc/riverlb /var/lib/riverlb /run/riverlb -/mnt/riverlb-backups -/etc/corosync -/var/lib/pcsd -/var/lib/pacemaker -/run/riverlb-ha-deploy /dev/shm
+InaccessiblePaths=-/etc/shadow -/etc/gshadow
+# Verify the host network namespace without CAP_SYS_PTRACE or CAP_SYS_ADMIN.
+OpenFile=/proc/1/ns/net:riverlb-host-netns:read-only
+# Pacemaker's libqb IPC needs the host's shared-memory files. Keep this mount
+# non-executable while retaining the private device tree and other restrictions.
+BindPaths=/dev/shm
+NoExecPaths=/dev/shm
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK AF_PACKET
+SystemCallArchitectures=native
+SystemCallFilter=~@mount @reboot @swap @module @raw-io @obsolete @debug @cpu-emulation memfd_create
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

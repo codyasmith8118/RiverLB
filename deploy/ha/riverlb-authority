@@ -1,0 +1,96 @@
+#!/usr/bin/python3
+"""Read Pacemaker's current ownership. No election or fencing is invented here."""
+import json
+import os
+import re
+import subprocess
+import sys
+import syslog
+import xml.etree.ElementTree as ET
+
+# These agents can leave an appliance serving its VIP after "fencing" succeeds.
+NON_POWER_AGENTS = {"fence_dummy", "fence_manual", "fence_ack_manual", "fence_watchdog",
+    "fence_heuristics_ping", "fence_kdump", "fence_mpath", "fence_scsi", "fence_sbd",
+    "fence_ifmib", "fence_brocade", "fence_cisco_mds", "fence_sanbox2"}
+
+
+def run(*args):
+    return subprocess.check_output(args, timeout=4, env={**os.environ, "LC_ALL": "C"})
+
+
+def authority(cib, status, resource):
+    properties = {p.get("name"): p.get("value") for p in cib.findall("./configuration/crm_config//nvpair")}
+    fenced = properties.get("stonith-enabled", "true").lower() == "true"
+    fenced &= properties.get("startup-fencing", "true").lower() == "true"
+    fenced &= properties.get("no-quorum-policy") == "stop"
+    fences = cib.findall("./configuration/resources//primitive[@class='stonith']")
+    fenced &= bool(fences) and all(p.get("type") not in NON_POWER_AGENTS for p in fences)
+    dc = status.find(".//current_dc")
+    quorate = dc is not None and dc.get("with_quorum") == "true"
+    owners = set()
+    for entry in status.findall(".//resources//resource"):
+        if entry.get("id") == resource and entry.get("active") == "true":
+            # crm_mon reports Starting while Pacemaker waits for this node's
+            # OCF start to finish. Retain that assigned owner during activation;
+            # treating the transition as an error prevents every managed start.
+            if entry.get("role") not in {"Started", "Starting"}:
+                raise ValueError("unexpected RiverLB cluster resource role: " + json.dumps({
+                    "role": entry.get("role"), "pending": entry.get("pending"),
+                    "active": entry.get("active"), "nodes": [node.get("name") for node in entry.findall("node")],
+                }, separators=(",", ":")))
+            nodes = [node.get("name") for node in entry.findall("node")]
+            if len(nodes) != 1 or not nodes[0]:
+                raise ValueError("multiple or unidentified cluster owners")
+            owners.update(nodes)
+    if len(owners) > 1 or None in owners:
+        raise ValueError("multiple or unidentified cluster owners")
+    return {"quorate": quorate, "fencing": bool(fenced), "owner": next(iter(owners), None)}
+
+
+def validate_two_node(values, cib):
+    entries = {}
+    for line in values.splitlines():
+        if "=" in line:
+            key, value = line.split("=", 1)
+            entries[key.split()[0]] = value.strip()
+    names = [value for key, value in entries.items() if re.fullmatch(r"nodelist.node.\d+.name", key)]
+    if entries.get("quorum.two_node") != "1" or entries.get("quorum.wait_for_all", "1") != "1" or len(set(names)) != 2:
+        raise ValueError("Require two-node quorum, wait_for_all and exactly two distinct members")
+    # Require a fencing device whose explicit host coverage includes both nodes.
+    covered = set()
+    for primitive in cib.findall("./configuration/resources//primitive[@class='stonith']"):
+        params = {p.get("name"): p.get("value", "") for p in primitive.findall("./instance_attributes//nvpair")}
+        covered.update(params.get("pcmk_host_list", "").split())
+        covered.update(item.split(":", 1)[0] for item in params.get("pcmk_host_map", "").split(";") if ":" in item)
+    if not set(names).issubset(covered):
+        raise ValueError("Two-node fencing must explicitly cover both appliances")
+
+
+def main():
+    resource = sys.argv[1] if len(sys.argv) == 2 else "riverlb-traffic"
+    cib = ET.fromstring(run("/usr/sbin/cibadmin", "--query"))
+    status = ET.fromstring(run("/usr/sbin/crm_mon", "--one-shot", "--output-as=xml"))
+    # A witness is optional. Two-node mode must wait for both initial members.
+    try:
+        model = run("/usr/sbin/corosync-cmapctl", "quorum.device.model").decode()
+    except subprocess.CalledProcessError:
+        model = ""
+    if "= net" not in model:
+        values = run("/usr/sbin/corosync-cmapctl").decode()
+        validate_two_node(values, cib)
+    print(json.dumps(authority(cib, status, resource)))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as error:
+        # The caller intentionally returns a generic ownership error. Preserve
+        # this fixed helper's diagnostic in the local journal for qualification.
+        try:
+            syslog.openlog("riverlb-authority")
+            syslog.syslog(syslog.LOG_ERR, str(error))
+        except OSError:
+            pass
+        print(str(error), file=sys.stderr)
+        sys.exit(1)

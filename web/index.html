@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>RiverLB · Traffic management</title>
+    <script src="/appearance.js"></script>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script><script src="/fencing.js" defer></script><script src="/statistics.js" defer></script><script src="/accounts.js" defer></script><script src="/operations.js" defer></script><script src="/release.js" defer></script>
+</head>
+<body>
+    <a href="#page-content" id="skip-content" class="skip-link">Skip to content</a>
+    <aside class="sidebar">
+        <div class="brand">RiverLB<span>TRAFFIC MANAGEMENT</span></div>
+        <button type="button" id="navigation-toggle" class="secondary" aria-expanded="false" aria-controls="main-navigation">Menu</button>
+        <nav id="main-navigation" aria-label="Main navigation">
+            <a href="#overview" data-route="overview">Overview</a>
+            <h2>Local Traffic</h2>
+            <a href="#virtual-servers" data-route="virtual-servers">Virtual Servers</a>
+            <a href="#pools" data-route="pools">Pools</a>
+            <a href="#nodes" data-route="nodes">Nodes</a>
+            <a href="#domain-routing" data-route="domain-routing">Domain Routing</a>
+            <a href="#monitors" data-route="monitors">Health Monitors</a>
+            <a href="#profiles" data-route="profiles">Profiles</a>
+            <div id="profile-navigation" hidden>
+                <a href="#http-profiles" data-route="http-profiles">HTTP</a>
+                <a href="#server-tls" data-route="server-tls">Server TLS</a>
+                <a href="#persistence" data-route="persistence">Source Persistence</a>
+                <a href="#cookie-profiles" data-route="cookie-profiles">Cookie Persistence</a>
+            </div>
+            <a href="#river-rules" data-route="river-rules">RiverRules</a>
+            <h2>Network</h2>
+            <a href="#interfaces" data-route="interfaces">Interfaces</a>
+            <a href="#vlans" data-route="vlans">VLANs</a>
+            <a href="#self-ips" data-route="self-ips">Self IPs</a>
+            <a href="#routes" data-route="routes">Routes</a>
+            <h2>High Availability</h2><a href="#ha" data-route="ha">HA Configuration</a><a href="#ha-sync" data-route="ha-sync">Configuration Sync</a>
+            <h2>System</h2>
+            <a href="#certificates" data-route="certificates">Virtual Server Certificates</a><a href="#device-certificates" data-route="device-certificates">Device Certificates</a><a href="#renewals" data-route="renewals">Certificate Renewals</a>
+            <a href="#settings" data-route="settings">Settings</a><a href="#administrators" data-route="administrators">Local Administrators</a>
+            <a href="#statistics" data-route="statistics">Statistics</a>
+            <a href="#system-health" data-route="system-health">System Health</a><a href="#alerts" data-route="alerts">Alerts</a><a href="#backups" data-route="backups">Backups &amp; Recovery</a><a href="#audit-events" data-route="audit-events">Audit Events</a><a href="#security" data-route="security">Security</a><a href="#updates" data-route="updates">Updates</a>
+            <a href="#configuration-files" data-route="configuration-files">Import / Export</a>
+        </nav>
+        <button type="button" id="logout">Sign out</button><small class="sidebar-note"><span id="product-version">RiverLB development build</span><br><span id="account-identity"></span></small>
+    </aside>
+    <div class="workspace">
+        <header class="page-header"><div><p id="breadcrumb">RiverLB / Overview</p><h1 id="page-title" tabindex="-1">Overview</h1></div><div class="page-header-actions"><label class="appearance-control"><span>Appearance</span><select data-appearance aria-label="Appearance"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label><button type="button" class="secondary" id="refresh">Refresh status</button></div></header>
+        <p id="error" role="alert"></p>
+        <div id="ha-summary" class="ha-summary appliance-header" aria-live="polite"><strong id="appliance-hostname">RiverLB</strong><span id="appliance-role"></span><a href="#ha-sync" data-route="ha-sync" id="appliance-sync"></a><span id="appliance-sync-time"></span><span id="appliance-pending" hidden aria-live="polite"></span></div>
+        <p id="message" tabindex="-1" class="feedback" role="status" aria-live="polite" hidden></p>
+        <section id="configuration-confirmation" class="editor confirmation-panel" hidden aria-live="polite"></section>
+        <main id="page-content" tabindex="-1" aria-labelledby="page-title">
+        <section class="page" data-page="system-health" hidden><h2>System Health</h2><div id="operations-health"></div></section>
+        <section class="page" data-page="alerts" hidden><h2>Alerts</h2><div id="operations-alerts"></div></section>
+        <section class="page" data-page="backups" hidden><h2>Backups &amp; Recovery</h2><div id="operations-backups"></div></section>
+        <section class="page" data-page="audit-events" hidden><h2>Audit Events</h2><div id="operations-audit"></div></section>
+        <section class="page" data-page="security" hidden><h2>Security</h2><div id="security-controls"></div></section>
+        <section class="page" data-page="updates" hidden><h2>Application Updates</h2><div id="update-controls"></div></section>
+        <section class="page" data-page="administrators" hidden><div class="section-heading"><div><h2>Local Administrators</h2><p>Accounts use administrator, operator, or read-only access. Accounts stay local during HA traffic sync. Changes apply immediately; password resets and session revocation require affected users to sign in again.</p></div><button type="button" id="admin-create">Create administrator</button></div>
+<div id="admin-account-list" class="table-scroll"></div><p id="admin-account-message" role="status" aria-live="polite"></p>
+<div id="admin-account-editor" class="editor" hidden><h3 id="admin-account-title"></h3><div class="grid"><label><span>Username</span><input id="admin-account-name" autocomplete="off" maxlength="128"></label><label><span>New password (12–1024 bytes)</span><input id="admin-account-new-password" type="password" autocomplete="new-password"></label><label><span>Confirm new password</span><input id="admin-account-confirm-password" type="password" autocomplete="new-password"></label><label><span>Account role</span><select id="admin-account-role"><option value="administrator">Administrator</option><option value="operator">Operator</option><option value="read_only">Read only</option></select></label><label><span>Your current password</span><input id="admin-account-current-password" type="password" autocomplete="current-password"></label><label><span>Your authenticator or recovery code (if enabled)</span><input id="admin-account-code" autocomplete="one-time-code"></label></div>
+<div class="actions"><button type="button" id="admin-account-save">Save account</button><button type="button" id="admin-account-cancel" class="secondary">Cancel</button></div></div></section>
+<section class="page" data-page="ha-sync" hidden><h2>Configuration Sync</h2><p>Shows whether the saved local traffic configuration matches the snapshot acknowledged by standby. Pending edits remain local in manual mode until Sync now succeeds. Unsaved form drafts are not included.</p><div id="ha-sync-details" role="status" aria-live="polite"></div><div class="actions"><button type="button" data-ha-action="sync">Sync traffic configuration now</button><button type="button" id="ha-sync-refresh" class="secondary">Refresh sync state</button></div></section>
+<section class="page" data-page="ha" hidden>
+<h2>HA Configuration</h2><p>Two appliances share one active traffic group. Save each appliance’s identity below. Use Configuration Sync to check or push traffic changes.</p>
+<p id="ha-group-state" class="page-note" role="status" aria-live="polite"></p><div class="editor"><h3>HA group settings</h3><div id="ha-group-fields" class="grid"></div>
+<div class="actions"><button type="button" id="ha-save">Save HA group</button><button type="button" id="ha-refresh" class="secondary">Refresh</button></div>
+</div><div class="editor"><h3>Traffic ownership</h3><p>Move traffic between appliances after initial deployment. Force failover waits for the current owner to stop or be fenced; existing connections reconnect.</p>
+<div class="actions"><button type="button" class="danger" data-ha-action="failover">Force failover</button><button type="button" class="secondary" data-ha-action="clear">Clear forced placement</button></div></div>
+<details class="ha-setup" open><summary>Initial deployment and split-brain protection</summary>
+<p>Complete the numbered steps in order. Steps 1–4 run on both appliances; steps 5–7 run on the initial primary. Packages are included in new appliance ISOs.</p>
+<div class="editor"><h3>Deploy HA on this appliance</h3>
+<p>Save the group above on both appliances using their actual hostnames. Each action below requires your RiverLB password and, if enabled, an authenticator code. Re-enter credentials for each action; password fields clear afterward.</p>
+<p id="ha-deploy-state" role="status" aria-live="polite"></p>
+<div class="grid">
+<label><span>Your current RiverLB password</span><input id="ha-deploy-password" type="password" autocomplete="current-password"></label>
+<label><span>Authenticator or recovery code, if enabled</span><input id="ha-deploy-code" autocomplete="one-time-code"></label>
+<label><span>Cluster password — use the same value on both appliances</span><input id="ha-deploy-cluster-password" type="password" autocomplete="new-password" minlength="12" maxlength="1024"></label>
+</div><section class="ha-step"><h4>1. Prepare this appliance</h4><p>Use the same cluster password on both appliances. Preparation creates synchronization keys and starts the restricted HA transport.</p>
+<div class="actions"><button type="button" data-ha-deploy="prepare">Prepare local HA services</button></div></section>
+<section class="ha-step"><h4>2. Verify and trust the peer</h4>
+<div id="ha-deploy-identity" hidden><h4>This appliance's public identity</h4><p>Copy these public keys to the peer's trust fields below. Compare the host fingerprint directly in the peer's GUI before trusting it. Private keys stay on this appliance.</p>
+<div class="grid"><label><span>Synchronization public key</span><textarea id="ha-deploy-sync-public" readonly rows="3"></textarea></label><label><span>Host public key</span><textarea id="ha-deploy-host-public" readonly rows="3"></textarea></label><label><span>Host fingerprint</span><input id="ha-deploy-host-fingerprint" readonly></label></div></div>
+<p>Copy the peer’s public identity from its HTTPS GUI into these fields. Verify the fingerprint before installing trust on each appliance.</p>
+<div class="grid"><label><span>Peer synchronization public key</span><textarea id="ha-deploy-peer-sync" rows="3" autocomplete="off"></textarea></label><label><span>Peer host public key</span><textarea id="ha-deploy-peer-host" rows="3" autocomplete="off"></textarea></label><label><span>Peer host fingerprint — verified in its GUI</span><input id="ha-deploy-peer-fingerprint" autocomplete="off"></label></div>
+<div class="actions"><button type="button" data-ha-deploy="trust">Install verified peer trust</button></div></section>
+<section class="ha-step"><h4>3. Authenticate both hosts</h4><p>Re-enter the shared cluster password and your RiverLB credentials, then authenticate from each appliance.</p>
+<div class="actions"><button type="button" data-ha-deploy="authenticate">Authenticate cluster hosts</button></div></section>
+<section class="ha-step"><h4>4. Start standby operation</h4><p>Switch each appliance to HA standby. Standalone traffic stops and management briefly disconnects. Refresh after the service starts.</p>
+<div class="actions"><button type="button" data-ha-deploy="start">Start HA standby service</button><button type="button" id="ha-deploy-refresh" class="secondary">Refresh deployment status</button></div></section>
+</div><div class="editor"><h3>5. Create the two-appliance cluster</h3><p>On the initial primary only, provision the cluster after both appliances report Standby. Traffic remains disabled until step 7.</p><div class="actions"><button type="button" data-ha-action="setup">Provision two-node cluster</button></div></div>
+<div class="editor" id="ha-fencing"><h3>6. Configure failover protection</h3>
+<p>Choose where the appliances run, connect to its management service, and identify each appliance. Fencing stops an unreachable peer before takeover so both appliances cannot own the VIP.</p>
+<p id="ha-fence-state" class="page-note" role="status" aria-live="polite">Loading installed integrations…</p>
+<div class="grid">
+<label><span>Where are the appliances running?</span><select id="ha-fence-platform"><option value="">Select a platform</option></select></label>
+<label><span>Integration</span><select id="ha-deploy-fence-agent"><option value="">Select a platform first</option></select></label>
+<label><span>Protection name</span><input id="ha-deploy-fence-resource" autocomplete="off" placeholder="protect-riverlb-pair"></label>
+<label><span>Appliances controlled by this connection</span><select id="ha-fence-coverage"><option value="both">Both appliances</option><option value="local">This appliance only</option><option value="peer">Peer appliance only</option></select></label>
+</div>
+<p id="ha-fence-agent-help" class="page-note"></p>
+<fieldset class="config-section"><legend>Management connection</legend><div id="ha-fence-connection" class="grid"></div></fieldset>
+<div class="actions"><button type="button" class="secondary" data-ha-deploy="fence_probe" data-fence-probe="list">Check connection and find machines</button></div>
+<fieldset class="config-section"><legend>Identify the appliances</legend><p id="ha-fence-mapping-help">Choose discovered machines or enter their exact IDs. If appliances use separate hosts or management controllers, create a protection connection for each appliance.</p>
+<div class="grid"><label id="ha-fence-local-label"><span>This appliance’s machine ID</span><input id="ha-fence-local-target" list="ha-fence-targets" autocomplete="off"></label><label id="ha-fence-peer-label"><span>Peer appliance’s machine ID</span><input id="ha-fence-peer-target" list="ha-fence-targets" autocomplete="off"></label>
+<label><span>Appliance to check</span><select id="ha-fence-check-target"></select></label></div><datalist id="ha-fence-targets"></datalist>
+<div class="actions"><button type="button" class="secondary" data-ha-deploy="fence_probe" data-fence-probe="status">Check selected appliance power state</button></div></fieldset>
+<details><summary>Advanced integration settings</summary><div id="ha-fence-advanced" class="grid"></div><label class="field-wide"><span>Additional cluster settings (JSON object with string values)</span><textarea id="ha-deploy-fence-parameters" rows="4" autocomplete="off" placeholder='{"pcmk_delay_max":"10s"}'></textarea></label></details>
+<p>Connection and power-state checks do not turn machines off. After saving, test real power fencing for both appliances before enabling traffic. Credentials are saved privately in the cluster configuration and are cleared from this form after each request.</p>
+<div class="actions"><button type="button" data-ha-deploy="fence">Save failover protection</button></div>
+</div><div class="editor"><h3>7. Enable traffic</h3><p>Verify real power fencing for both appliances first. Seed the initial primary exactly once, then enable cluster traffic. Subsequent failovers use the Traffic ownership controls above.</p>
+<div class="actions"><button type="button" class="secondary" data-ha-action="seed">Seed initial primary</button><button type="button" data-ha-action="enable">Enable cluster traffic</button></div>
+<p>Group identity changes require a service restart. Synchronization mode changes apply immediately.</p></div>
+</details></section>
+<form id="configuration" novalidate>
+                <section class="page" data-page="overview">
+                    <p class="intro">Live virtual-server and backend health. Select Edit to open a server in Local Traffic.</p>
+                    <div id="pools"></div><p id="updated"></p>
+                </section>
+                <section class="page" data-page="virtual-servers" hidden>
+                    <div class="section-heading"><div><h2>Virtual Servers</h2><p>Define listeners and assign a reusable pool or inline backends.</p></div><button type="button" id="add">Create virtual server</button></div>
+                    <div id="server-list"></div><div id="servers"></div><datalist id="pool-names"></datalist>
+                </section>
+                <section class="page" data-page="pools" hidden>
+                    <div class="section-heading"><div><h2>Pools</h2><p>Manage named backend sets and their balancing algorithm. Changes update every virtual server that references the pool.</p></div><button type="button" id="add-pool">Create pool</button></div>
+                    <div id="pool-list"></div><div id="pool-configs"></div>
+                </section>
+                <section class="page" data-page="monitors" hidden>
+                    <div class="section-heading"><div><h2>Health Monitors</h2><p>Create reusable TCP, HTTP, HTTPS, ICMP, UDP, DNS and TLS readiness checks. Assign a name in a pool or inline virtual server. HTTPS verifies the server against your CA PEM file.</p></div><button type="button" id="add-monitor">Create monitor</button></div><div id="monitor-list"></div><div id="health-monitors"></div>
+                </section>
+                <section class="page" data-page="nodes" hidden><div class="section-heading"><div><h2>Nodes</h2><p>Reusable backend IP/service endpoints. Disabling a node prevents new connections in every referencing virtual server.</p></div><button type="button" id="add-node">Create node</button></div><div id="node-list"></div><div id="node-configs"></div><button type="button" id="node-status-refresh" class="secondary">Refresh node status</button><div id="node-status"></div></section>
+                <section class="page" data-page="domain-routing" hidden><div class="section-heading"><div><h2>Domain Routing</h2><p>Match an HTTP hostname on a virtual server and route to a reusable node. HTTPS requires TLS termination; DNS and certificate selection are configured separately.</p></div><button type="button" id="add-domain-route">Create domain route</button></div><div id="domain-route-list"></div><div id="domain-route-configs"></div></section>
+
+<section class="page" data-page="profiles" hidden>
+                    <h2>Profiles</h2><p>Select a profile type to view its defaults and custom profiles. Open an entry to view its details, or create a new profile.</p>
+                    <div class="profile-types">
+                        <button type="button" data-profile-route="http-profiles">HTTP profiles</button>
+                        <button type="button" data-profile-route="server-tls">Server TLS profiles</button>
+                        <button type="button" data-profile-route="persistence">Source persistence profiles</button>
+                        <button type="button" data-profile-route="cookie-profiles">Cookie persistence profiles</button>
+                    </div>
+                </section>
+                <section class="page" data-page="http-profiles" hidden>
+                    <div class="section-heading"><div><h2>HTTP Profiles</h2><p>Reusable body/header limits and client keepalive settings. Clone the default http profile or create a custom profile.</p></div><button type="button" id="add-http-profile">Create profile</button></div><div id="http-profile-list"></div><div id="http-profiles"></div>
+                </section>
+                <section class="page" data-page="persistence" hidden>
+                    <div class="section-heading"><div><h2>Source Persistence Profiles</h2><p>Reusable source address affinity and stateless source hash. Assign a profile in Virtual Servers. Records are per virtual server and reset on apply/restart.</p></div><button type="button" id="add-persistence">Create profile</button></div><div id="persistence-list"></div><div id="persistence-profiles"></div><datalist id="persistence-names"></datalist>
+                    <h3>Live persistence records</h3><p>Clearing records takes effect immediately for future connections; existing sessions continue.</p><button type="button" id="persistence-refresh">Refresh records</button><div id="persistence-records"></div>
+                </section>
+                <section class="page" data-page="cookie-profiles" hidden>
+                    <div class="section-heading"><div><h2>Cookie Persistence Profiles</h2><p>Clone the built-in cookie profile or create a custom profile. Assign it independently of RiverRules on a virtual server. Save and apply commits profiles and assignments together.</p></div><button type="button" id="add-cookie-profile">Create profile</button></div><div id="cookie-profile-list"></div><div id="cookie-profiles"></div>
+                </section>
+                <section class="page" data-page="river-rules" hidden>
+                    <div class="section-heading"><div><h2>RiverRules</h2><p>Browse built-in rules for HTTP traffic, review their usage, and assign them to a virtual server. Copy a built-in rule set to customize it. Save and apply activates rule changes and assignments together.</p></div><button type="button" id="add-river-rule">Create rule set</button></div>
+                    <div class="rule-catalog-toolbar"><label><span>Search rule sets</span><input id="river-rule-search" type="search" placeholder="Search names, descriptions or usage…"></label><label><span>Category</span><select id="river-rule-category"><option value="">All categories</option></select></label><label><span>Source</span><select id="river-rule-source"><option value="">Built-in and custom</option><option value="builtin">Built-in</option><option value="custom">Custom</option></select></label></div>
+                    <p id="river-rule-count" class="page-note" role="status" aria-live="polite"></p><div id="river-rule-list"></div><div id="river-rule-configs"></div>
+                </section>
+                <section class="page" data-page="certificates" hidden>
+                    <div class="section-heading"><div><h2>Virtual Server Certificates</h2><p>Import certificate chains and matching unencrypted private keys. Objects are immutable: rotate by importing with a new name, assigning it, and applying. Imports and deletion take effect immediately in the inventory.</p></div><button type="button" id="certificates-refresh" class="secondary">Refresh inventory</button></div><div class="actions"><button type="button" id="certificate-create">Import certificate</button><button type="button" id="certificate-generate-create">Generate certificate / CSR</button></div><div id="certificate-list"></div><h3>Pending signing requests</h3><div id="certificate-request-list"></div><datalist id="certificate-names"></datalist><datalist id="device-certificate-names"></datalist>
+                </section>
+                <section class="page" data-page="device-certificates" hidden>
+                    <div class="section-heading"><div><h2>Device Certificates</h2><p>Certificates for the management web interface. Device keys and certificates are stored separately from virtual-server certificates.</p></div><div class="actions"><button type="button" id="device-certificate-create">Import certificate</button><button type="button" id="device-certificate-generate-create">Generate certificate / CSR</button></div></div>
+                    <button type="button" id="device-certificates-refresh" class="secondary">Refresh inventory</button><div id="device-certificate-list"></div><h3>Pending signing requests</h3><div id="device-certificate-request-list"></div>
+                </section>
+                <section class="page" data-page="certificate-generate" hidden><button type="button" class="secondary" id="certificate-generate-back">Back to list</button><div class="editor"><h3>Generate certificate or signing request</h3><div class="grid">
+                    <label><span>Certificate store</span><select id="certificate-generate-store"><option value="virtual_server">Virtual server</option><option value="device">Device / management</option></select></label>
+                    <label><span>Operation</span><select id="certificate-generate-mode"><option value="self_signed">Self-signed certificate</option><option value="csr">CSR for an external certificate authority</option></select></label>
+                    <label><span>Object name</span><input id="certificate-generate-name" maxlength="128"></label>
+                    <label class="field-wide"><span>DNS names and IP addresses (one per line; first is the common name)</span><textarea id="certificate-generate-names" rows="4" placeholder="riverlb.example.com&#10;192.168.1.7"></textarea></label>
+                    <label><span>Self-signed validity (days)</span><input id="certificate-generate-days" type="number" min="1" max="825" value="365"></label>
+                    <label><span>Organization (optional)</span><input id="certificate-subject-organization"></label><label><span>Organizational unit (optional)</span><input id="certificate-subject-organizational_unit"></label><label><span>Country (two-letter code, optional)</span><input id="certificate-subject-country" maxlength="2"></label><label><span>State / province (optional)</span><input id="certificate-subject-state"></label><label><span>Locality / city (optional)</span><input id="certificate-subject-locality"></label>
+                    </div><p id="certificate-generate-help">Include every DNS name or IP address clients use. Self-signed certificates require client trust.</p><div class="actions"><button type="button" id="certificate-generate">Generate self-signed certificate</button></div></div></section>
+                <section class="page" data-page="certificate-request-detail" hidden><button type="button" id="certificate-request-back" class="secondary">Back to list</button><div id="certificate-request-detail"></div></section>
+                <section class="page" data-page="certificate-import" hidden><button type="button" class="secondary" id="certificate-import-back">Back to list</button>                    <div class="editor"><h3>Import certificate and key</h3><div class="grid">
+                        <label>Certificate store<select id="certificate-import-store"><option value="virtual_server">Virtual server</option><option value="device">Device / management</option></select></label><label>Name<input id="certificate-import-name" maxlength="128" autocomplete="off"></label>
+                        <label>Certificate chain PEM file<input id="certificate-file" type="file" accept=".pem,.crt,.cer"></label>
+                        <label>Private key PEM file<input id="private-key-file" type="file" accept=".pem,.key"></label>
+                        <label class="field-wide">Certificate chain PEM<textarea id="certificate-import-pem" rows="6" maxlength="262144"></textarea></label>
+                        <label class="field-wide">Private key PEM<textarea id="certificate-import-key" rows="6" maxlength="65536" autocomplete="off" spellcheck="false"></textarea></label>
+                    </div><div class="actions"><button type="button" id="certificate-import">Import into inventory</button></div><p>Private keys stay in the local database and are excluded from normal configuration exports. Private database backups include them.</p></div>
+</section>
+                <section class="page" data-page="certificate-detail" hidden><button type="button" id="certificate-detail-back" class="secondary">Back to list</button><div id="certificate-detail"></div></section>
+                <section class="page" data-page="renewals" hidden><div class="section-heading"><h2>Certificate Renewal Schedules</h2><button type="button" id="renewal-create">Create schedule</button></div><button type="button" id="renewals-refresh" class="secondary">Refresh schedules</button><div id="renewal-list"></div></section>
+                <section class="page" data-page="renewal-editor" hidden><button type="button" id="renewal-back" class="secondary">Back to list</button><div class="editor"><h3>Certificate renewal schedule</h3><p>Public port 80 must reach the challenge listener. Schedules save independently of the traffic configuration.</p><div class="settings-grid">
+                    <label>Certificate store<select id="renewal-store"><option value="virtual_server">Virtual server</option><option value="device">Device / management</option></select></label><label>Managed certificate name<input id="renewal-name" maxlength="128"></label><label>Domain names (one per line)<textarea id="renewal-domains" rows="3"></textarea></label><label>ACME directory URL<input id="renewal-directory" value="https://acme-staging-v02.api.letsencrypt.org/directory"></label><label>Contact email<input id="renewal-email" type="email"></label><label>Challenge listen address<input id="renewal-listen" value="0.0.0.0:80"></label><label>Renew before expiry (days)<input id="renewal-days" type="number" min="1" max="90" value="30"></label><label>Custom CA PEM path (optional)<input id="renewal-ca"></label><label>Schedule<select id="renewal-enabled"><option value="true">Enabled</option><option value="false">Disabled</option></select></label><label><input id="renewal-terms" type="checkbox">I accept the selected certificate authority's terms of service</label></div><div class="actions"><button type="button" id="renewal-save">Save renewal schedule</button></div></div></section>
+                <section class="page" data-page="server-tls" hidden>
+                    <div class="section-heading"><div><h2>Server TLS Profiles</h2><p>Verify backend TLS using a CA bundle and configured DNS name or member IP. Clone the default to customize trust and naming. Incoming TLS is configured separately.</p></div><button type="button" id="add-server-tls">Create profile</button></div><div id="server-tls-list"></div><div id="server-tls-profiles"></div><datalist id="server-tls-names"></datalist>
+                </section>
+                <section class="page" data-page="interfaces" hidden>
+                    <div class="section-heading"><div><h2>Interfaces</h2><p>Edit Ethernet addressing, DHCP, DNS, MTU, and default routing on this appliance. New adapters remain unconfigured. Assign external/internal roles under VLANs.</p></div><button type="button" class="secondary" id="interfaces-refresh">Refresh interfaces</button></div>
+                    <div id="interface-change" class="notice" hidden role="status"></div>
+                    <div id="interfaces">Loading…</div>
+                </section>
+                <section class="page" data-page="interface-editor" hidden>
+                    <div class="section-heading"><div><h2 id="interface-title">Configure interface</h2><p>These settings belong to this appliance and are not synchronized to its HA peer. Apply, verify connectivity, then keep the change within 90 seconds.</p></div></div>
+                    <div id="interface-editor" class="interface-editor"></div>
+                </section>
+                <section class="page" data-page="vlans" hidden>
+                    <div class="section-heading"><div><h2>VLANs</h2><p>Assign external (clients) or internal (backends) roles to Linux adapters. Tagged VLANs create subinterfaces; untagged VLANs use existing adapters. Roles describe the network; virtual-server VLAN selections control traffic. Set return gateways for routed clients; managed replies use the address’s VLAN.</p></div><button type="button" id="add-vlan">Create VLAN</button></div><div id="vlan-list"></div><div id="vlans"></div>
+                </section>
+                <section class="page" data-page="self-ips" hidden>
+                    <div class="section-heading"><div><h2>Self IPs</h2><p>Static IPv4/IPv6 data-plane addresses on VLANs. Select floating self IPs in HA Configuration to assign their ownership to the active appliance.</p></div><button type="button" id="add-self-ip">Create self IP</button></div><div id="self-ip-list"></div><div id="self-ips"></div>
+                </section>
+                <section class="page" data-page="routes" hidden>
+                    <div class="section-heading"><div><h2>Static Routes</h2><p>Configure destination networks, gateways, VLANs and metrics in the main routing table.</p></div><button type="button" id="add-route">Create route</button></div><div id="route-list"></div><div id="routes"></div>
+                </section>
+                <section class="page" data-page="settings" hidden>
+                    <h2>System Settings</h2><p id="network-mode">Loading network mode…</p>
+                    <div class="editor"><h3>Management &amp; connection limits</h3><div class="grid">
+                        <label><span>Web interface protocol</span><select name="management_protocol"><option value="http">HTTP</option><option value="https">HTTPS</option></select></label>
+                        <label><span>Management certificate source</span><select name="management_tls_source"><option value="managed">Device certificate store</option><option value="files">Certificate / key PEM files</option></select></label>
+                        <label><span>Management device certificate</span><select name="management_object"><option value="">Select a device certificate</option></select></label>
+                        <label><span>Management TLS certificate PEM path</span><input name="management_certificate"></label><label><span>Management TLS private key PEM path</span><input name="management_private_key"></label>
+                        <p>Choose a device certificate for HTTPS. Protocol and certificate changes apply on the same address. Use the new portal link after applying; you may need to sign in again.</p>
+                        <label><span>Management address (specific IP)</span><input name="management" required placeholder="192.168.1.10:18090"></label>
+                        <label><span>Connect timeout (milliseconds)</span><input name="connect_timeout_ms" type="number" min="1" max="9007199254740991" required></label>
+                        <label><span>Session lifetime (seconds)</span><input name="session_timeout_secs" type="number" min="1" max="9007199254740991" required></label>
+                        <label><span>Maximum connections</span><input name="max_connections" type="number" min="1" max="1000000" required></label>
+                    </div></div>
+                    <div class="editor"><h3>Default TCP Health Monitor</h3><p>Require consecutive probe results before changing member health. Backend connection failures still mark a member down immediately.</p><div class="grid">
+                        <label><span>Probe interval (seconds)</span><input name="health_interval_secs" type="number" min="1" max="9007199254740991" required></label>
+                        <label><span>Rise: successful probes to mark up</span><input name="health_rise" type="number" min="1" max="1000" required></label>
+                        <label><span>Fall: failed probes to mark down</span><input name="health_fall" type="number" min="1" max="1000" required></label>
+                    </div></div>
+                    <div class="editor"><h3>Network change plan</h3><p>Preview pending changes before applying. Network changes may interrupt existing traffic.</p><div class="actions"><button type="button" class="secondary" id="network-plan">Preview network changes</button></div><pre id="network-preview"></pre></div>
+                    <div class="editor"><h2>Administrator password</h2><label>Current password<input id="current-password" type="password" autocomplete="current-password"></label><label>New password<input id="new-password" type="password" autocomplete="new-password"></label><div class="actions"><button type="button" id="change-password">Change password</button></div></div>
+                </section>
+                <section class="page" data-page="configuration-files" hidden>
+                    <h2>Import / Export Configuration</h2><p>Export your current draft, or import a configuration into the editor. Import does not apply changes until you save.</p>
+                    <div class="editor"><h3>Private database backup / restore</h3><p>Backups contain active configuration/history, managed private keys, account password hashes, ACME credentials, audit and traffic history. Sessions are excluded. Store the file privately. External PEM files and kernel networking are not bundled.</p><button type="button" id="backup-download">Download private backup</button><label>Restore backup file<input type="file" id="backup-file" accept="application/json,.json"></label><div class="actions"><button type="button" id="backup-stage">Validate and stage restore</button></div><p id="backup-message">Restore activation requires stopping RiverLB and running the offline restore command.</p></div>
+                    <h3>Saved configuration history</h3><p>Load a saved revision into your draft, review it, then Save and apply. Current connections and configuration stay active until you apply.</p><button type="button" id="history-refresh" class="secondary">Refresh history</button><div id="configuration-history"></div>
+                    <button type="button" class="secondary" id="export">Export JSON</button>
+                    <div class="editor"><label><span>Configuration JSON</span><textarea id="import-json" rows="12"></textarea></label><div class="actions"><button type="button" class="secondary" id="import">Load JSON into editor</button></div></div>
+                </section>
+                <section class="page" data-page="statistics" hidden>
+                    <div class="section-heading"><div><h2>Traffic Statistics</h2><p>Counters persist across apply and restart. Latency shows backend setup, HTTP response headers or the first UDP response, and health checks. Reset clears counters and history without interrupting traffic.</p></div><div class="statistics-actions"><button type="button" id="traffic-refresh" class="secondary">Refresh traffic</button><button type="button" id="traffic-reset" class="danger">Reset statistics</button></div></div>
+                    <p id="traffic-updated" aria-live="polite">Select Refresh traffic to load statistics.</p>
+                    <div id="traffic-summary" class="statistics-summary" aria-label="Virtual server totals"></div>
+                    <div class="statistics-toolbar">
+                        <label><span>Objects</span><select id="traffic-kind"><option value="servers">Virtual servers</option><option value="pools">Pools</option><option value="members">Pool members</option><option value="nodes">Nodes</option></select></label>
+                        <label><span>Filter by name</span><input id="traffic-filter" type="search" placeholder="Find an object…"></label>
+                        <div class="statistics-views" role="group" aria-label="Statistics view"><button type="button" data-statistics-view="connections" aria-pressed="true">Connections</button><button type="button" data-statistics-view="traffic" aria-pressed="false">Traffic</button><button type="button" data-statistics-view="failures" aria-pressed="false">Failures</button><button type="button" data-statistics-view="latency" aria-pressed="false">Latency</button></div>
+                    </div>
+                    <p class="statistics-note">Totals above sum virtual servers. Pool totals sum their referring servers; member counters belong to each virtual server. Nodes sum their member instances. — means unavailable or no samples.</p>
+                    <div id="traffic-tables"></div>
+                    <section class="statistics-card"><h3>Throughput history</h3><label>Virtual server<select id="traffic-object"></select></label><div id="traffic-chart"></div></section>
+                    <details class="statistics-card"><summary>Prometheus metrics</summary><div class="section-heading"><div><h2>Prometheus Metrics</h2><p>Prometheus metrics for current virtual-server members. Counters persist across apply/restart until statistics are reset; bytes are counted as application data is forwarded.</p></div><button type="button" id="metrics-refresh" class="secondary">Refresh metrics</button></div>
+                    <p>Local scrape endpoint: <a href="/metrics" target="_blank" rel="noopener">/metrics</a></p><pre id="metrics-output">Select Refresh metrics to load counters.</pre></details>
+                </section>
+            <footer class="apply-bar">
+                <div><p id="revision"></p><a id="new-address" hidden>Open the new portal address</a></div>
+                <div class="actions"><button type="button" class="secondary" id="reload">Discard and reload</button><button type="button" class="secondary" id="validate">Validate draft</button><button type="submit" id="apply">Save and apply all changes</button></div>
+            </footer>
+        </form>
+        </main>
+    </div>
+</body>
+</html>

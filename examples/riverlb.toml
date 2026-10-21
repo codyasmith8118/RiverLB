@@ -1,0 +1,11 @@
+management = "127.0.0.1:18090"
+connect_timeout_ms = 1000
+session_timeout_secs = 300
+health_interval_secs = 2
+max_connections = 4096
+
+[[virtual_servers]]
+name = "web"
+listen = "127.0.0.1:8080"
+algorithm = "round_robin"
+members = ["127.0.0.1:8001", "127.0.0.1:8002"]

@@ -1,0 +1,12 @@
+{
+  "name": "riverlb-portal-tests",
+  "version": "1.0.1",
+  "private": true,
+  "description": "DOM fixtures for the embedded RiverLB portal",
+  "devDependencies": {
+    "jsdom": "30.1.3"
+  },
+  "scripts": {
+    "test": "node portal.cjs && node fencing.cjs && node statistics.cjs && node appearance.cjs && node operations.cjs && node release.cjs"
+  }
+}

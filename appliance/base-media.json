@@ -1,0 +1,9 @@
+{
+  "os": "AlmaLinux 10.2",
+  "architecture": "x86_64",
+  "url": "https://repo.almalinux.org/almalinux/10.2/isos/x86_64/AlmaLinux-10.2-x86_64-minimal.iso",
+  "filename": "AlmaLinux-10.2-x86_64-minimal.iso",
+  "sha256": "1b532f534231da0d1cd0ccae622bea6cd588d8a0d7b259f1f131501a6eed41a4",
+  "checksum_signing_fingerprint": "EE6DB7B98F5BF5EDD9DA0DE5DEE5C11CC2A1E572",
+  "verification": "CHECKSUM signature verified against the installed AlmaLinux OS 10 signing key on 2026-10-07"
+}

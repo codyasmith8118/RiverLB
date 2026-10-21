@@ -1,0 +1,430 @@
+#!/usr/bin/python3
+"""Fixed, short-lived privileged actions requested by the authenticated HA GUI."""
+import base64
+import csv
+from concurrent.futures import ThreadPoolExecutor
+import hashlib
+import ipaddress
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import subprocess
+import sys
+import tempfile
+import time
+import xml.etree.ElementTree as ET
+
+ROOT = Path('/etc/riverlb')
+RUN = Path('/run/riverlb-ha-deploy')
+HOST = Path('/etc/ssh/ssh_host_riverlb_ha_ed25519_key')
+AUTHORIZED = Path('/etc/ssh/riverlb-ha-authorized-keys')
+SSH_CONFIG = Path('/etc/ssh/riverlb-ha-sshd_config')
+COROSYNC = Path('/etc/corosync/corosync.conf')
+AGENTS = Path('/usr/sbin')
+# Families describe actual agent implementations; availability comes from installed metadata.
+PLATFORMS = (
+    ('vmware', 'VMware vSphere / ESXi', ('fence_vmware_rest', 'fence_vmware_soap', 'fence_vmware', 'fence_vmware_vcloud')),
+    ('hyperv', 'Microsoft Hyper-V', ('fence_riverlb_hyperv',)),
+    ('proxmox', 'Proxmox VE', ('fence_pve',)),
+    ('kvm', 'KVM / libvirt', ('fence_virsh', 'fence_virt', 'fence_xvm')),
+    ('aws', 'Amazon Web Services', ('fence_aws',)),
+    ('azure', 'Microsoft Azure', ('fence_azure_arm',)),
+    ('gcp', 'Google Cloud', ('fence_gce',)),
+    ('openstack', 'OpenStack', ('fence_riverlb_openstack',)),
+    ('nutanix', 'Nutanix AHV', ('fence_nutanix_ahv',)),
+    ('ovirt', 'oVirt / Red Hat Virtualization', ('fence_rhevm',)),
+    ('physical', 'Physical server remote management', ('fence_redfish', 'fence_ipmilan', 'fence_ipmilanplus', 'fence_idrac', 'fence_ilo', 'fence_ilo2', 'fence_ilo3', 'fence_ilo4', 'fence_ilo5', 'fence_ilo_ssh', 'fence_ilo3_ssh', 'fence_ilo4_ssh', 'fence_ilo5_ssh', 'fence_drac', 'fence_drac5', 'fence_imm', 'fence_amt', 'fence_amt_ws', 'fence_bladecenter', 'fence_cisco_ucs', 'fence_hpblade', 'fence_ibmblade', 'fence_ilo_moonshot', 'fence_ilo_mp', 'fence_intelmodular', 'fence_rsa', 'fence_rsb')),
+    ('pdu', 'Managed power distribution', ('fence_apc', 'fence_apc_snmp', 'fence_wti', 'fence_eaton_snmp', 'fence_eps', 'fence_epsr2', 'fence_emerson', 'fence_ipdu', 'fence_tripplite_snmp', 'fence_raritan', 'fence_netio', 'fence_cdu')),
+)
+EXCLUDED_AGENTS = {'fence_dummy', 'fence_manual', 'fence_ack_manual', 'fence_watchdog', 'fence_heuristics_ping', 'fence_kdump', 'fence_mpath', 'fence_scsi', 'fence_sbd', 'fence_ifmib', 'fence_brocade', 'fence_cisco_mds', 'fence_sanbox2'}
+# An 'off' action alone can mean storage or SAN isolation, which leaves VIPs live.
+# Only reviewed power-management implementations belong in this appliance catalog.
+POWER_AGENTS = {name for _,_,names in PLATFORMS for name in names}
+RESERVED_PARAMETERS = {'action', 'operation', 'verbose', 'debug', 'debug_file', 'quiet', 'version', 'help', 'metadata', 'delay', 'retry_on', 'command', 'command_prompt', 'cmd_prompt', 'ssh_options', 'separator', 'openrc', 'source_env', 'runonwarn', 'runonfail', 'port_as_ip', 'earlyexit', 'missing_as_off', 'skip_race_check', 'disable_timeout', 'network_fencing'}
+FIELD_LABELS = {'ipaddr':'Management address', 'ip':'Management address', 'ipport':'Management port',
+    'login':'Username', 'username':'Username', 'passwd':'Password', 'password':'Password',
+    'port':'Machine / outlet identifier', 'plug':'Machine / outlet identifier', 'uuid':'Machine UUID',
+    'ssl_secure':'Verify server certificate', 'ssl_insecure':'Allow an unverified server certificate',
+    'lanplus':'Use IPMI 2.0', 'resourceGroup':'Resource group', 'resource_group':'Resource group',
+    'subscriptionId':'Subscription ID', 'tenantId':'Tenant ID', 'region':'Region',
+    'pve_node':'Proxmox host', 'pve_node_auto':'Find the Proxmox host automatically',
+    'identity_file':'SSH private key file', 'known_hosts':'Pinned SSH host keys file',
+    'ssh_host_key':'Verified SSH host public key'}
+COMMON_PARAMETERS = {'ipaddr','ip','ipport','login','username','passwd','password','ssl','ssl_secure','ssl_insecure','lanplus','region','project','zone','tenantId','subscriptionId','resourceGroup','pve_node','pve_node_auto','vmtype','auth_url','keystone_url','user_domain_name','project_domain_name','access_key','secret_key','application_credential_id','application_credential_secret','ssh_host_key','ssh'}
+
+
+def safe_parameter(name):
+    """A form may configure an agent, but may not select commands or output files."""
+    normalized=name.replace('-', '_').lower()
+    return (bool(re.fullmatch(r'[A-Za-z_][A-Za-z0-9_-]{0,127}', name))
+        and normalized not in RESERVED_PARAMETERS and not normalized.startswith(('pcmk_', 'verbose'))
+        and not any(word in normalized for word in ('script', 'debug', 'logfile', 'command', 'exec', 'env_'))
+        and ('path' not in normalized or normalized=='api_path'))
+
+
+def agent_path(name):
+    if not re.fullmatch(r'fence_[A-Za-z0-9_]+', name) or name in EXCLUDED_AGENTS or name not in POWER_AGENTS:
+        raise ValueError('Select an installed power-fencing agent')
+    path=AGENTS/name
+    if not path.is_file() or not os.access(path, os.X_OK):
+        raise ValueError('Select an installed power-fencing agent')
+    return path
+
+
+def parse_metadata(name, document):
+    if len(document.encode())>262144 or '<!DOCTYPE' in document or '<!ENTITY' in document:
+        raise ValueError('Invalid fencing metadata')
+    root=ET.fromstring(document)
+    actions=sorted({item.get('name','') for item in root.findall('./actions/action')})
+    if 'off' not in actions:
+        raise ValueError('This agent does not provide power fencing')
+    parameters=[]
+    aliases={item.get('obsoletes'):item.get('name') for item in root.findall('./parameters/parameter') if item.get('obsoletes')}
+    for parameter in root.findall('./parameters/parameter'):
+        key=parameter.get('name','')
+        if not safe_parameter(key) or parameter.get('deprecated')=='1':continue
+        content=parameter.find('content')
+        choices=[] if content is None else [option.get('value','') for option in content.findall('option')]
+        kind='string' if content is None else content.get('type','string')
+        secret=key!='ssh_host_key' and any(word in key.lower() for word in ('password','passwd','secret','token','access_key','apikey','api_key','hexadecimal_kg','private_key'))
+        parameters.append({'name':key,'aliases':[old for old,new in aliases.items() if new==key and safe_parameter(old)],'label':FIELD_LABELS.get(key,key.replace('_',' ').replace('-',' ').capitalize()),
+            'description':' '.join(''.join(parameter.find('shortdesc').itertext()).split())[:2048] if parameter.find('shortdesc') is not None else '',
+            'type':'password' if secret else kind,'secret':secret,'required':parameter.get('required') in ('1','true'),
+            'default':'' if content is None or secret else content.get('default',''), 'choices':choices,
+            'advanced':key not in COMMON_PARAMETERS and key not in ('port','plug','uuid')})
+    family=next((slug for slug,_,names in PLATFORMS if name in names),'advanced')
+    description=' '.join(''.join(root.find('longdesc').itertext()).split())[:4096] if root.find('longdesc') is not None else ''
+    title=root.findtext('shortdesc') or root.get('shortdesc') or name.replace('fence_','').replace('_',' ').title()
+    title=next((link.get('shortdesc',title) for link in root.findall('symlink') if link.get('name')==name),title)
+    names={p['name'] for p in parameters}
+    target_parameter=next((key for key in ('plug','port','uuid') if key in names),None)
+    # IPMI/Redfish expose an optional plug for port_as_ip mode. Guided configuration
+    # deliberately uses one fixed controller address per resource instead.
+    if any(item.get('name')=='port_as_ip' for item in root.findall('./parameters/parameter')):
+        target_parameter=None
+    for parameter in parameters:
+        if parameter['name'] in ('plug','port','uuid') and parameter['name']!=target_parameter:
+            parameter['hidden']=True
+    return {'name':name,'label':title[:256],'description':description,'platform':family,
+        'parameters':parameters,'actions':actions,'target_parameter':target_parameter,
+        'can_list':'list' in actions,'can_status':'status' in actions}
+
+
+def agent_metadata(name):
+    path=agent_path(name)
+    try:
+        result=subprocess.run([str(path),'-o','metadata'],input='',text=True,capture_output=True,timeout=5)
+    except (OSError,subprocess.TimeoutExpired):
+        raise ValueError('Installed fencing agent metadata could not be loaded') from None
+    if result.returncode:raise ValueError('Installed fencing agent metadata could not be loaded')
+    return parse_metadata(name,result.stdout)
+
+
+def fencing_catalog():
+    installed=sorted(p.name for p in AGENTS.glob('fence_*') if p.is_file() and os.access(p,os.X_OK))[:128]
+    def load(name):
+        try:return agent_metadata(name)
+        except (ValueError,ET.ParseError):return None
+    with ThreadPoolExecutor(max_workers=12) as workers:
+        agents=[agent for agent in workers.map(load,installed) if agent is not None]
+    platforms=[]
+    for slug,label,_ in (*PLATFORMS,('advanced','Other installed agent',())):
+        names=[a['name'] for a in agents if a['platform']==slug]
+        platforms.append({'id':slug,'label':label,'agents':names,'available':bool(names),
+            'reason':'' if names else 'The required power-fencing agent is not installed or could not load its metadata.'})
+    loaded={agent['name'] for agent in agents}
+    unavailable=[{'name':name,'reason':'Not a reviewed power-fencing implementation for VIP ownership.' if name not in POWER_AGENTS else 'Installed agent metadata could not be loaded.'} for name in installed if name not in loaded]
+    return {'platforms':platforms,'agents':agents,'unavailable_agents':unavailable}
+
+
+def fence_parameters(request):
+    agent=request.get('fence_agent','')
+    metadata=agent_metadata(agent)
+    parameters=request.get('fence_parameters',{})
+    if not isinstance(parameters,dict) or not 1<=len(parameters)<=64:
+        raise ValueError('Invalid fencing parameters')
+    # The cluster supplies target identifiers from the appliance mappings. A fixed
+    # plug or alternate UUID must not override the selected node during fencing.
+    allowed={key for p in metadata['parameters'] if not p.get('hidden') and p['name']!=metadata['target_parameter'] for key in [p['name'],*p.get('aliases',[])]}|{'pcmk_host_list','pcmk_host_map','pcmk_host_check','pcmk_host_argument','pcmk_delay_base','pcmk_delay_max'}
+    for key,value in parameters.items():
+        if key not in allowed or not isinstance(value,str) or len(value)>4096 or any(c in value for c in '\r\n\x00'):
+            raise ValueError('Unsupported fencing parameter or a value contains a line break')
+    aliases={alias:field['name'] for field in metadata['parameters'] for alias in field.get('aliases',[])}
+    normalized={}
+    for name,value in parameters.items():
+        name=aliases.get(name,name)
+        if name in normalized:raise ValueError('Supply each fencing parameter once')
+        normalized[name]=value
+    parameters=normalized
+    # Many agents test for a boolean option's presence, including ssl_insecure.
+    # Omit false flags so a false value cannot accidentally enable insecure TLS.
+    for field in metadata['parameters']:
+        name=field['name']
+        if name not in parameters:continue
+        value=parameters[name]
+        if field['type']=='boolean':
+            if value.lower() in ('0','no','false','off'):parameters.pop(name)
+            elif value.lower() in ('1','yes','true','on'):parameters[name]='1'
+            else:raise ValueError('Boolean fencing options must be true or false')
+        elif field['type'] in ('integer','second'):
+            if not re.fullmatch(r'[0-9]{1,9}',value):raise ValueError('Numeric fencing options must be non-negative integers')
+        elif field.get('choices') and value.lower() not in {choice.lower() for choice in field['choices']}:
+            raise ValueError('Select a documented value for the fencing option')
+    for field in ('identity_file','known_hosts','identity','private_key_file','serviceaccount','credentials_file'):
+        if field not in parameters:continue
+        path=Path(parameters[field])
+        try:
+            info=path.lstat()
+            safe=(path.is_absolute() and path.resolve().is_relative_to(ROOT.resolve())
+                and stat.S_ISREG(info.st_mode) and info.st_uid==0 and not info.st_mode&0o077 and info.st_size<=1048576)
+        except OSError:safe=False
+        if not safe:raise ValueError('Credential and host-key files must be root-owned private regular files under /etc/riverlb')
+    arguments=(None,metadata['target_parameter']) if metadata['target_parameter'] else (None,'none')
+    if parameters.get('pcmk_host_argument') not in arguments:
+        raise ValueError('The appliance mapping must use the selected agent target field')
+    parameters.setdefault('pcmk_host_argument',metadata['target_parameter'] or 'none')
+    if parameters.get('pcmk_host_check') not in (None,'static-list'):
+        raise ValueError('Use explicit static appliance mappings')
+    for option in ('pcmk_delay_base','pcmk_delay_max'):
+        if option in parameters and not re.fullmatch(r'(?:[0-9]|[1-5][0-9]|60)(?:s|sec)?',parameters[option]):
+            raise ValueError('Fencing delay must be between 0 and 60 seconds')
+    return metadata,parameters
+
+
+def fence_mapping(parameters,group):
+    pairs={}
+    mapping=parameters.get('pcmk_host_map','')
+    if mapping:
+        for entry in mapping.split(';'):
+            if not entry:continue
+            if ':' not in entry:raise ValueError('Each appliance mapping needs a name and machine identifier')
+            node,target=entry.split(':',1)
+            if node in pairs or not target.strip():raise ValueError('Invalid or duplicate appliance mapping')
+            pairs[node]=target.strip()
+    covered=set(parameters.get('pcmk_host_list','').split())|set(pairs)
+    if not covered or not covered.issubset({group['node_id'],group['peer_id']}):
+        raise ValueError('Explicitly identify covered appliances using pcmk_host_list or pcmk_host_map')
+    if len(pairs.values())!=len(set(pairs.values())):
+        raise ValueError('Each appliance must map to a different machine')
+    return covered,pairs
+
+
+def validate_fence_mapping(metadata,parameters,group):
+    covered,mapping=fence_mapping(parameters,group)
+    if metadata['target_parameter'] is None and len(covered)!=1:
+        raise ValueError('A fixed server controller protects one appliance. Create a separate resource for the other controller.')
+    if metadata['name']=='fence_virsh':
+        for target in mapping.values():
+            if not re.fullmatch(r'[A-Za-z0-9_.:-]{1,256}',target):raise ValueError('Use a simple libvirt machine name or UUID')
+    return covered,mapping
+
+
+def fence_probe(request,group):
+    metadata,parameters=fence_parameters(request)
+    operation=request.get('fence_probe_action','list')
+    if operation not in ('list','status') or operation not in metadata['actions']:
+        raise ValueError('This agent does not support the requested read-only check')
+    # Pacemaker-only settings are not agent parameters. Never accept an action from the form.
+    inputs={key:value for key,value in parameters.items() if not key.startswith('pcmk_')}
+    if operation=='status':
+        covered,mapping=validate_fence_mapping(metadata,parameters,group)
+        target=request.get('fence_target','')
+        if target not in covered:raise ValueError('Select a covered appliance for the power-status check')
+        if metadata['target_parameter']:
+            inputs[metadata['target_parameter']]=mapping.get(target,target)
+    elif metadata['target_parameter']:
+        inputs.pop(metadata['target_parameter'],None)
+    # Some agents interpolate identifiers into a remote shell; avoid metacharacters there.
+    if metadata['name']=='fence_virsh' and operation=='status' and not re.fullmatch(r'[A-Za-z0-9_.:-]{1,256}',inputs.get(metadata['target_parameter'],'')):
+        raise ValueError('Use a simple libvirt machine name or UUID')
+    inputs['action']=operation
+    try:
+        result=subprocess.run([str(agent_path(metadata['name']))],input=''.join(f'{key}={value}\n' for key,value in inputs.items()),text=True,capture_output=True,timeout=45)
+    except (OSError,subprocess.TimeoutExpired):
+        raise ValueError('The connection check timed out or the agent could not start') from None
+    # The fence API uses exit code 2 for a successful status check of a powered-off target.
+    if result.returncode not in ((0,2) if operation=='status' else (0,)):
+        raise ValueError('Connection check failed. Check the address, credentials, permissions, and certificate settings. No power command was requested.')
+    if operation=='status':
+        return {'message':'Power status checked successfully. No power command was requested.',
+            'probe':'status','target':request['fence_target'],'power':'off' if result.returncode==2 else 'on'}
+    targets=[]
+    # Standard agent list output is identifier,alias (or identifier,alias,state).
+    for parts in list(csv.reader(result.stdout[:65536].splitlines()))[:100]:
+        if not parts:continue
+        identifier=parts[0].strip()
+        if not identifier or len(identifier)>256 or any(ord(c)<32 for c in identifier):continue
+        label=parts[1].strip()[:256] if len(parts)>1 else ''
+        targets.append({'id':identifier,'label':label or identifier})
+        if len(json.dumps(targets).encode())>49152:
+            targets.pop();break
+    return {'message':'Connection checked successfully. No power command was requested.',
+        'probe':'list','targets':targets}
+
+
+def run(*args, input=None):
+    environment = os.environ.copy()
+    if args[0] == '/usr/sbin/pcs':
+        # Use pcsd's packaged paths, including when called from a unit with
+        # its own StateDirectory or LogsDirectory.
+        for name in ('STATE_DIRECTORY', 'LOGS_DIRECTORY'):
+            environment.pop(name, None)
+    result = subprocess.run(args, input=input, text=True, capture_output=True, timeout=120,
+                            env=environment)
+    if result.returncode:
+        # Never relay command output which might contain passwords or tokens.
+        raise ValueError(f'{Path(args[0]).name} {args[1] if len(args)>1 else ""} failed (exit {result.returncode}); inspect the appliance console')
+    return result.stdout.strip()
+
+
+def private(path, value):
+    fd,name=tempfile.mkstemp(prefix='.'+path.name+'.',dir=path.parent)
+    temporary=Path(name)
+    try:
+        with os.fdopen(fd,'w') as output:
+            output.write(value);output.flush();os.fsync(output.fileno())
+        os.replace(temporary,path)
+    finally:temporary.unlink(missing_ok=True)
+
+
+def public_key(value):
+    parts=value.strip().split()
+    if len(parts) not in (2,3) or parts[0]!='ssh-ed25519':
+        raise ValueError('Paste one Ed25519 public key, without authorized_keys options')
+    raw=base64.b64decode(parts[1],validate=True)
+    if len(raw)!=51 or raw[:19]!=b'\x00\x00\x00\x0bssh-ed25519\x00\x00\x00\x20':
+        raise ValueError('Invalid Ed25519 public key')
+    return 'ssh-ed25519 '+parts[1]
+
+
+def fingerprint(key):
+    return 'SHA256:'+base64.b64encode(hashlib.sha256(base64.b64decode(key.split()[1])).digest()).decode().rstrip('=')
+
+
+def group_settings():
+    group=json.loads((ROOT/'ha.group.json').read_text())
+    for field in ('cluster_id','node_id','peer_id'):
+        if not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}',group[field]):raise ValueError('Invalid saved node name')
+    for field in ('local_address','peer_address'):ipaddress.ip_address(group[field])
+    if group['node_id'] not in (run('/usr/bin/hostname'),run('/usr/bin/hostname','-s')):raise ValueError('Local appliance name must match its actual hostname')
+    return group
+
+
+def password(request):
+    value=request.get('cluster_password','')
+    if not 12<=len(value.encode())<=1024 or any(c in value for c in '\r\n\x00'):
+        raise ValueError('Use a cluster password of 12–1024 bytes without line breaks')
+    return value
+
+
+def prepare(request,group):
+    if COROSYNC.exists():raise ValueError('Existing cluster detected; preparation will not reset its credentials')
+    password_value=password(request)
+    links=json.loads(run('/usr/sbin/ip','-j','address','show'))
+    device=next((link['ifname'] for link in links if any(a.get('local')==group['local_address'] for a in link.get('addr_info',[]))),None)
+    if not device:raise ValueError('Local cluster IP must already exist on this appliance')
+    identity=ROOT/'ha-sync-ed25519'
+    for key in (identity,HOST):
+        if key.is_symlink():raise ValueError('Unsafe key path')
+        if not key.exists():run('/usr/bin/ssh-keygen','-q','-t','ed25519','-N','','-f',str(key))
+    run('/usr/sbin/restorecon','-F',str(HOST),str(HOST)+'.pub')
+    sync_key=public_key(run('/usr/bin/ssh-keygen','-y','-f',str(identity)))
+    host_key=public_key(run('/usr/bin/ssh-keygen','-y','-f',str(HOST)))
+    settings=json.loads((ROOT/'ha.json').read_text());settings['ssh_port']=2223
+    private(ROOT/'ha.json',json.dumps(settings,indent=2)+'\n')
+    # Dedicated SSH endpoint leaves normal management SSH settings untouched.
+    config='\n'.join(['Port 2223','ListenAddress '+group['local_address'],'HostKey '+str(HOST),
+        'PidFile /run/riverlb-ha-sshd.pid','AuthorizedKeysFile '+str(AUTHORIZED),
+        'PermitRootLogin forced-commands-only','AllowUsers root','PasswordAuthentication no',
+        'KbdInteractiveAuthentication no','PubkeyAuthentication yes','UsePAM yes',
+        'AllowTcpForwarding no','AllowAgentForwarding no','X11Forwarding no','PermitTunnel no',
+        'PermitUserEnvironment no','StrictModes yes','LogLevel ERROR',''])
+    private(SSH_CONFIG,config)
+    run('/usr/sbin/restorecon','-F',str(SSH_CONFIG))
+    ports=run('/usr/sbin/semanage','port','-l')
+    ssh_ports=next((line for line in ports.splitlines() if line.startswith('ssh_port_t') and 'tcp' in line),'')
+    if not re.search(r'\b2223\b',ssh_ports):run('/usr/sbin/semanage','port','-a','-t','ssh_port_t','-p','tcp','2223')
+    run('/usr/sbin/sshd','-t','-f',str(SSH_CONFIG))
+    run('/usr/sbin/chpasswd',input='hacluster:'+password_value+'\n')
+    # Select the management/cluster adapter's existing firewall zone.
+    zone_result=subprocess.run(['/usr/bin/firewall-cmd','--get-zone-of-interface='+device],capture_output=True,text=True,timeout=15)
+    zone=zone_result.stdout.strip()
+    if zone_result.returncode or not zone or zone=='no zone':zone=run('/usr/bin/firewall-cmd','--get-default-zone')
+    for permanent in ([],['--permanent']):
+        run('/usr/bin/firewall-cmd',*permanent,'--zone='+zone,'--add-service=high-availability')
+        run('/usr/bin/firewall-cmd',*permanent,'--zone='+zone,'--add-port=2223/tcp')
+    run('/usr/bin/systemctl','enable','--now','pcsd.service','riverlb-ha-sshd.service')
+    agents=sorted(p.name for p in Path('/usr/sbin').glob('fence_*') if p.is_file() and os.access(p,os.X_OK) and p.name not in ('fence_dummy','fence_manual'))
+    public={'sync_public_key':sync_key,'host_public_key':host_key,'host_fingerprint':fingerprint(host_key),'fence_agents':agents}
+    private(ROOT/'ha-deployment-identity.json',json.dumps(public))
+    return 'Local HA services prepared. Exchange public keys with the peer using both appliance GUIs.'
+
+
+def execute(request):
+    group=group_settings();action=request['action']
+    if action=='prepare':return prepare(request,group)
+    if action=='trust':
+        if COROSYNC.exists():raise ValueError('Existing cluster detected; use a planned key rotation procedure')
+        sync_key=public_key(request.get('peer_sync_key',''));host_key=public_key(request.get('peer_host_key',''))
+        if fingerprint(host_key)!=request.get('peer_host_fingerprint','').strip():raise ValueError('Peer host key fingerprint does not match')
+        private(AUTHORIZED,'restrict,command="/usr/bin/riverlb ha --socket /run/riverlb/ha.sock receive" '+sync_key+'\n')
+        run('/usr/sbin/restorecon','-F',str(AUTHORIZED))
+        private(ROOT/'ha-known-hosts','['+group['peer_address']+']:2223 '+host_key+'\n')
+        return 'Peer synchronization key installed and host key pinned.'
+    if action=='authenticate':
+        if COROSYNC.exists():raise ValueError('Existing cluster detected; authentication changes require a planned maintenance procedure')
+        run('/usr/sbin/pcs','host','auth',group['node_id'],'addr='+group['local_address'],group['peer_id'],'addr='+group['peer_address'],'-u','hacluster',input=password(request)+'\n')
+        return 'Both cluster hosts authenticated. Repeat on the peer before provisioning.'
+    if action=='start':
+        for path in (ROOT/'ha-sync-ed25519',ROOT/'ha-known-hosts',AUTHORIZED):
+            if not path.is_file():raise ValueError('Prepare services and install peer trust first')
+        run('/usr/bin/systemctl','start','--no-block','riverlb-ha-activate.service')
+        return 'Switching to HA standby. The GUI will reconnect; cluster traffic remains disabled until explicitly enabled.'
+    if action=='fence_probe':return fence_probe(request,group)
+    if action=='fence':
+        if not COROSYNC.exists():raise ValueError('Provision the two-node cluster before adding fencing')
+        resource=request.get('fence_resource','');agent=request.get('fence_agent','')
+        if not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}',resource):raise ValueError('Invalid fencing resource name')
+        metadata,parameters=fence_parameters(request)
+        validate_fence_mapping(metadata,parameters,group)
+        cib=ET.fromstring(run('/usr/sbin/cibadmin','--query'))
+        if any(e.get('id')==resource for e in cib.iter()):raise ValueError('That cluster resource already exists; it will not be overwritten')
+        primitive=ET.Element('primitive',{'id':resource,'class':'stonith','type':agent})
+        attributes=ET.SubElement(primitive,'instance_attributes',{'id':resource+'-attributes'})
+        for index,(name,value) in enumerate(parameters.items()):ET.SubElement(attributes,'nvpair',{'id':resource+'-parameter-'+str(index),'name':name,'value':value})
+        # Credentials travel over stdin, not process arguments or a temporary CIB file.
+        run('/usr/sbin/cibadmin','--create','--scope','resources','--xml-pipe',input=ET.tostring(primitive,encoding='unicode'))
+        resources=group.setdefault('fencing_resources',[])
+        if resource not in resources:resources.append(resource)
+        private(ROOT/'ha.group.json',json.dumps(group,indent=2)+'\n')
+        return 'Fencing resource created. Verify its parameters and test real power fencing for both appliances before enabling traffic.'
+    raise ValueError('Unknown HA deployment action')
+
+
+def main():
+    request_path=RUN/'request.json';job=None
+    try:
+        fd=os.open(request_path,os.O_RDONLY|os.O_NOFOLLOW)
+        with os.fdopen(fd) as source:
+            info=os.fstat(source.fileno())
+            if info.st_uid!=0 or not stat.S_ISREG(info.st_mode) or info.st_mode&0o077 or info.st_size>16384:raise ValueError('Unsafe deployment request')
+            request=json.load(source)
+        request_path.unlink()
+        job=request.get('job')
+        if not isinstance(job,str) or not re.fullmatch(r'[0-9]{1,40}',job):raise ValueError('Invalid job identifier')
+        if abs(time.time()-request['created'])>60:raise ValueError('Deployment request expired')
+        private(RUN/'result.json',json.dumps({'job':job,'running':True,'message':'Preparing '+request['action']}))
+        message=execute(request)
+        result={'job':job,'running':False,'ok':True,**(message if isinstance(message,dict) else {'message':message})}
+    except Exception as error:
+        request_path.unlink(missing_ok=True)
+        result={'job':job,'running':False,'ok':False,'message':str(error)}
+    private(RUN/'result.json',json.dumps(result))
+
+
+if __name__=='__main__':
+    if sys.argv[1:]==['--fencing-catalog']:print(json.dumps(fencing_catalog()))
+    elif len(sys.argv)==1:main()
+    else:raise SystemExit('Unsupported HA helper command')

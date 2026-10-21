@@ -1,0 +1,2 @@
+FROM docker.io/library/almalinux@sha256:ba31c3299856068f77bc10574cad51b0a4f6a3dafb882668656e1639bee63db6
+RUN dnf -y install NetworkManager dbus-daemon iproute python3 && dnf clean all

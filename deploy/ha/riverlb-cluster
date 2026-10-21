@@ -1,0 +1,123 @@
+#!/usr/bin/python3
+"""Fixed HA-group provisioning and traffic moves. Hosts must already trust pcs."""
+import ipaddress
+import json
+import os
+import re
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+
+# Storage and network-port isolation do not prove a VIP owner has stopped.
+NON_POWER_AGENTS = {"fence_dummy", "fence_manual", "fence_ack_manual", "fence_watchdog",
+    "fence_heuristics_ping", "fence_kdump", "fence_mpath", "fence_scsi", "fence_sbd",
+    "fence_ifmib", "fence_brocade", "fence_cisco_mds", "fence_sanbox2"}
+
+
+def run(*args):
+    # pcs uses these systemd variables for its own state/log paths. Inheriting
+    # RiverLB's StateDirectory would hide pcsd's authenticated hosts.
+    environment = os.environ.copy()
+    for name in ("STATE_DIRECTORY", "LOGS_DIRECTORY"):
+        environment.pop(name, None)
+    return subprocess.check_output(["/usr/sbin/pcs", *args], stderr=subprocess.STDOUT,
+                                   timeout=120, env=environment).decode()
+
+
+def validate(group):
+    for name in ("cluster_id", "node_id", "peer_id"):
+        if group[name].startswith("-") or not re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", group[name]):
+            raise ValueError("Invalid group/device/host name")
+    for name in ("local_address", "peer_address"):
+        address = ipaddress.ip_address(group[name])
+        if address.is_unspecified or address.is_loopback:
+            raise ValueError("Use reachable cluster addresses")
+    if group["node_id"] == group["peer_id"] or group["local_address"] == group["peer_address"]:
+        raise ValueError("Appliance identities and addresses must differ")
+    for name in group.get("fencing_resources", []):
+        if name.startswith("-") or not re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", name):
+            raise ValueError("Invalid fencing resource ID")
+
+
+def verify_two_node(group):
+    values = subprocess.check_output(["/usr/sbin/corosync-cmapctl"], timeout=10).decode()
+    entries = {}
+    for line in values.splitlines():
+        if "=" in line:
+            key, value = line.split("=", 1)
+            entries[key.split()[0]] = value.strip()
+    names = [value for key, value in entries.items()
+             if re.fullmatch(r"nodelist.node.\d+.name", key)]
+    if (entries.get("quorum.two_node") != "1"
+            or entries.get("quorum.wait_for_all") != "1"
+            or len(names) != 2 or set(names) != {group["node_id"], group["peer_id"]}):
+        raise ValueError("Require two-node quorum, wait_for_all and the configured appliance pair")
+
+
+def verify_fencing(group):
+    requested=set(group.get("fencing_resources", []))
+    if not requested:
+        raise ValueError("Configure platform-appropriate fencing resources and enter their IDs before enabling traffic")
+    cib=ET.fromstring(subprocess.check_output(["/usr/sbin/cibadmin","--query"],timeout=10))
+    devices={p.get("id"):p for p in cib.findall("./configuration/resources//primitive[@class='stonith']")}
+    covered=set()
+    for name in requested:
+        if name not in devices or devices[name].get("type") in NON_POWER_AGENTS:
+            raise ValueError("Missing or unsuitable fencing resource: "+name)
+        params={p.get("name"):p.get("value","") for p in devices[name].findall("./instance_attributes//nvpair")}
+        covered.update(params.get("pcmk_host_list","").split())
+        covered.update(item.split(":",1)[0] for item in params.get("pcmk_host_map","").split(";") if ":" in item)
+    if not {group["node_id"],group["peer_id"]}.issubset(covered):
+        raise ValueError("Fencing resources must explicitly cover both appliances")
+
+
+def execute(request):
+    group = request["group"]
+    validate(group)
+    action = request["action"]
+    if action == "setup":
+        # pcs refuses an existing cluster unless --force is supplied. Never supply it.
+        run("cluster", "setup", group["cluster_id"],
+            group["node_id"], "addr=" + group["local_address"],
+            group["peer_id"], "addr=" + group["peer_address"])
+        # pcs manages two_node automatically for a pair without a quorum device;
+        # it rejects two_node as a user-editable quorum option. Changing
+        # wait_for_all requires Corosync to remain stopped after setup.
+        run("quorum", "update", "wait_for_all=1")
+        run("cluster", "start", "--all")
+        run("cluster", "enable", "--all")
+        verify_two_node(group)
+        run("property", "set", "stonith-enabled=true", "startup-fencing=true",
+            "no-quorum-policy=stop", "stonith-action=off", "stonith-timeout=180s",
+            "priority-fencing-delay=30s")
+        run("resource", "create", "riverlb-traffic", "ocf:riverlb:traffic",
+            "binary=/usr/bin/riverlb", "socket=/run/riverlb/ha.sock",
+            "op", "start", "timeout=90s", "on-fail=fence",
+            "op", "stop", "timeout=90s", "on-fail=fence",
+            "op", "monitor", "interval=10s", "timeout=15s", "on-fail=restart",
+            "meta", "resource-stickiness=100", "priority=100", "--disabled")
+        run("constraint", "location", "add", "riverlb-initial-primary", "riverlb-traffic", group["node_id"], "INFINITY")
+    elif action == "enable":
+        verify_fencing(group)
+        run("resource", "enable", "riverlb-traffic", "--wait=120")
+        run("constraint", "remove", "riverlb-initial-primary")
+    elif action == "failover":
+        if request["target"] not in (group["node_id"], group["peer_id"]):
+            raise ValueError("Target is outside the HA group")
+        run("resource", "move", "riverlb-traffic", request["target"], "--wait=120")
+    elif action == "clear":
+        run("resource", "clear", "riverlb-traffic")
+    else:
+        raise ValueError("Unknown cluster action")
+
+
+if __name__ == "__main__":
+    try:
+        execute(json.load(sys.stdin))
+        print(json.dumps({"ok": True}))
+    except subprocess.CalledProcessError as error:
+        print(error.output.decode(), file=sys.stderr)
+        sys.exit(1)
+    except Exception as error:
+        print(str(error), file=sys.stderr)
+        sys.exit(1)

@@ -1,0 +1,20 @@
+/target/
+*.log
+__pycache__/
+
+*.db
+*.db-*
+*.db.lock
+*.pem
+*.key
+*_notes.txt
+
+/dist/
+
+/agents/
+# Local service sidecars may contain secrets and must not enter source control.
+*.operations.json
+*.updates.json
+
+# Browser fixture dependencies are installed from tests/package-lock.json.
+node_modules/

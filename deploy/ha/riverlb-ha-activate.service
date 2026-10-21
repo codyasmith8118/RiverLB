@@ -1,0 +1,11 @@
+[Unit]
+Description=Switch RiverLB from standalone into HA standby
+After=riverlb-ha-deploy.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl disable --now riverlb.service
+ExecStart=/usr/bin/systemctl enable --now riverlb-ha.service
+TimeoutStartSec=120
+User=root
+UMask=0077

@@ -1,0 +1,145 @@
+name: CI
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: checks-v2-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash
+jobs:
+  quality:
+    name: Rust and repository checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libclang-dev
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.92.0
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Check source, documentation and packaging fixtures
+        run: |
+          cargo fmt --check
+          python3 scripts/check-docs.py
+          python3 tests/check_docs.py
+          python3 tests/build_release.py
+          python3 tests/appliance/branding.py
+          python3 tests/appliance/installed_branding.py
+          python3 tests/appliance/network_defaults.py
+          python3 tests/firstboot_ui.py
+          python3 tests/appliance/build_workflow.py
+          python3 tests/appliance/service_hardening.py
+          python3 tests/updates_helper.py
+          cargo clippy --locked --all-targets -- -D warnings
+  linux:
+    name: Linux integration and network tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install test dependencies
+        run: sudo apt-get update && sudo apt-get install -y iputils-ping iproute2 libclang-dev openssl
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.92.0
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Test and build application
+        run: |
+          cargo test --locked
+          cargo build --locked
+      - name: Check signed update interoperability with private build fixture trust
+        run: python3 tests/signed_updates.py
+      - run: python3 tests/smoke.py
+      - run: python3 tests/configuration.py
+      - run: python3 tests/confirmation.py
+      - run: python3 tests/persistence.py
+      - run: python3 tests/draining.py
+      - run: python3 tests/ha_agents.py
+      - run: python3 tests/ha_deployment.py
+      - run: python3 tests/ha_hyperv_fencing.py
+      - run: sudo unshare --net -- python3 tests/ha_failover.py
+      - run: sudo unshare --net -- python3 tests/ha_startup_network.py
+      - run: python3 tests/security.py
+      - run: python3 tests/admin_accounts.py
+      - run: python3 tests/auth_release.py
+      - run: python3 tests/operations.py
+      - run: python3 tests/traffic.py
+      - run: python3 tests/udp.py
+      - run: python3 tests/lab_tools.py
+      - run: python3 tests/monitors.py
+      - run: python3 tests/datagram_monitors.py
+      - run: python3 tests/certificates.py
+      - run: python3 tests/device_certificates.py
+      - run: python3 tests/server_tls.py
+      - run: python3 tests/priority_capacity.py
+      - run: python3 tests/http_rules.py
+      - run: python3 tests/http_traffic.py
+      - run: python3 tests/rule_catalog.py
+      - run: python3 tests/home_features.py
+      - run: python3 tests/domain_routing.py
+      - run: python3 tests/acme.py
+      - run: sudo unshare --net -- bash tests/network_namespace.sh
+      - run: sudo unshare --net -- python3 tests/confirmation_network.py
+      - run: sudo unshare --net -- python3 tests/two_arm.py
+      - run: sudo unshare --net -- python3 tests/two_arm.py --tagged
+      - run: sudo unshare --net -- bash tests/nat_namespace.sh
+      - name: Verify firewall detection under packaged systemd sandboxes
+        run: |
+          sudo apt-get install -y firewalld
+          sudo systemctl start firewalld
+          sudo python3 tests/appliance/firewall_sandbox.py --binary target/debug/riverlb
+  portal:
+    name: Browser fixtures
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
+      - name: Install locked browser test dependencies
+        run: npm ci --prefix tests --ignore-scripts --no-audit --no-fund
+      - name: Check JavaScript syntax
+        run: |
+          for source in web/*.js; do node --check "$source"; done
+      - name: Run all browser fixtures
+        run: npm test --prefix tests
+  hyperv-receiver:
+    runs-on: windows-2025
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      # Fixtures replace Hyper-V cmdlets; these checks never control host VMs.
+      - name: Check restricted receiver with PowerShell 7
+        shell: pwsh
+        run: python tests/ha_hyperv_fencing.py --powershell-smoke (Join-Path $PSHOME 'pwsh.exe')
+      - name: Check restricted receiver with Windows PowerShell 5.1
+        shell: pwsh
+        run: python tests/ha_hyperv_fencing.py --powershell-smoke (Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe')
+      # Native adapter checks only read namespace security; they never change ACLs.
+      - name: Check native WMI adapters with PowerShell 7
+        shell: pwsh
+        run: python tests/ha_hyperv_fencing.py --powershell-native-wmi-smoke (Join-Path $PSHOME 'pwsh.exe')
+      - name: Check native WMI adapters with Windows PowerShell 5.1
+        shell: pwsh
+        run: python tests/ha_hyperv_fencing.py --powershell-native-wmi-smoke (Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe')

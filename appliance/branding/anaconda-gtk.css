@@ -1,0 +1,19 @@
+/* RiverLB installer chrome. Preserve Anaconda's native accessible form theme. */
+.logo-sidebar {
+    background-image: none;
+    background-color: #102432;
+}
+.logo {
+    background-image: url('/usr/share/anaconda/pixmaps/riverlb-installer.svg');
+    background-position: center 24px;
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-color: transparent;
+    min-height: 220px;
+}
+.product-logo { background-image: none; background-color: transparent; }
+AnacondaSpokeWindow #nav-box {
+    background-image: none;
+    background-color: #102432;
+    color: #f0f6fb;
+}

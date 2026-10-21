@@ -1,0 +1,330 @@
+#!/usr/bin/python3
+"""Guided console setup. Never ships identities or accepts passwords in argv."""
+import getpass
+from contextlib import contextmanager
+import ipaddress
+import json
+import os
+from pathlib import Path
+import re
+import sys
+import subprocess
+import tempfile
+import ssl
+import time
+import urllib.request
+import urllib.error
+
+CONFIG = Path('/etc/riverlb/riverlb.toml')
+STATE = Path('/var/lib/riverlb')
+MARKER = STATE / '.firstboot.complete'
+
+
+@contextmanager
+def quiet_console():
+    """Keep kernel notices out of prompts, restoring the console level afterward.
+
+    Journaling is unaffected. Non-console runs and environments without the
+    permission/tool simply retain their existing console settings.
+    """
+    previous = None
+    if sys.stdin.isatty():
+        try:
+            previous = int(Path('/proc/sys/kernel/printk').read_text().split()[0])
+            result = run(['dmesg', '--console-level', '1'], capture_output=True, check=False)
+            if result.returncode != 0:
+                previous = None
+        except (OSError, ValueError, IndexError):
+            previous = None
+    try:
+        yield
+    finally:
+        if previous is not None:
+            try:
+                run(['dmesg', '--console-level', str(previous)], capture_output=True, check=False)
+            except OSError:
+                pass
+
+
+def service_failure(error):
+    """Include bounded service diagnostics rather than just an exit status."""
+    details = []
+    for args in (
+        ['systemctl', 'status', 'riverlb.service', 'riverlb-update-recovery.service', '--no-pager', '-l'],
+        ['journalctl', '-b', '-u', 'riverlb.service', '-u', 'riverlb-update-recovery.service', '-n', '40', '--no-pager'],
+    ):
+        try:
+            result = run(args, capture_output=True, check=False, timeout=10)
+            details.append((result.stdout or '')[-16000:])
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    return RuntimeError('RiverLB could not start. Setup state was preserved; fix the service error and rerun '
+                        'riverlb-setup to resume.\n' + '\n'.join(details) + '\n' + str(error))
+
+
+def heading(step, title):
+    print('\n' + '=' * 66)
+    print(f'  RiverLB setup  |  Step {step} of 5: {title}')
+    print('=' * 66)
+
+
+def hostname_prompt():
+    while True:
+        value = input('Appliance hostname [riverlb]: ').strip() or 'riverlb'
+        if re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?', value):
+            return value
+        print('Use letters, numbers, dots and hyphens. Start and end with a letter or number.')
+
+
+def management_prompt():
+    while True:
+        choices = interfaces()
+        print('\nChoose the network address used to reach the management portal.')
+        print('Use a DHCP reservation or static address to keep this address stable.')
+        for number, (interface, address) in enumerate(choices, 1):
+            print(f'  [{number}]  {interface:<16}  {address}')
+        if not choices:
+            print('  No assigned IPv4 address found. Check the adapter or configure networking.')
+        print('  [N]  Configure networking   [R]  Refresh addresses   [Q]  Cancel setup')
+        value = input('Management interface/address number: ').strip()
+        if value.upper() in ('N', 'NETWORK'):
+            run(['nmtui'], check=False)
+            continue
+        if value.upper() in ('R', ''):
+            continue
+        if value.upper() in ('Q', 'CANCEL'):
+            raise SystemExit('Setup cancelled. No RiverLB accounts or configuration were changed.')
+        try:
+            selected = int(value)
+            if not 1 <= selected <= len(choices):
+                raise ValueError()
+            interface, address = choices[selected - 1]
+            parsed = ipaddress.IPv4Address(address)
+            if parsed.is_unspecified or parsed.is_loopback or parsed.is_multicast:
+                raise ValueError()
+            return interface, str(parsed)
+        except (ValueError, IndexError):
+            print('Choose one of the numbered addresses, or use N, R or Q.')
+
+
+def administrator_prompt():
+    while True:
+        value = input('RiverLB administrator name [admin]: ').strip() or 'admin'
+        if re.fullmatch(r'[A-Za-z0-9_.-]{1,128}', value):
+            return value
+        print('Use 1–128 letters, numbers, underscores, dots or hyphens.')
+
+
+def setup_plan():
+    """Collect a reviewable setup plan; Back never changes application state."""
+    while True:
+        heading(1, 'Appliance identity')
+        hostname = hostname_prompt()
+        heading(2, 'Management network')
+        interface, address = management_prompt()
+        heading(3, 'Administrator and recovery access')
+        print('The RiverLB account signs in to the web portal.')
+        username = administrator_prompt()
+        print('Passwords stay hidden while typing. Use at least 12 characters.')
+        admin_password = password('RiverLB administrator password')
+        print('\nThe separate Linux root password is for local console recovery.')
+        print('SSH remains disabled. Keep this recovery password in a secure location.')
+        root_password = password('Linux root console recovery password')
+        heading(4, 'Review and apply')
+        print(f'  Appliance:       {hostname}')
+        print(f'  Interface:       {interface}')
+        print(f'  Management URL:  https://{address}:18090')
+        print(f'  Administrator:   {username}')
+        print('  Device identity: Unique self-signed HTTPS certificate')
+        print('  Traffic / HA:    Configure later in the web portal')
+        print('\nAPPLY saves these settings. BACK returns to setup. CANCEL exits.')
+        while True:
+            answer = input('Type APPLY to continue: ').strip().upper()
+            if answer == 'APPLY':
+                return hostname, interface, address, username, admin_password, root_password
+            if answer in ('BACK', 'B'):
+                break
+            if answer in ('CANCEL', 'Q', ''):
+                raise SystemExit('Setup cancelled. No RiverLB accounts or configuration were changed.')
+            print('Type APPLY, BACK or CANCEL.')
+
+
+def startup_ready():
+    """Authorize the appliance service without creating or modifying its state."""
+    if MARKER.is_file():
+        return True
+    try:
+        import tomllib
+        details = json.loads(STATE.joinpath('.firstboot.pending').read_text())
+        saved = tomllib.loads(CONFIG.read_text())
+        tls = saved.get('management_tls', {})
+        address = ipaddress.IPv4Address(details['address'])
+        return (details.get('stage') == 'activating' and not address.is_loopback and not address.is_unspecified
+                and saved.get('management_protocol') == 'https'
+                and saved.get('management') == str(address) + ':18090'
+                and STATE.joinpath('riverlb.db').is_file()
+                and all(Path(tls[name]).is_file() for name in ('certificate', 'private_key')))
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
+def activate(details):
+    run(['riverlb', 'validate', '--config', str(CONFIG)])
+    run(['restorecon', '-R', str(CONFIG.parent), str(STATE)])
+    try:
+        run(['systemctl', 'enable', '--now', 'riverlb.service'])
+        run(['systemctl', 'is-active', '--quiet', 'riverlb.service'])
+    except subprocess.CalledProcessError as error:
+        raise service_failure(error) from error
+    context = ssl.create_default_context(cafile=str(CONFIG.parent / 'device.crt'))
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), urllib.request.HTTPSHandler(context=context))
+    for attempt in range(30):
+        try:
+            with opener.open('https://' + details['address'] + ':18090/healthz', timeout=2) as response:
+                if response.status == 200:
+                    break
+        except (OSError, urllib.error.URLError):
+            pass
+        time.sleep(1)
+    else:
+        raise service_failure('Management HTTPS readiness check failed at the selected IP on port 18090.')
+    atomic_write(MARKER, json.dumps(details) + '\n')
+    STATE.joinpath('.firstboot.pending').unlink(missing_ok=True)
+
+
+def run(args, **kwargs):
+    kwargs.setdefault('check', True)
+    return subprocess.run(args, text=True, **kwargs)
+
+
+def interfaces():
+    links = json.loads(run(['ip', '-j', '-4', 'address', 'show'], capture_output=True).stdout)
+    return [(link['ifname'], item['local']) for link in links if link['ifname'] != 'lo'
+            for item in link.get('addr_info', []) if item.get('scope') == 'global']
+
+
+def password(label):
+    while True:
+        value = getpass.getpass(label + ': ')
+        if len(value) >= 12 and len(value.encode()) <= 1024 and '\n' not in value and '\r' not in value:
+            if getpass.getpass('Confirm password: ') == value:
+                return value
+        print('Use matching passwords with at least 12 characters and at most 1024 bytes.')
+
+
+def atomic_write(path, content):
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd, temporary = tempfile.mkstemp(dir=path.parent)
+    try:
+        with os.fdopen(fd, 'wb' if isinstance(content, bytes) else 'w') as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        directory = os.open(path.parent, os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def configuration(address, certificate, key):
+    address = str(ipaddress.IPv4Address(address))
+    return (f'management = "{address}:18090"\nmanagement_protocol = "https"\n'
+            'connect_timeout_ms = 1000\nsession_timeout_secs = 300\n'
+            'health_interval_secs = 2\nmax_connections = 4096\nvirtual_servers = []\n'
+            f'\n[management_tls]\ncertificate = {json.dumps(str(certificate))}\n'
+            f'private_key = {json.dumps(str(key))}\n')
+
+
+def main():
+    if os.geteuid() != 0:
+        raise SystemExit('Run riverlb-setup as root from the appliance console.')
+    if MARKER.exists():
+        raise SystemExit('Initial setup already completed. Use the GUI for configuration changes.')
+    pending = STATE / '.firstboot.pending'
+    if pending.exists() and STATE.joinpath('riverlb.db').exists():
+        import tomllib
+        details = json.loads(pending.read_text())
+        saved = tomllib.loads(CONFIG.read_text())
+        if details.get('stage') == 'activating' and saved.get('management_protocol') == 'https' and saved.get('management') == details['address'] + ':18090':
+            activate(details)
+            print('Resumed initial setup activation successfully.')
+            return
+    if STATE.joinpath('riverlb.db').exists():
+        raise SystemExit('Existing application database found. Initial setup will not overwrite appliance state.')
+    os.umask(0o077)
+    print('\nWelcome to your RiverLB appliance')
+    print('Setup takes five short steps; passwords are never displayed.')
+    print('This configures secure management access. Traffic and HA are configured in the portal.')
+    with quiet_console():
+        hostname, interface, address, username, admin_password, root_password = setup_plan()
+    heading(5, 'Preparing secure management access')
+    # Bind to the assigned address; NetworkManager DHCP reservation/static setup
+    # is required for address stability until address-change handling is implemented.
+    if run(['systemctl', 'is-active', '--quiet', 'riverlb.service'], check=False).returncode == 0:
+        raise SystemExit('Stop RiverLB before initial setup.')
+    STATE.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with tempfile.TemporaryDirectory(dir=CONFIG.parent) as staging:
+        certificate, key = Path(staging) / 'device.crt', Path(staging) / 'device.key'
+        print('  Creating a unique device certificate... ', flush=True)
+        run(['openssl', 'req', '-x509', '-newkey', 'rsa:3072', '-nodes', '-days', '365',
+             '-subj', '/CN=' + hostname, '-addext', f'subjectAltName=DNS:{hostname},IP:{address}',
+             '-keyout', str(key), '-out', str(certificate)], capture_output=True)
+        candidate = Path(staging) / 'riverlb.toml'
+        candidate.write_text(configuration(address, certificate, key))
+        run(['riverlb', 'validate', '--config', str(candidate)])
+        # Prepare the database privately; failed setup leaves no half-created live DB.
+        database = Path(staging) / 'riverlb.db'
+        print('  Creating your local administrator... ', flush=True)
+        run(['riverlb', 'admin', '--database', str(database), '--username', username],
+            input=admin_password + '\n', stdout=subprocess.DEVNULL)
+        run(['hostnamectl', 'set-hostname', hostname])
+        run(['chpasswd'], input='root:' + root_password + '\n')
+        # Open only the management destination/port, in the selected interface zone.
+        zone = run(['firewall-cmd', '--get-zone-of-interface', interface], capture_output=True,
+                   check=False).stdout.strip()
+        if zone == 'no zone' or not zone:
+            zone = run(['firewall-cmd', '--get-default-zone'], capture_output=True).stdout.strip()
+        rule = f'rule family="ipv4" destination address="{address}/32" port port="18090" protocol="tcp" accept'
+        print('  Allowing management HTTPS on the selected address... ', flush=True)
+        run(['firewall-cmd', '--permanent', '--zone', zone, '--add-rich-rule', rule])
+        run(['firewall-cmd', '--zone', zone, '--add-rich-rule', rule])
+        atomic_write(CONFIG.parent / 'device.crt', certificate.read_text())
+        atomic_write(CONFIG.parent / 'device.key', key.read_text())
+        # The CLI closes the DB before returning; copy any sidecar files as a set.
+        for item in Path(staging).glob('riverlb.db*'):
+            atomic_write(STATE / item.name, item.read_bytes())
+        atomic_write(CONFIG, configuration(address, CONFIG.parent / 'device.crt', CONFIG.parent / 'device.key'))
+    details = dict(stage='activating', hostname=hostname, interface=interface, address=address)
+    atomic_write(pending, json.dumps(details) + '\n')
+    print('  Starting RiverLB and checking HTTPS readiness... ', flush=True)
+    activate(details)
+    print('\n' + '=' * 66)
+    print('  RiverLB setup complete')
+    print(f'  Open https://{address}:18090 and sign in as {username}.')
+    print('=' * 66)
+    print('The first browser visit shows a certificate warning because the device certificate is self-signed.')
+    print('Replace it in Certificates > Device after signing in. Configure pools, virtual servers and HA in the portal.')
+
+
+if __name__ == '__main__':
+    if sys.argv[1:] == ['--check-ready']:
+        if not startup_ready():
+            print('RiverLB appliance initial setup is incomplete. Complete riverlb-setup on the VM console before starting the service.', file=sys.stderr)
+            sys.exit(1)
+    elif sys.argv[1:]:
+        raise SystemExit('Usage: riverlb-setup [--check-ready]')
+    else:
+        try:
+            main()
+        except (KeyboardInterrupt, EOFError):
+            raise SystemExit('\nSetup interrupted. Restart riverlb-setup from the local console to continue.')
+        except (OSError, subprocess.CalledProcessError, RuntimeError) as error:
+            print(f'\nRiverLB setup could not finish: {error}', file=sys.stderr)
+            print('Check the local console and journalctl -u riverlb-firstboot -u riverlb.', file=sys.stderr)
+            print('After fixing the error, run riverlb-setup again. Existing appliance state is protected.', file=sys.stderr)
+            sys.exit(1)

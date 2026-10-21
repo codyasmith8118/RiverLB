@@ -1,0 +1,40 @@
+#!/usr/bin/python3
+"""Rootless subset of Lorax mkefiboot: regular FAT file with /EFI/BOOT contents.
+
+Only the invocation used by mkksiso is supported. No loop devices or mounts.
+Disk/Apple image modes are intentionally unsupported.
+"""
+import argparse
+import os
+import stat
+from pathlib import Path
+import subprocess
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--label', '-l', default='EFI')
+parser.add_argument('bootdir', type=Path)
+parser.add_argument('outfile', type=Path)
+args = parser.parse_args()
+if not args.bootdir.is_dir() or len(args.label) > 11:
+    parser.error('Require a boot directory and a FAT label of at most 11 characters')
+entries = sorted(args.bootdir.iterdir())
+if not entries:
+    parser.error('Boot directory is empty')
+# Use a regular file, never accept a device or overwrite nonempty output.
+size = max(64 * 1024 * 1024, sum(item.stat().st_size for item in args.bootdir.rglob('*') if item.is_file()) * 2)
+size = ((size + 1024 * 1024 - 1) // (1024 * 1024)) * 1024 * 1024
+# Lorax supplies an existing empty NamedTemporaryFile. Reject symlinks,
+# devices and nonempty files; validate the opened inode before formatting.
+try:
+    fd = os.open(args.outfile, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+except FileExistsError:
+    fd = os.open(args.outfile, os.O_WRONLY | os.O_NOFOLLOW)
+with os.fdopen(fd, 'wb') as stream:
+    info = os.fstat(stream.fileno())
+    if not stat.S_ISREG(info.st_mode) or info.st_size != 0 or info.st_uid != os.geteuid():
+        parser.error('Output must be a new or owned empty regular file')
+    stream.truncate(size)
+subprocess.run(['mkfs.fat', '-n', args.label, str(args.outfile)], check=True)
+subprocess.run(['mmd', '-i', str(args.outfile), '::/EFI', '::/EFI/BOOT'], check=True)
+for item in entries:
+    subprocess.run(['mcopy', '-s', '-i', str(args.outfile), str(item), '::/EFI/BOOT/'], check=True)

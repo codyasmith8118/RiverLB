@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="196" viewBox="0 0 360 196" role="img" aria-labelledby="title desc">
+  <title id="title">RiverLB appliance</title>
+  <desc id="desc">RiverLB traffic management appliance.</desc>
+  <g transform="translate(34 26)">
+    <rect width="64" height="64" rx="16" fill="#0066cc"/>
+    <path d="M16 12h17c12 0 19 6 19 16 0 7-4 12-10 14l11 12H38L27 41v13H16V12zm11 11v10h6c5 0 8-2 8-5s-3-5-8-5h-6z" fill="#fff" fill-rule="evenodd"/>
+    <path d="M13 39c12-9 22 8 39-3" fill="none" stroke="#0066cc" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <text x="112" y="69" fill="#f0f6fb" font-family="sans-serif" font-size="36" font-weight="700">RiverLB</text>
+  <text x="34" y="130" fill="#d4e4ee" font-family="sans-serif" font-size="18">Traffic management appliance</text>
+  <text x="34" y="160" fill="#b8cbd8" font-family="sans-serif" font-size="14">@VERSION@ · @RELEASE_STAGE@</text>
+</svg>

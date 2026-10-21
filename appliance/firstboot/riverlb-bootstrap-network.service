@@ -1,0 +1,14 @@
+[Unit]
+Description=Bind RiverLB bootstrap networking to the first appliance NIC
+Wants=systemd-udev-settle.service
+After=systemd-udev-settle.service
+Before=NetworkManager.service
+ConditionPathExists=/etc/NetworkManager/system-connections/riverlb-bootstrap.nmconnection
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/riverlb/riverlb-bootstrap-network
+RemainAfterExit=yes
+
+[Install]
+WantedBy=NetworkManager.service

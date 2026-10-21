@@ -1,0 +1,33 @@
+# Isolated lab example. Replace uplink with your dedicated data-plane interface.
+# Automatic provisioning is the default. --external-network saves/plans only.
+management = "127.0.0.1:9090"
+connect_timeout_ms = 1000
+session_timeout_secs = 300
+health_interval_secs = 2
+max_connections = 4096
+
+[[virtual_servers]]
+name = "application"
+description = "Lab service on the external self IP"
+enabled = true
+listen = "192.0.2.10:8080"
+algorithm = "least_connections"
+source_self_ip = "external-self"
+members = ["192.0.2.20:8001", "192.0.2.21:8001"]
+
+[[network.vlans]]
+name = "rlb100"
+interface = "uplink"
+tag = 100
+
+[[network.self_ips]]
+name = "external-self"
+address = "192.0.2.10/24"
+vlan = "rlb100"
+
+[[network.routes]]
+name = "lab-network"
+destination = "198.51.100.0/24"
+gateway = "192.0.2.1"
+vlan = "rlb100"
+metric = 100

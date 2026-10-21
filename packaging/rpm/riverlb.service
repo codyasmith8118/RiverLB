@@ -1,0 +1,52 @@
+[Unit]
+Description=RiverLB traffic manager
+After=network-online.target firewalld.service riverlb-update-recovery.service
+Wants=network-online.target
+Requires=riverlb-update-recovery.service
+Conflicts=riverlb-ha.service
+
+[Service]
+Type=simple
+User=root
+UMask=0077
+WorkingDirectory=/var/lib/riverlb
+RuntimeDirectory=riverlb
+RuntimeDirectoryMode=0700
+StateDirectory=riverlb
+StateDirectoryMode=0700
+ExecStartPre=+/usr/libexec/riverlb/riverlb-update preflight
+ExecStart=/usr/bin/riverlb serve --config /etc/riverlb/riverlb.toml --database /var/lib/riverlb/riverlb.db
+Restart=on-failure
+RestartSec=2s
+TimeoutStopSec=90s
+KillMode=control-group
+# Firewalld and network ownership currently require UID 0. Limit its kernel
+# privileges and writable paths until the privileged network helper is qualified.
+NoNewPrivileges=true
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/etc/riverlb /var/lib/riverlb /run/riverlb -/mnt/riverlb-backups -/run/riverlb-ha-deploy
+InaccessiblePaths=-/etc/shadow -/etc/gshadow -/dev/shm
+# Verify the host network namespace without CAP_SYS_PTRACE or CAP_SYS_ADMIN.
+OpenFile=/proc/1/ns/net:riverlb-host-netns:read-only
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+SystemCallArchitectures=native
+SystemCallFilter=~@mount @reboot @swap @module @raw-io @obsolete @debug @cpu-emulation memfd_create
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target
