@@ -131,3 +131,5 @@ from the repository root with network access, plus `npm audit --prefix tests`
 after installing browser fixture dependencies. The secret scan helper requires
 Linux x86_64, curl and sha256sum. The release workflow requires these security
 checks in addition to full CI. See the [source publication gate](release-readiness.md#source-publication-gate).
+
+See [retained inputs and reproducible builds](reproducible-builds.md) for appliance dependency snapshots and clean-build comparisons.

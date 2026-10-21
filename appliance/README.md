@@ -232,3 +232,5 @@ you configure **High Availability → HA Configuration**. Prepare each appliance
 exchange public identities, authenticate the cluster hosts, and start standby
 from that page. Fencing resources can also be created there with the installed
 platform agents. See the [GUI deployment steps](../docs/high-availability.md#deploy-an-iso-installed-appliance-from-the-gui).
+
+Release dependency capture, offline builds and comparison rules are documented in [reproducible builds](../docs/reproducible-builds.md).

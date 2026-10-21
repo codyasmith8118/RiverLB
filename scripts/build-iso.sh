@@ -6,27 +6,32 @@ cd "$project_dir"
 if [[ $# != 3 || ! "$3" =~ ^(installer|image)$ || ! "$2" =~ ^[a-fA-F0-9]{64}$ ]]; then
     echo 'Usage: scripts/build-iso.sh /path/AlmaLinux-10.2-x86_64-dvd.iso TRUSTED_SHA256 installer|image' >&2; exit 1
 fi
+python3 - "$2" <<'CHECK'
+import json, sys
+assert sys.argv[1].lower() == json.load(open('appliance/base-media.json'))['sha256'], 'Base ISO must match appliance/base-media.json'
+CHECK
 iso=$(realpath -- "$1")
 actual=$(sha256sum "$iso" | cut -d ' ' -f 1)
 [[ "${actual,,}" == "${2,,}" ]] || { echo 'Base ISO checksum mismatch.' >&2; exit 1; }
 rpm_dir=$(realpath -- "${RIVERLB_RPM_DIR:-$project_dir/dist/rpm}")
 mkdir -p -- "${RIVERLB_ISO_OUTPUT_DIR:-$project_dir/dist/iso}"
 iso_output_dir=$(realpath -- "${RIVERLB_ISO_OUTPUT_DIR:-$project_dir/dist/iso}")
-if [[ ${RIVERLB_ISO_USE_CONTAINER:-0} == 1 ]] || ! command -v mkksiso >/dev/null; then
+if [[ ${RIVERLB_LOCKED_TOOLS:-0} != 1 ]]; then
     command -v podman >/dev/null
-    podman build -t localhost/riverlb-image-tools:alma10.2 -f appliance/tools/Containerfile appliance/tools
+    image=$(python3 scripts/build-inputs.py image tools)
     tool_stage=$(mktemp -d)
     trap 'rm -rf -- "$tool_stage"' EXIT
     mkdir -p "$tool_stage/scripts" "$tool_stage/appliance"
     mkdir -p "$tool_stage/tmp"
     cp scripts/build-iso.sh "$tool_stage/scripts/"
+    cp appliance/base-media.json "$tool_stage/appliance/"
     cp -a appliance/kickstart appliance/tools appliance/branding "$tool_stage/appliance/"
-    podman run --rm --security-opt=no-new-privileges \
+    podman run --rm --pull=never --network=none -e RIVERLB_LOCKED_TOOLS=1 --security-opt=no-new-privileges \
         -v "$tool_stage:/workspace:ro,Z" -v "$rpm_dir:/workspace/dist/rpm:ro,z" \
         -v "$iso_output_dir:/workspace/dist/iso:z" -v "$tool_stage/tmp:/tmp:Z" \
         -v "$iso:/input/base.iso:ro,z" -w /workspace \
         -e PATH=/workspace/appliance/tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-        localhost/riverlb-image-tools:alma10.2 bash scripts/build-iso.sh /input/base.iso "$2" "$3"
+        "$image" bash scripts/build-iso.sh /input/base.iso "$2" "$3"
     exit
 fi
 (cd "$rpm_dir"; sha256sum -c SHA256SUMS)
