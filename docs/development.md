@@ -6,13 +6,16 @@ uses Unix signals and Linux networking interfaces. Work from the repository root
 ## Set up a development machine
 
 Install Rust with rustup, including `rustfmt` and `clippy`. The RPM builder uses
-Rust 1.92.0; CI currently follows stable Rust. On Ubuntu or Ubuntu WSL, install
+Rust 1.92.0; CI uses the same version. On Ubuntu or Ubuntu WSL, install
 the other development dependencies with:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y build-essential pkg-config libclang-dev python3 openssl iputils-ping nodejs node-jsdom
+sudo apt-get install -y build-essential pkg-config libclang-dev python3 openssl iputils-ping
 ```
+
+Install Node.js 22 for the browser fixtures. Their jsdom dependencies are pinned
+in `tests/package-lock.json` and installed with npm, rather than distribution packages.
 
 Keep the checkout and Cargo output on the Linux filesystem in WSL for faster
 builds. You may set `CARGO_TARGET_DIR` to another build directory. Python socket
@@ -33,7 +36,8 @@ python3 scripts/check-docs.py
 python3 tests/smoke.py
 python3 tests/configuration.py
 node --check web/app.js
-node tests/portal.cjs
+npm ci --prefix tests --ignore-scripts
+npm test --prefix tests
 ```
 
 These checks cover formatting, lints, Rust behavior, local documentation links,
@@ -98,3 +102,25 @@ that exercise observable behavior, including rollback where relevant. Keep the
 For slower packaging and VM qualification, use the [build guide](../appliance/README.md)
 and [release checklist](release-readiness.md). A successful unit or container run
 does not qualify an appliance image.
+
+## GitHub Actions
+
+CI runs on branch pushes, pull requests and manual dispatch. Separate jobs check
+Rust and repository policy, Linux integration and network behavior, browser
+fixtures, and both Windows PowerShell receivers. Linux jobs use Ubuntu 24.04;
+Windows checks use Windows Server 2025. Rust dependencies are cached per job.
+
+The application release workflow runs full CI before building unsigned archives
+and qualified AlmaLinux RPMs. Tag names must match the Cargo package version.
+RPM qualification is a reusable workflow shared by release, ISO and disk builds.
+
+ISO and disk workflows are manual. ISO builds offer installer, image or both
+media types and verify the pinned base ISO checksum. Disk builds additionally
+require the protected `appliance-build` environment and a disposable self-hosted
+runner labeled `riverlb-kvm`, with writable KVM, Podman and Packer. BIOS and UEFI
+qualification run sequentially. Uploads contain unconfigured disks and reports;
+VM test overlays and private runtime state are excluded.
+
+Artifacts expire after 7–14 days. These workflows produce candidates; publishing
+or signing a production release is a separate operation. Existing release tags
+and published assets are unaffected by workflow changes.

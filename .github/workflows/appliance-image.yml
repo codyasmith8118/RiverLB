@@ -3,15 +3,24 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: disk-v2-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
+  rpm:
+    uses: ./.github/workflows/rpm.yml
   image:
-    # Dedicated disposable runner, never a deployed appliance. Configure this
-    # protected environment to admit trusted release refs before enabling it.
+    needs: rpm
+    # This protected runner must be disposable and never a deployed appliance.
     environment: appliance-build
     runs-on: [self-hosted, linux, x64, riverlb-kvm]
     timeout-minutes: 120
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         include:
           - firmware: bios
@@ -23,7 +32,7 @@ jobs:
     env:
       RIVERLB_IMAGE_FIRMWARE: ${{ matrix.firmware }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Check dedicated builder prerequisites
         run: |
           test -r /dev/kvm && test -w /dev/kvm
@@ -31,8 +40,10 @@ jobs:
           command -v packer
           test ! -e '${{ matrix.image_dir }}'
           test ! -e '${{ matrix.test_dir }}'
-      - run: scripts/build-rpm.sh
-      - run: scripts/test-rpm.sh
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: rpm-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/rpm
       - run: scripts/fetch-base-iso.py
       - name: Assemble and inspect automatic installation media
         run: |
@@ -51,9 +62,9 @@ jobs:
           scripts/test-iso.sh installer
           scripts/test-installer.sh
       - name: Upload unconfigured candidates and credential-free test report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: appliance-disk-candidate-${{ matrix.firmware }}-${{ github.sha }}
+          name: disk-${{ matrix.firmware }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ${{ matrix.image_dir }}/riverlb.qcow2
             ${{ matrix.image_dir }}/riverlb.raw

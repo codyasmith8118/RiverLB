@@ -1,36 +1,38 @@
 name: CI
 on:
   push:
+    branches: ['**']
   pull_request:
   workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: checks-v2-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
+defaults:
+  run:
+    shell: bash
 jobs:
-  linux:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+  quality:
+    name: Rust and repository checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y iputils-ping libclang-dev openssl
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libclang-dev
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
-          # Match the compiler used to build the AlmaLinux appliance RPMs.
           toolchain: 1.92.0
           components: rustfmt, clippy
-      - run: cargo fmt --check
-      - name: Check documentation links and candidate packaging
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Check source, documentation and packaging fixtures
         run: |
+          cargo fmt --check
           python3 scripts/check-docs.py
           python3 tests/check_docs.py
           python3 tests/build_release.py
-      - run: cargo clippy --locked --all-targets -- -D warnings
-      - run: cargo test --locked
-      - run: cargo build --locked
-      - name: Check appliance setup, update recovery and service policy
-        run: |
           python3 tests/appliance/branding.py
           python3 tests/appliance/installed_branding.py
           python3 tests/appliance/network_defaults.py
@@ -38,6 +40,26 @@ jobs:
           python3 tests/appliance/build_workflow.py
           python3 tests/appliance/service_hardening.py
           python3 tests/updates_helper.py
+          cargo clippy --locked --all-targets -- -D warnings
+  linux:
+    name: Linux integration and network tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install test dependencies
+        run: sudo apt-get update && sudo apt-get install -y iputils-ping iproute2 libclang-dev openssl
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.92.0
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Test and build application
+        run: |
+          cargo test --locked
+          cargo build --locked
       - name: Check signed update interoperability with private build fixture trust
         run: python3 tests/signed_updates.py
       - run: python3 tests/smoke.py
@@ -80,30 +102,31 @@ jobs:
           sudo systemctl start firewalld
           sudo python3 tests/appliance/firewall_sandbox.py --binary target/debug/riverlb
   portal:
-    runs-on: ubuntu-latest
+    name: Browser fixtures
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
-    env:
-      # Hosted Node does not include Ubuntu's packaged module directory.
-      NODE_PATH: /usr/share/nodejs
     steps:
-      - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y node-jsdom
-      - name: Verify browser fixture dependency
-        run: node -p "require.resolve('jsdom')"
-      - run: node --check web/app.js && node --check web/fencing.js && node --check web/login.js && node --check web/statistics.js && node --check web/accounts.js && node --check web/operations.js && node --check web/release.js && node tests/portal.cjs
-      - run: node tests/fencing.cjs
-      - run: node tests/statistics.cjs
-      - run: node --check web/appearance.js && node tests/appearance.cjs
-      - run: node tests/operations.cjs
-      - run: node tests/release.cjs
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
+      - name: Install locked browser test dependencies
+        run: npm ci --prefix tests --ignore-scripts --no-audit --no-fund
+      - name: Check JavaScript syntax
+        run: |
+          for source in web/*.js; do node --check "$source"; done
+      - name: Run all browser fixtures
+        run: npm test --prefix tests
   hyperv-receiver:
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 10
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
       # Fixtures replace Hyper-V cmdlets; these checks never control host VMs.

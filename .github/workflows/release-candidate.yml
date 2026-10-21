@@ -1,77 +1,54 @@
 name: Application release candidate
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'web/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'deploy/**'
-      - 'scripts/build-release.sh'
-      - 'tests/build_release.py'
-      - 'scripts/build-rpm.sh'
-      - 'scripts/test-rpm.sh'
-      - 'packaging/**'
-      - 'appliance/**'
-      - 'tests/firstboot.py'
-      - 'tests/firstboot_ui.py'
-      - 'tests/updates_helper.py'
-      - 'tests/signed_updates.py'
-      - 'tests/appliance/**'
-      - 'scripts/sign-update.py'
-      - 'scripts/audit-appliance-security.py'
-      - 'scripts/build-iso.sh'
-      - 'scripts/build-image.sh'
-      - 'tests/rpm_smoke.py'
-      - '.github/workflows/release-candidate.yml'
   push:
     tags: ['v*']
 permissions:
   contents: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: release-v2-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
-  candidate:
+  validation:
+    uses: ./.github/workflows/ci.yml
+  application:
+    needs: validation
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.92.0
-      - run: sudo apt-get update && sudo apt-get install -y iputils-ping libclang-dev
-      - run: cargo test --locked
-      - name: Check release tag matches package version
-        if: startsWith(github.ref, 'refs/tags/')
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check release version
+        env:
+          RELEASE_REF: ${{ github.ref }}
+          RELEASE_NAME: ${{ github.ref_name }}
         run: |
-          python3 - <<'PY'
+          python3 - <<'CHECK'
           import os, tomllib
           version = tomllib.load(open('Cargo.toml', 'rb'))['package']['version']
-          assert os.environ['GITHUB_REF_NAME'] == 'v' + version, 'Tag must match Cargo.toml version'
-          PY
-      - run: scripts/build-release.sh
-      - run: python3 tests/build_release.py
-      - uses: actions/upload-artifact@v4
+          if os.environ['RELEASE_REF'].startswith('refs/tags/'):
+              assert os.environ['RELEASE_NAME'] == 'v' + version, 'Tag must match Cargo.toml version'
+          CHECK
+      - run: sudo apt-get update && sudo apt-get install -y libclang-dev
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
-          name: application-candidate-${{ github.sha }}
-          path: dist/*
-          if-no-files-found: error
-          retention-days: 14
-  almalinux-rpm:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y podman
-      - name: Check release tag matches package version
-        if: startsWith(github.ref, 'refs/tags/')
+          toolchain: 1.92.0
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Build and check unsigned application archive
         run: |
-          python3 - <<'PY'
-          import os, tomllib
-          assert os.environ['GITHUB_REF_NAME'] == 'v' + tomllib.load(open('Cargo.toml', 'rb'))['package']['version']
-          PY
-      - run: scripts/build-rpm.sh
-      - run: scripts/test-rpm.sh
-      - uses: actions/upload-artifact@v4
+          scripts/build-release.sh
+          python3 tests/build_release.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: almalinux-rpm-candidate-${{ github.sha }}
-          path: dist/rpm/*
+          name: application-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            dist/riverlb-*.tar.gz
+            dist/riverlb-*.tar.gz.sha256
           if-no-files-found: error
           retention-days: 14
+  rpm:
+    needs: validation
+    uses: ./.github/workflows/rpm.yml
