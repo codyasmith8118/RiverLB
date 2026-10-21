@@ -8,6 +8,7 @@ mode=${1:-installer}
 stage_dir=$(mktemp -d)
 trap 'rm -rf -- "$stage_dir"' EXIT
 cp tests/appliance/iso_structure.py "$stage_dir/"
-podman run --rm --security-opt=no-new-privileges \
+image=$(python3 scripts/build-inputs.py image tools)
+podman run --rm --pull=never --network=none --security-opt=no-new-privileges \
     -v "$project_dir/dist/iso:/media:ro,z" -v "$stage_dir:/tests:ro,Z" \
-    localhost/riverlb-image-tools:alma10.2 python3 /tests/iso_structure.py "/media/riverlb-$mode.iso" "$mode"
+    "$image" python3 /tests/iso_structure.py "/media/riverlb-$mode.iso" "$mode"

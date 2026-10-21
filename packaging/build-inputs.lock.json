@@ -1,0 +1,43 @@
+{
+  "images": {
+    "builder": {
+      "archive": "images/builder.oci.tar",
+      "id": "sha256:275d6d3d6f4c44aa43b2076ead0a1fa370dc762041813ebca7aaef78ee055b82"
+    },
+    "network_tests": {
+      "archive": "images/network_tests.oci.tar",
+      "id": "sha256:4218493c33c714cf96882fe873a2ffec1d7073133c6b9d0a983bd9557d3c7225"
+    },
+    "runtime": {
+      "archive": "images/runtime.oci.tar",
+      "id": "sha256:5b76c834f89d3e2400286c8e88e98281c04ce61cc469796e7146af4efa0787b1"
+    },
+    "tools": {
+      "archive": "images/tools.oci.tar",
+      "id": "sha256:c14a1c383313a2e10db31abdf68d6c899e0c75316953908159084c42de983e94"
+    }
+  },
+  "inventory_sha256": "55c67e76a6db5f6163fc6fd514fad0b9bb5848aa2ac5587a4fdf7f1978d52815",
+  "rpm_signing_key": {
+    "fingerprint": "EE6DB7B98F5BF5EDD9DA0DE5DEE5C11CC2A1E572",
+    "sha256": "de57c3c0a2dcde88ff5b894e74335f55a0ec074815f36d472270d937c16f077b"
+  },
+  "schema": 1,
+  "sha256": "7b61b31de8c9e5c29a0c159567bfa3f13306cdd4c934c2276ed78e2e5bc7ff6c",
+  "size": 1378462122,
+  "snapshot_id": "alma10.2-20261021-1",
+  "sources": {
+    "Cargo.lock": "63eef4fd73e17d2b9bbad37f432b1ec494260a8a2c2168113fcf6c1ed9bc320e",
+    "appliance/base-media.json": "da9556578ca530eb2efaaf6eddf2f1b85e9265e567e6596ffa1f341a9f97a938",
+    "appliance/packer/appliance.pkr.hcl": "5ffa71da7b0d1770918a21fb94a6d3f67862ce1c939a4ded9de7efaf3a9aa8a6",
+    "appliance/tools/Containerfile": "0a93a7b9295ad9f4b0f53e58663ef3ae07d4229ca6d57835f1f990aaf3de2741",
+    "appliance/tools/installer-branding.py": "4323544d5ea347e17dba1d43b4c7d17da5950b4b0ed1c1d8222dcb30182aebab",
+    "appliance/tools/remaster-iso.py": "773f413fd80c54d0d21d8954491ddbc483e9b068508b1bff0b3ad6544bf99603",
+    "deploy/ha/vendor/openstack-requirements.txt": "458a4340d02748af16ea50e798156eba869a51d8fa0f6a7a6cb94a6aa5487b33",
+    "packaging/container/Containerfile": "9de0406ff8a3c8f6c85418b5f84d8171313b8e0cf841330da41a36032f83ac47",
+    "packaging/toolchain.lock.json": "2a5e6d268d95a1fddac9bf7747b96611ab877e6828bf03503572ede2bd2523ba",
+    "tests/appliance/Containerfile.network-manager": "222f08b55b30f770ef93fbd1e9cbaf542126ad412a1d0305dfbb97fc19c501e9"
+  },
+  "unpacked_size": 1877780765,
+  "url": "https://github.com/codyasmith8118/RiverLB/releases/download/build-inputs-20261021-1/build-inputs.tar.gz"
+}

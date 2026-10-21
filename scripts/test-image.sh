@@ -15,7 +15,8 @@ install -d -m 0700 "$output_dir"
 stage_dir=$(mktemp -d)
 trap 'rm -rf -- "$stage_dir"' EXIT
 cp tests/appliance/boot.py tests/appliance/vnc.py "$stage_dir/"
-podman run --rm --device /dev/kvm --security-opt=no-new-privileges \
+image=$(python3 scripts/build-inputs.py image tools)
+podman run --rm --pull=never --network=none --device /dev/kvm --security-opt=no-new-privileges \
     -v "$project_dir/$image_dir:/base:ro,z" -v "$project_dir/$output_dir:/output:Z" \
     -v "$stage_dir:/tests:ro,Z" -e RIVERLB_VM_TEST=disposable-container -e "RIVERLB_IMAGE_FIRMWARE=$firmware" \
-    localhost/riverlb-image-tools:alma10.2 python3 /tests/boot.py
+    "$image" python3 /tests/boot.py

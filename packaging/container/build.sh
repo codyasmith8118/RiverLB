@@ -2,9 +2,21 @@
 set -euo pipefail
 cp -a /source/. /build/
 cd /build
-export CARGO_HOME=/cargo
-cargo test --locked
-cargo build --release --locked
+export CARGO_HOME=/build/cargo-home
+mkdir -p "$CARGO_HOME"
+cat > "$CARGO_HOME/config.toml" <<'CONFIG'
+[source.crates-io]
+replace-with = "retained"
+[source.retained]
+directory = "/inputs/cargo-vendor"
+[net]
+offline = true
+CONFIG
+export TZ=UTC LC_ALL=C.UTF-8 PYTHONHASHSEED=0
+# Stable source timestamps and paths also stabilize Rust and RPM debug metadata.
+find /build -path /build/target -prune -o -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
+cargo test --offline --locked
+cargo build --release --offline --locked
 ./target/release/riverlb validate --config packaging/rpm/riverlb.toml --database /build/validate.db
 version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')
 install -d /build/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} /build/riverlb-payload
@@ -37,7 +49,7 @@ install -m 0755 deploy/ha/agents/fence_riverlb_hyperv /build/riverlb-payload/
 install -m 0755 deploy/ha/agents/fence_riverlb_openstack /build/riverlb-payload/
 cp -a deploy/ha/hyperv /build/riverlb-payload/
 install -m 0644 deploy/ha/vendor/openstack-requirements.txt /build/riverlb-payload/
-python3 -m pip install --require-hashes --only-binary=:all: --no-compile \
+python3 -m pip install --no-index --find-links=/inputs/wheels --require-hashes --only-binary=:all: --no-compile \
     --target /build/riverlb-payload/openstack-sdk -r deploy/ha/vendor/openstack-requirements.txt
 install -m 0755 appliance/firstboot/riverlb-setup /build/riverlb-payload/
 install -m 0755 appliance/firstboot/riverlb-brand-appliance /build/riverlb-payload/
@@ -49,18 +61,14 @@ install -m 0644 appliance/firstboot/firstboot-gate.conf /build/riverlb-payload/
 rpm -qa | sort > /output/build-packages.txt
 rustc -vV > /output/compiler.txt
 cp /source/build-manifest.json /output/build-manifest.json
+cp /source/build-inputs.json /output/build-inputs.json
 install -m 0644 packaging/update/update-trust.json /output/update-trust.json
 tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner \
-    -C /build -czf /build/rpmbuild/SOURCES/riverlb-payload.tar.gz riverlb-payload
-rpmbuild -bb --define '_topdir /build/rpmbuild' --define "riverlb_version $version" \
+    -C /build -cf - riverlb-payload | gzip -n > /build/rpmbuild/SOURCES/riverlb-payload.tar.gz
+rpmbuild -bb --define '_topdir /build/rpmbuild' --define '_buildhost riverlb-builder' \
+    --define 'use_source_date_epoch_as_buildtime 1' --define 'clamp_mtime_to_source_date_epoch 1' --define "riverlb_version $version" \
     --define "riverlb_release $RIVERLB_RPM_RELEASE" packaging/rpm/riverlb.spec
 cp /build/rpmbuild/RPMS/x86_64/*.rpm /output/
-mkdir -p /output/ha-dependencies
-# Resolve the complete dependency closure for disconnected appliance installation.
-dnf -y --enablerepo=highavailability download --resolve --alldeps --destdir /output/ha-dependencies \
-    pacemaker corosync pcs resource-agents fence-agents-all \
-    fence-agents-aws fence-agents-azure-arm fence-agents-gce fence-agents-openstack fence-agents-nutanix-ahv fence-agents-virsh python3-setuptools \
-    corosync-qdevice openssh-server openssh-clients policycoreutils-python-utils hostname shadow-utils \
-    systemd iputils iproute firewalld openssl python3 NetworkManager NetworkManager-tui policycoreutils selinux-policy-targeted
-createrepo_c /output/ha-dependencies
-(cd /output; { sha256sum ./*.rpm build-manifest.json build-packages.txt compiler.txt update-trust.json; find ha-dependencies -type f -print0 | sort -z | xargs -0 sha256sum; } > SHA256SUMS)
+# Retained signed closure: never consult current DNF repositories during a build.
+cp -a /inputs/rpm-repository /output/ha-dependencies
+(cd /output; { sha256sum ./*.rpm build-manifest.json build-inputs.json build-packages.txt compiler.txt update-trust.json; find ha-dependencies -type f -print0 | sort -z | xargs -0 sha256sum; } > SHA256SUMS)
