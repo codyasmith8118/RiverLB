@@ -373,7 +373,8 @@ Export-ModuleMember -Function New-CimSession,Remove-CimSession,Get-VM,Stop-VM,St
         failure(call('off', OTHER_VM), 'target')
         failure(call('off', VM + ';arbitrary'), 'target')
         failure(call('list', SSH_ORIGINAL_COMMAND='arbitrary-command'), 'command')
-        failure(call('list', raw='\n'), 'read')
+        for empty in ('\n', '\r\n', ' \t\r\n'):
+            failure(call('list', raw=empty), 'read')
         failure(call('list', raw='{"private": "' + environment['RIVERLB_HYPERV_FIXTURE_SECRET'] + '"\n'), 'parse')
         failure(call('list', raw=json.dumps({'version': 1, 'action': 'list', 'timeout': 5,
                                            'private': environment['RIVERLB_HYPERV_FIXTURE_SECRET']}) + '\n'), 'validate')

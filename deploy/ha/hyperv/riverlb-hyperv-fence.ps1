@@ -17,7 +17,9 @@ try {
         [void]$requestBuffer.Append([char]$character)
     }
     if ($requestBuffer.Length -eq 0 -or $requestBuffer.Length -gt 4096) { throw 'Invalid request size' }
+    # Windows text-mode pipes send CRLF; a CR-only buffer is still empty input.
     $requestText = $requestBuffer.ToString()
+    if ([string]::IsNullOrWhiteSpace($requestText)) { throw 'Invalid request size' }
     $stage = 'parse'
     $request = $requestText | ConvertFrom-Json
     $stage = 'validate'

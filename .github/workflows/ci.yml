@@ -14,6 +14,8 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y iputils-ping libclang-dev node-jsdom openssl
       - uses: dtolnay/rust-toolchain@stable
         with:
+          # Match the compiler used to build the AlmaLinux appliance RPMs.
+          toolchain: 1.92.0
           components: rustfmt, clippy
       - run: cargo fmt --check
       - name: Check documentation links and candidate packaging
