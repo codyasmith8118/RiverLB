@@ -3,6 +3,7 @@
 import argparse
 import fcntl
 import hashlib
+import io
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -157,6 +158,38 @@ def prepare(lock, cache, project=ROOT):
         return target
 
 
+def normalize_oci_archive(source, target):
+    """Remove a transport name, preserving every manifest/config/layer byte.
+
+    OCI export can retain the original registry digest as a ref.name annotation
+    even though conversion changes the manifest digest. Podman interprets that
+    name as a destination digest and refuses the otherwise valid local import.
+    Image identity is verified independently after loading this temporary copy.
+    """
+    seen = set()
+    with tarfile.open(source, 'r:') as original, tarfile.open(target, 'w') as output:
+        for item in original:
+            relative(item.name)
+            if item.name in seen or not (item.isfile() or item.isdir()):
+                raise ValueError('Invalid OCI archive members')
+            seen.add(item.name)
+            if item.name == 'index.json':
+                if not item.isfile() or item.size > 1024 * 1024:
+                    raise ValueError('Invalid OCI index')
+                index = json.load(original.extractfile(item))
+                if index['schemaVersion'] != 2 or len(index['manifests']) != 1:
+                    raise ValueError('Expected one retained OCI image')
+                for entry in index['manifests']:
+                    entry.get('annotations', {}).pop('org.opencontainers.image.ref.name', None)
+                data = json.dumps(index, separators=(',', ':')).encode()
+                item.size = len(data)
+                output.addfile(item, io.BytesIO(data))
+            else:
+                output.addfile(item, original.extractfile(item) if item.isfile() else None)
+        if 'index.json' not in seen:
+            raise ValueError('Missing OCI index')
+
+
 def load_image(root, lock, role):
     image = lock['images'][role]
     relative(image['archive'])
@@ -165,8 +198,11 @@ def load_image(root, lock, role):
         raise ValueError('Invalid locked container identity')
     exists = subprocess.run(['podman', 'image', 'exists', image_id], check=False)
     if exists.returncode:
-        subprocess.run(['podman', 'load', '--input', str(root / image['archive'])], check=True,
-                       stdout=subprocess.DEVNULL)
+        with tempfile.TemporaryDirectory(prefix='riverlb-oci-import-') as folder:
+            archive = Path(folder) / 'image.tar'
+            normalize_oci_archive(root / image['archive'], archive)
+            subprocess.run(['podman', 'load', '--input', str(archive)], check=True,
+                           stdout=subprocess.DEVNULL)
     actual = json.loads(subprocess.check_output(['podman', 'image', 'inspect', image_id]))[0]['Id']
     if actual.removeprefix('sha256:') != image_id.removeprefix('sha256:'):
         raise ValueError('Loaded container identity mismatch')

@@ -114,3 +114,5 @@ verification results. Actual vendor signature validation and disconnected
 installation run in the package qualification path.
 
 The Reproducible appliance inputs workflow runs on dependency/build-input PRs and can also be dispatched manually. Shared input mounts use the shared SELinux label so simultaneous verification cannot revoke another build’s access.
+
+When importing OCI archives, the helper removes only the index transport-name annotation in a temporary copy. Registry-to-OCI conversion can change the manifest digest while retaining the old registry digest name. Config, manifest and layer bytes remain unchanged, the retained archive is never edited, and the loaded image must still match its locked config ID. Fresh-runner CI exercises this path.

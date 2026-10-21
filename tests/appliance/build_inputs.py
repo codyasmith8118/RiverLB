@@ -124,6 +124,29 @@ class Inputs(unittest.TestCase):
         with patch.object(m.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, stdout='package.rpm: digests signatures OK\n', stderr='')):
             m.verify_signatures(self.tree, 'runtime')
 
+    def test_oci_adapter_changes_only_transport_annotation(self):
+        original = self.root / 'image.tar'
+        target = self.root / 'normalized.tar'
+        index = dict(schemaVersion=2, manifests=[dict(digest='sha256:' + 'a' * 64,
+            annotations={'org.opencontainers.image.ref.name': 'registry/image@sha256:' + 'b' * 64,
+                         'other': 'preserved'})])
+        payloads = {'index.json': json.dumps(index).encode(), 'blobs/sha256/config': b'config',
+                    'blobs/sha256/layer': b'layer'}
+        with tarfile.open(original, 'w') as tar:
+            for name, data in payloads.items():
+                entry = tarfile.TarInfo(name)
+                entry.size = len(data)
+                tar.addfile(entry, io.BytesIO(data))
+        before = m.digest(original)
+        m.normalize_oci_archive(original, target)
+        self.assertEqual(before, m.digest(original))
+        with tarfile.open(target) as tar:
+            actual = json.load(tar.extractfile('index.json'))
+            self.assertEqual(actual['manifests'][0]['digest'], index['manifests'][0]['digest'])
+            self.assertEqual(actual['manifests'][0]['annotations'], {'other': 'preserved'})
+            for name in ('blobs/sha256/config', 'blobs/sha256/layer'):
+                self.assertEqual(tar.extractfile(name).read(), payloads[name])
+
     def test_invalid_lock_and_insecure_redirect(self):
         for change in ({'url': 'http://example.com/a'}, {'size': m.MAX_ARCHIVE + 1},
                        {'unpacked_size': m.MAX_UNPACKED + 1}, {'sha256': 'x' * 64}):
