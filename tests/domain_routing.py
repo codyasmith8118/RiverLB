@@ -44,6 +44,8 @@ cookie_profile="cookie"
                 process=subprocess.Popen([BINARY,'serve','-c',path],stdout=log,stderr=log);wait_until(lambda:api()['revision']==1)
                 config=api()['config'];config['nodes']=[{'name':'app'+str(i),'address':address,'enabled':True} for i,address in enumerate(addresses)]
                 config['domain_routes']=[{'name':'photos','virtual_server':'web','hostname':'photos.home.test','node':'app1','enabled':True},{'name':'files','virtual_server':'web','hostname':'files.home.test','node':'app2','enabled':True}];apply(config)
+                # Newly configured nodes become eligible after their first health probe.
+                wait_until(lambda:all(node['state']=='Up' for node in api('/api/v1/nodes')))
                 first=get('PHOTOS.HOME.TEST:8080');assert first[:2]==(200,'1');cookie=first[2].split(';')[0]
                 assert get('files.home.test',cookie)[:2]==(200,'2')
                 for _ in range(8):assert get('unknown.home.test',cookie)[:2]==(200,'0')  # Route nodes never leak into fallback balancing.
