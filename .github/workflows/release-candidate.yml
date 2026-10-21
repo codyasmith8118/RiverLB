@@ -12,10 +12,12 @@ concurrency:
   group: release-v2-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  security:
+    uses: ./.github/workflows/security.yml
   validation:
     uses: ./.github/workflows/ci.yml
   application:
-    needs: validation
+    needs: [validation, security]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -50,5 +52,5 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   rpm:
-    needs: validation
+    needs: [validation, security]
     uses: ./.github/workflows/rpm.yml

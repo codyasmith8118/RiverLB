@@ -1,7 +1,9 @@
 # RiverLB
 
-Release **1.0.0** includes the publisher public update trust key in its appliance
+The existing experimental release **1.0.0** includes the publisher public update trust key in its appliance
 RPM and installer ISO. The private signing key is retained separately.
+The current source includes later security changes; existing release assets do
+not automatically incorporate them.
 
 [![CI](https://github.com/codyasmith8118/RiverLB/actions/workflows/ci.yml/badge.svg)](https://github.com/codyasmith8118/RiverLB/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -9,7 +11,8 @@ RPM and installer ISO. The private signing key is retained separately.
 RiverLB is an open-source traffic manager written in Rust. It balances TCP, UDP
 and HTTP/1 traffic and provides a web interface for configuration, health checks,
 certificates, statistics and active/standby operation. The virtual appliance is
-based on AlmaLinux. RiverLB is licensed under MIT.
+based on AlmaLinux. RiverLB source is licensed under MIT; bundled third-party
+components retain their own licenses and notices.
 
 **RiverLB is experimental.** Features have automated regression tests, but
 production qualification is incomplete. Start with the

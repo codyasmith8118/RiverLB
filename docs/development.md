@@ -124,3 +124,10 @@ VM test overlays and private runtime state are excluded.
 Artifacts expire after 7–14 days. These workflows produce candidates; publishing
 or signing a production release is a separate operation. Existing release tags
 and published assets are unaffected by workflow changes.
+
+Security scans run on pushes, pull requests, manual dispatch and daily schedules.
+Run `python3 scripts/check-dependencies.py` and `bash scripts/check-secrets.sh`
+from the repository root with network access, plus `npm audit --prefix tests`
+after installing browser fixture dependencies. The secret scan helper requires
+Linux x86_64, curl and sha256sum. The release workflow requires these security
+checks in addition to full CI. See the [source publication gate](release-readiness.md#source-publication-gate).

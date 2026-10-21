@@ -14,7 +14,7 @@ import time
 import urllib.request
 from pathlib import Path
 from smoke import BINARY, wait_until
-from auth_helpers import bootstrap
+from auth_helpers import bootstrap, management_tls_fixture
 
 IP='/usr/sbin/ip'
 ROOT=Path(__file__).resolve().parents[1]
@@ -35,6 +35,7 @@ def run():
     try:
         with tempfile.TemporaryDirectory(prefix='riverlb-ha-') as directory:
             folder=Path(directory);authority=folder/'authority.json'
+            cert,key,tls_context=management_tls_fixture(folder,['192.0.2.10','192.0.2.20'])
             def set_authority(value):
                 temporary=authority.with_suffix('.new');temporary.write_text(value);temporary.replace(authority)
             set_authority(json.dumps(dict(quorate=False,fencing=True,owner=None)))
@@ -80,6 +81,7 @@ threading.Event().wait()
             for letter,last,device in [('a',10,'eth1'),('b',20,'eth9')]:
                 node=folder/letter;node.mkdir();control_socket=node/'ha.sock';config=node/'config.toml';settings=node/'ha.json';log=node/'log'
                 config.write_text(f'''management="192.0.2.{last}:18090"
+management_tls={{certificate="{cert}",private_key="{key}"}}
 connect_timeout_ms=500
 session_timeout_secs=60
 health_interval_secs=1
@@ -165,11 +167,11 @@ vlan="external"
             def api(letter,path,body=None,method=None,expected=200):
                 client=api_clients.get(letter)
                 if client is None:
-                    client=urllib.request.build_opener(urllib.request.ProxyHandler({}),urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+                    client=urllib.request.build_opener(urllib.request.ProxyHandler({}),urllib.request.HTTPSHandler(context=tls_context),urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
                     password='fixture-node-b-password-123'if letter=='b'else'fixture-password-only-123'
-                    client.open(urllib.request.Request(f'http://192.0.2.{nodes[letter]["last"]}:18090/api/v1/auth/login',data=json.dumps(dict(username='admin',password=password)).encode(),headers={'Content-Type':'application/json','X-RiverLB-Request':'configure'})).close()
+                    client.open(urllib.request.Request(f'https://192.0.2.{nodes[letter]["last"]}:18090/api/v1/auth/login',data=json.dumps(dict(username='admin',password=password)).encode(),headers={'Content-Type':'application/json','X-RiverLB-Request':'configure'})).close()
                     api_clients[letter]=client
-                request=urllib.request.Request(f'http://192.0.2.{nodes[letter]["last"]}:18090/api/v1/'+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers={'Content-Type':'application/json','X-RiverLB-Request':'configure'})
+                request=urllib.request.Request(f'https://192.0.2.{nodes[letter]["last"]}:18090/api/v1/'+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers={'Content-Type':'application/json','X-RiverLB-Request':'configure'})
                 try:response=client.open(request,timeout=5)
                 except urllib.error.HTTPError as error:response=error
                 with response:

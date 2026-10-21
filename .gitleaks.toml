@@ -1,0 +1,10 @@
+title = "RiverLB secret scanning"
+[extend]
+useDefault = true
+
+# Public RFC 6455 sample WebSocket nonce, used in handshake regression fixtures.
+# Match only this known sample value, never suppress an entire test file.
+[allowlist]
+description = "RFC 6455 public example nonce"
+regexTarget = "match"
+regexes = ['''dGhlIHNhbXBsZSBub25jZQ==''']

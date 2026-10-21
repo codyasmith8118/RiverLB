@@ -830,6 +830,11 @@ impl Config {
             }
             _ => {}
         }
+        if !self.management.ip().is_loopback() && !has_management_tls {
+            bail!(
+                "non-loopback management requires HTTPS; configure a management certificate or use a loopback address"
+            );
+        }
         if self.management_tls.is_some() && self.management_certificate.is_some() {
             bail!("choose a managed management certificate or PEM paths");
         }
@@ -1412,9 +1417,24 @@ mod tests {
         config.validate().unwrap();
         config.management = "0.0.0.0:9090".parse().unwrap();
         assert!(config.validate().is_err());
-        config.management = "192.168.58.144:18090".parse().unwrap();
-        config.validate().unwrap();
-        config.management = "[fd00::1]:18090".parse().unwrap();
+        for address in [
+            "192.168.58.144:18090",
+            "[fd00::1]:18090",
+            "[::ffff:192.0.2.1]:18090",
+        ] {
+            config.management = address.parse().unwrap();
+            assert!(
+                config
+                    .validate()
+                    .unwrap_err()
+                    .to_string()
+                    .contains("requires HTTPS")
+            );
+            config.management_certificate = Some("device-portal".into());
+            config.validate().unwrap();
+            config.management_certificate = None;
+        }
+        config.management = "[::1]:18090".parse().unwrap();
         config.validate().unwrap();
         for address in ["[::]:18090", "224.0.0.1:18090", "[ff02::1]:18090"] {
             config.management = address.parse().unwrap();

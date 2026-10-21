@@ -10,8 +10,11 @@ sign-in throttling is isolated by source, concurrent password checks are bounded
 and management has connection, upload admission and read deadlines. The OSV query
 for `rustls-webpki 0.103.16` returned no advisory matches on 2026-10-21. See
 [management resource limits](../SECURITY.md#management-resource-limits) for the
-limits and client-visible behavior. SEC-02 (remote HTTP configuration policy)
-and the separately listed maintenance/hardening items remain open.
+limits and client-visible behavior. The source publication follow-up also addresses SEC-02 by rejecting non-loopback
+management without TLS. rustls is updated to 0.23.46 and webpki-root-certs to
+1.0.10. Recurring dependency/history scans and pinned actions are now configured.
+The original findings below are historical; remaining architecture and appliance
+qualification work is described in the release checklist.
 
 Remediation validation: all 98 Rust tests passed, along with the security,
 authorization/MFA, backend TLS and signed-update integration suites. New coverage

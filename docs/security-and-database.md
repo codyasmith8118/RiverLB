@@ -58,7 +58,7 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 30 \
 chmod 600 ~/.local/share/riverlb/tls/key.pem
 ```
 
-On System → Settings, choose HTTP or HTTPS. For HTTPS select a certificate from the Device Certificates store, or use absolute certificate/key PEM paths. Save and apply, then follow the new portal link. Management protocol and certificate changes can reuse the same port. Self-signed certificates require client trust. Management can bind loopback or a specific network address. See [certificate management](certificates.md) for generation and external-CA signing requests.
+On System → Settings, use HTTPS for every non-loopback management address. HTTP is permitted only on loopback for local development. For HTTPS select a certificate from the Device Certificates store, or use absolute certificate/key PEM paths. Save and apply, then follow the new portal link. Management protocol and certificate changes can reuse the same port. Self-signed certificates require client trust. Management can bind loopback or a specific network address. See [certificate management](certificates.md) for generation and external-CA signing requests.
 
 For the initial TOML import:
 
@@ -86,7 +86,7 @@ TLS handshake duration is bounded by `connect_timeout_ms`, and handshake failure
 
 ## Authentication and API
 
-Passwords use salted Argon2id. Session cookies are HttpOnly, SameSite=Strict, have an eight-hour absolute lifetime, and use Secure over HTTPS. Only SHA-256 hashes of random 256-bit session tokens are stored. Login attempts are limited globally to ten per minute per process; account/security confirmation attempts share a thirty-per-minute process budget. Host/origin and mutation-header checks remain mandatory, including on login. Unauthenticated API and metrics requests receive 401; insufficient role/token scope receives 403. The portal redirects to `/login`. Login assets and `/healthz` are public within the configured management source restrictions.
+Passwords use salted Argon2id. Session cookies are HttpOnly, SameSite=Strict, have an eight-hour absolute lifetime, and use Secure over HTTPS. Only SHA-256 hashes of random 256-bit session tokens are stored. Login attempts are limited to ten per source IP per minute, with at most four concurrent password checks; account/security confirmation attempts share a thirty-per-minute process budget. Host/origin and mutation-header checks remain mandatory, including on login. Unauthenticated API and metrics requests receive 401; insufficient role/token scope receives 403. The portal redirects to `/login`. Login assets and `/healthz` are public within the configured management source restrictions.
 
 `POST /api/v1/auth/login` accepts `{username,password,code?}` and sets a session cookie. `GET /api/v1/auth/me` returns the identity, role and token scope. `POST /api/v1/auth/logout` revokes the current session. `POST /api/v1/auth/password` accepts `{current_password,new_password,code?}`. MFA-enabled accounts must provide an unused authenticator or recovery code when confirming their password. Mutations require JSON and `X-RiverLB-Request: configure`. The login body limit is 4 KiB; other JSON endpoints use Axum's 2 MiB limit. API clients may retain a signed-in cookie or use a scoped bearer token. The HTTP loopback `status --session-stdin` command reads a session token from stdin; it currently does not connect to HTTPS management.
 
@@ -140,3 +140,12 @@ RiverLB uses the Rust-native **Turso 0.8.1** embedded database engine, with SQLi
 
 Upstream references: [Rust engine and compatibility scope](https://github.com/tursodatabase/turso), [Rust API](https://docs.rs/turso/0.8.1/turso/). This integration uses local basic SQL and verifies SQLite reads; it does not claim every SQLite extension or libSQL replication feature is supported.
 
+
+### Upgrade from remote HTTP management
+
+Before upgrading an existing remote HTTP installation, use its current management
+interface over a trusted isolated network to configure a device certificate and
+switch management to HTTPS. Confirm the HTTPS URL works and retain console access
+and a backup. New versions reject remote HTTP at startup and during configuration
+validation/apply; there is no remote plaintext override. If already upgraded, use
+the local console recovery procedure in the [operations guide](operations.md).

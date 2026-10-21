@@ -37,3 +37,14 @@ def session_token():
 
 
 urllib.request.urlopen = authenticated_urlopen
+
+
+def management_tls_fixture(directory, addresses):
+    """Create a temporary management certificate and a verifying client context."""
+    import ssl
+    cert, key = directory / "management.pem", directory / "management-key.pem"
+    subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+        "-keyout", str(key), "-out", str(cert), "-days", "1", "-subj", "/CN=fixture",
+        "-addext", "subjectAltName=" + ",".join("IP:" + ip for ip in addresses)],
+        check=True, capture_output=True)
+    return cert, key, ssl.create_default_context(cafile=str(cert))

@@ -19,3 +19,28 @@ See [configuration recovery](configuration-recovery.md), [offline updates](offli
 These changes do not by themselves qualify a production image. The management daemon still runs as root for the current networking/HA integration; the restrictions are concrete limits, not a completed privilege-separated network helper. Backup scheduling requires a real mounted destination and its systemd write permission. UDP syslog is best effort. Live TCP/TLS failover replication, HA rolling software updates and OS rollback remain unsupported.
 
 A release must rebuild the RPM and ISO from the final commit and pass full CI, supported BIOS/UEFI VM boots, graphical installation and recovery, network/firewall/SELinux tests, application update interruption/rollback, and HA fencing/failover tests on the intended platforms. Capacity and extended load testing, immutable OS repository inputs, dependency/license inventory, protected signing/promotion and signing-key ownership remain release qualification work. Keep the evidence with the artifact manifest; do not label a converted image or unsigned candidate a qualified release.
+
+## Source publication gate
+
+Source publication is experimental and separate from appliance qualification.
+Before changing repository visibility:
+
+- Pass CI and the Security scans workflow on the intended publication commit.
+- Scan all reachable history for secrets; keep signing keys and private state outside Git.
+- Publish the private contact in SECURITY.md and verify ownership of that mailbox.
+- Once public, enable GitHub private vulnerability reporting in repository security settings.
+- Keep the experimental warning and prerelease label; do not claim production qualification.
+- Preserve bundled third-party licenses and source provenance. RiverLB source is MIT;
+  the appliance also redistributes GPL and other separately licensed components.
+
+Recurring OSV checks scan the complete Cargo lockfile, including other targets.
+The sole maintenance exception is RUSTSEC-2025-0134 for rustls-pemfile: plan and
+validate its migration; other advisory matches fail the check. npm audit checks
+browser fixture dependencies. Gitleaks scans reachable history with a narrow
+exception for the public RFC 6455 sample nonce. Dependabot proposes weekly Rust,
+npm and GitHub Actions updates; each update still requires review and tests.
+
+Existing remote HTTP management must be migrated to HTTPS before installing the
+new source build. Published v1.0.0 assets predate this hardening; do not assume
+that their signatures mean they contain these later changes. Rebuild, qualify
+and sign a new version before distributing these changes as appliance binaries.

@@ -83,6 +83,11 @@ members = ["127.0.0.1:{a.port}"]
                     conflict = copy.deepcopy(config)
                     conflict["virtual_servers"][0]["listen"] = f"127.0.0.1:{occupied.getsockname()[1]}"
                     api(method="PUT", body={"revision":1,"config":conflict}, expected=409)
+                for address in ("192.0.2.10:18443", "[2001:db8::10]:18443"):
+                    insecure = copy.deepcopy(config)
+                    insecure["management"] = address
+                    api("/api/v1/config/validate", method="POST", body=insecure, expected=422)
+                    api(method="PUT", body={"revision":1,"config":insecure}, expected=409)
                 assert api()["revision"] == 1 and path.read_text() == initial_file
                 transfer(proxy,b"a")
                 # An established session survives replacing the pool.

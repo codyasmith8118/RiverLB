@@ -1,4 +1,5 @@
-management = "192.168.58.144:18090"
+# Local development only. Remote management requires HTTPS; see docs/security-and-database.md.
+management = "127.0.0.1:18090"
 connect_timeout_ms = 1000
 session_timeout_secs = 300
 health_interval_secs = 2

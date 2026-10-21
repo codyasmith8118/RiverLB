@@ -13,7 +13,7 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-from auth_helpers import bootstrap
+from auth_helpers import bootstrap, management_tls_fixture
 from smoke import BINARY, free_port, wait_until
 
 
@@ -106,6 +106,7 @@ def run():
     process = None
     with tempfile.TemporaryDirectory(prefix="riverlb-ha-startup-") as directory:
         root = Path(directory)
+        cert, key, tls_context = management_tls_fixture(root, ["10.10.20.10"])
         config = root / "config.toml"
         settings = root / "ha.json"
         control_socket = root / "ha.sock"
@@ -115,6 +116,7 @@ def run():
         while proxy == management:
             proxy = free_port()
         config.write_text(f'''management = "10.10.20.10:{management}"
+management_tls = {{certificate = "{cert}", private_key = "{key}"}}
 connect_timeout_ms = 100
 session_timeout_secs = 5
 health_interval_secs = 1
@@ -193,8 +195,8 @@ metric = 500
             def ready():
                 if process.poll() is not None:
                     raise AssertionError(logfile.read_text())
-                client = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-                with client.open(f"http://10.10.20.10:{management}/healthz", timeout=1) as response:
+                client = urllib.request.build_opener(urllib.request.ProxyHandler({}), urllib.request.HTTPSHandler(context=tls_context))
+                with client.open(f"https://10.10.20.10:{management}/healthz", timeout=1) as response:
                     assert response.read() == b"ok"
                 return not with_ha or (control_socket.exists() and ha("status")["role"] == "standby")
 

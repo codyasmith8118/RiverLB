@@ -5,6 +5,13 @@ are developed against the current source tree; there is no published long-term
 support policy for older versions. Review the [release checklist](docs/release-readiness.md)
 and [deployment boundaries](docs/security-and-database.md) before deployment.
 
+## Management transport
+
+Non-loopback management requires HTTPS. Plain HTTP is accepted only on loopback
+for local development. Existing remote HTTP configurations must be migrated to
+HTTPS before upgrading; the daemon rejects them at startup and configuration apply.
+See [HTTPS setup](docs/security-and-database.md#https-management).
+
 ## Management resource limits
 
 Management admits at most 64 connections across listener reconfiguration, including
@@ -28,14 +35,14 @@ management network and source allowlist.
 
 ## Reporting a vulnerability
 
-Use GitHub's **Report a vulnerability** option in this repository's Security tab
-if private vulnerability reporting is enabled. Include the affected commit or
-version, prerequisites, impact and a minimal reproduction with synthetic data.
+Email **cody.a.smith@protonmail.com** privately with suspected vulnerabilities.
+Include the affected commit or version, prerequisites, impact and a minimal
+reproduction using synthetic data. Do not post vulnerability details in public
+issues. GitHub private reporting, when enabled, is also available at
+[Report a vulnerability](https://github.com/codyasmith8118/RiverLB/security/advisories/new).
 
-If that option is unavailable, open an issue asking the maintainer for a private
-reporting channel. Keep vulnerability details and exploit instructions out of that
-public request. Never attach real credentials, private keys, database files,
-backups or private appliance configurations.
+Never send real credentials, private keys, database files, backups or private
+appliance configurations. Request a secure exchange method for sensitive evidence.
 
 Please coordinate disclosure with the maintainer so a fix and operator recovery
 instructions can be prepared. No response time or security audit certification is
