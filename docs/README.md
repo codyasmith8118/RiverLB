@@ -43,6 +43,7 @@ Start with [your first pool and virtual server](web-configuration.md). Use the
 - [Configuration apply performance](performance.md), [UI conventions and layout review](ui-review.md).
 - [Build and release pipeline](build-and-release.md), [appliance build commands](../appliance/README.md).
 - [Appliance test plan](appliance-test-plan.md), [runnable lab tools](../tests/lab/README.md).
+- [2.0 scope and readiness plan](releases/2.0-scope.md).
 - [Release readiness](release-readiness.md), [feature coverage and remaining work](parity.md).
 - [Branding](branding.md), [latest repository review](repository-review-2026-10-14.md).
 

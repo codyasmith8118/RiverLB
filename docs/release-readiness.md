@@ -1,5 +1,8 @@
 # Release preparation
 
+For the proposed 2.0 scope, support matrix, dependency order, decisions and final
+sign-off gates, see the [2.0 scope and readiness plan](releases/2.0-scope.md).
+
 The nine requested release areas have implementation and regression coverage in the repository. This table distinguishes those changes from the appliance qualification required before a production release.
 
 | Area | Implemented behavior | Verification |
@@ -18,7 +21,7 @@ See [configuration recovery](configuration-recovery.md), [offline updates](offli
 
 These changes do not by themselves qualify a production image. The management daemon still runs as root for the current networking/HA integration; the restrictions are concrete limits, not a completed privilege-separated network helper. Backup scheduling requires a real mounted destination and its systemd write permission. UDP syslog is best effort. Live TCP/TLS failover replication, HA rolling software updates and OS rollback remain unsupported.
 
-A release must rebuild the RPM and ISO from the final commit and pass full CI, supported BIOS/UEFI VM boots, graphical installation and recovery, network/firewall/SELinux tests, application update interruption/rollback, and HA fencing/failover tests on the intended platforms. Capacity and extended load testing, immutable OS repository inputs, dependency/license inventory, protected signing/promotion and signing-key ownership remain release qualification work. Keep the evidence with the artifact manifest; do not label a converted image or unsigned candidate a qualified release.
+A release must rebuild the RPM and ISO from the final commit and pass full CI, supported BIOS/UEFI VM boots, graphical installation and recovery, network/firewall/SELinux tests, application update interruption/rollback, and HA fencing/failover tests on the intended platforms. Retained OS/build inputs and clean offline rebuild comparisons are implemented on the 2.0 development branch under #9; see [reproducible builds](reproducible-builds.md). Capacity and extended load testing, dependency/license inventory, protected signing/promotion and signing-key ownership remain release qualification work. Keep the evidence with the artifact manifest; do not label a converted image or unsigned candidate a qualified release.
 
 ## Source publication gate
 

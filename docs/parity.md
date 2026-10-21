@@ -33,7 +33,7 @@ See [the documentation index](README.md#configure-traffic) for individual featur
 | Accounts | Local roles, MFA/recovery, idle sessions, source restrictions and scoped API tokens | Remote identity providers |
 | Visibility | Persistent traffic counters/history, latency aggregates, Prometheus, system health, alerts, UDP syslog and audit search/retention | Latency histograms, packet/connection tables, SNMP and encrypted/reliable syslog |
 | Recovery | Private logical backups, encrypted downloads/schedules, staging and offline restore | OS/cluster/external-file backup automation; online restore activation |
-| Software delivery | AlmaLinux RPMs, ISO/disk recipes, graphical install, console setup and signed offline standalone updates | Immutable OS repository inputs, protected production promotion, OS rollback and full platform/upgrade qualification |
+| Software delivery | AlmaLinux RPMs, ISO/disk recipes, graphical install, console setup, retained dependency inputs with offline rebuild comparisons and signed offline standalone updates | Protected production promotion, OS rollback and full platform/upgrade qualification |
 
 ## Next implementation priorities
 
