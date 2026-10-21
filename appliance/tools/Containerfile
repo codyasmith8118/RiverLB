@@ -1,0 +1,5 @@
+FROM docker.io/library/almalinux@sha256:ba31c3299856068f77bc10574cad51b0a4f6a3dafb882668656e1639bee63db6
+RUN dnf -y install lorax pykickstart qemu-kvm-core qemu-img edk2-ovmf mtools dosfstools squashfs-tools && dnf clean all
+COPY remaster-iso.py /usr/local/bin/riverlb-mkksiso
+COPY installer-branding.py /usr/local/bin/installer-branding.py
+RUN chmod 0755 /usr/local/bin/riverlb-mkksiso

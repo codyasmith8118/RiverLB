@@ -1,0 +1,8 @@
+# AlmaLinux 10.2 image digest, captured 2026-10-07.
+FROM docker.io/library/almalinux@sha256:ba31c3299856068f77bc10574cad51b0a4f6a3dafb882668656e1639bee63db6
+RUN dnf -y install rust-1.92.0-2.el10_2.alma.1 cargo-1.92.0-2.el10_2.alma.1 \
+    iputils gcc gcc-c++ make clang-devel rpm-build python3 git tar gzip findutils \
+    && dnf clean all
+WORKDIR /build
+ENTRYPOINT ["/bin/bash", "/source/packaging/container/build.sh"]
+RUN dnf -y install dnf-plugins-core createrepo_c python3-pip && dnf clean all

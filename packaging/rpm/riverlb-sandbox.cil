@@ -1,0 +1,8 @@
+; systemd must bind-mount its inaccessible placeholder over password databases
+; when constructing RiverLB's InaccessiblePaths sandbox on AlmaLinux 10.
+; This permits the mount operation, not reading or modifying password hashes.
+(allow init_t shadow_t (file (mounton)))
+; The fixed HA preparation service makes the SELinux policy store writable
+; inside its mount namespace so semanage can register the dedicated SSH port.
+; This permits systemd's directory mount, not policy-store read or write access.
+(allow init_t semanage_store_t (dir (mounton)))

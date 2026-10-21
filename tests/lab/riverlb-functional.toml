@@ -1,0 +1,63 @@
+# Fresh, isolated lab only. Adapt adapter names using MAC addresses first.
+# Installed appliances: create equivalent objects through the GUI, not by replacing this file.
+management = "127.0.0.1:18090"
+connect_timeout_ms = 1000
+session_timeout_secs = 300
+health_interval_secs = 2
+max_connections = 4096
+
+[[health_monitors]]
+name = "lab-http"
+kind = "http"
+path = "/healthz"
+host = "lab.example.test"
+expected_status = 200
+interval_secs = 2
+timeout_ms = 1000
+rise = 2
+fall = 2
+
+[[nodes]]
+name = "node-a"
+address = "198.18.20.11:8080"
+[[nodes]]
+name = "node-b"
+address = "198.18.20.12:8080"
+[[nodes]]
+name = "node-c"
+address = "198.18.20.13:8080"
+
+[[pools]]
+name = "lab-web"
+algorithm = "round_robin"
+members = []
+node_members = ["node-a", "node-b", "node-c"]
+monitor = "lab-http"
+
+[[virtual_servers]]
+name = "lab-http"
+server_type = "http"
+listen = "198.18.10.100:8080"
+ingress_vlan = "external"
+backend_vlan = "internal"
+default_pool = "lab-web"
+source_nat = { mode = "automap" }
+http = {}
+# Persistence is intentionally omitted: disabled by default.
+
+[[network.vlans]]
+name = "external"
+interface = "eth1"
+role = "external"
+[[network.vlans]]
+name = "internal"
+interface = "eth2"
+role = "internal"
+[[network.self_ips]]
+name = "external-self"
+address = "198.18.10.1/24"
+vlan = "external"
+[[network.self_ips]]
+name = "internal-self"
+address = "198.18.20.1/24"
+vlan = "internal"

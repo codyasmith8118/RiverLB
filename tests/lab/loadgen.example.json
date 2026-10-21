@@ -1,0 +1,6 @@
+{
+  "http_url": "http://198.18.10.100:8080/",
+  "https_url": "https://198.18.10.100/",
+  "ca_certificate": "/opt/riverlb-loadgen/certs/lab-vip.pem",
+  "expected_nodes": ["node-a", "node-b", "node-c"]
+}

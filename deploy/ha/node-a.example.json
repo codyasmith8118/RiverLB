@@ -1,0 +1,19 @@
+{
+  "cluster_id": "riverlb-cluster",
+  "node_id": "riverlb-a",
+  "peer_id": "riverlb-b",
+  "socket": "/run/riverlb/ha.sock",
+  "state_file": "/var/lib/riverlb/ha-state.json",
+  "authority": "/usr/libexec/riverlb/riverlb-authority",
+  "floating_self_ips": [
+    "external-floating"
+  ],
+  "ssh_target": "root@192.168.1.8",
+  "ssh_identity": "/etc/riverlb/ha-sync-ed25519",
+  "ssh_known_hosts": "/etc/riverlb/ha-known-hosts",
+  "peer_socket": "/run/riverlb/ha.sock",
+  "peer_binary": "/usr/bin/riverlb",
+  "sync_interval_secs": 2,
+  "max_sync_age_secs": 300,
+  "automatic_sync": true
+}

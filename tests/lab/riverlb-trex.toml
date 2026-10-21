@@ -1,0 +1,42 @@
+# Separate, fresh TRex lab. Never merge with the HTTP backend example unchanged.
+management = "127.0.0.1:18090"
+connect_timeout_ms = 1000
+session_timeout_secs = 300
+health_interval_secs = 3600
+max_connections = 16384
+
+[[virtual_servers]]
+name = "lab-trex-tcp"
+server_type = "tcp"
+listen = "198.18.10.100:9000"
+ingress_vlan = "external"
+backend_vlan = "internal"
+algorithm = "round_robin"
+members = ["198.18.31.11:9000", "198.18.31.12:9000", "198.18.31.13:9000"]
+source_nat = { mode = "snat", addresses = ["198.18.30.1"] }
+# Default TCP health probes create incomplete synthetic transactions.
+# Warm up first, then measure within the 3600-second probe interval.
+# Never use this long monitoring interval in a deployment.
+
+[[network.vlans]]
+name = "external"
+interface = "eth1"
+role = "external"
+[[network.vlans]]
+name = "internal"
+interface = "eth2"
+role = "internal"
+[[network.self_ips]]
+name = "external-self"
+address = "198.18.10.1/24"
+vlan = "external"
+[[network.self_ips]]
+name = "internal-self"
+address = "198.18.30.1/24"
+vlan = "internal"
+[[network.routes]]
+name = "synthetic-backends"
+destination = "198.18.31.0/24"
+gateway = "198.18.30.250"
+vlan = "internal"
+metric = 100

@@ -1,0 +1,75 @@
+name: Application release candidate
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'web/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'deploy/**'
+      - 'scripts/build-release.sh'
+      - 'tests/build_release.py'
+      - 'scripts/build-rpm.sh'
+      - 'scripts/test-rpm.sh'
+      - 'packaging/**'
+      - 'appliance/**'
+      - 'tests/firstboot.py'
+      - 'tests/firstboot_ui.py'
+      - 'tests/updates_helper.py'
+      - 'tests/signed_updates.py'
+      - 'tests/appliance/**'
+      - 'scripts/sign-update.py'
+      - 'scripts/audit-appliance-security.py'
+      - 'scripts/build-iso.sh'
+      - 'scripts/build-image.sh'
+      - 'tests/rpm_smoke.py'
+      - '.github/workflows/release-candidate.yml'
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: sudo apt-get update && sudo apt-get install -y iputils-ping libclang-dev
+      - run: cargo test --locked
+      - name: Check release tag matches package version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          python3 - <<'PY'
+          import os, tomllib
+          version = tomllib.load(open('Cargo.toml', 'rb'))['package']['version']
+          assert os.environ['GITHUB_REF_NAME'] == 'v' + version, 'Tag must match Cargo.toml version'
+          PY
+      - run: scripts/build-release.sh
+      - run: python3 tests/build_release.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: application-candidate-${{ github.sha }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+  almalinux-rpm:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y podman
+      - name: Check release tag matches package version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          python3 - <<'PY'
+          import os, tomllib
+          assert os.environ['GITHUB_REF_NAME'] == 'v' + tomllib.load(open('Cargo.toml', 'rb'))['package']['version']
+          PY
+      - run: scripts/build-rpm.sh
+      - run: scripts/test-rpm.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: almalinux-rpm-candidate-${{ github.sha }}
+          path: dist/rpm/*
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,24 @@
+# Template, not an auto-detected NIC configuration. Dedicated generator only.
+# Two physical ports and two dummy ports separate full-proxy client/server cores.
+# Replace PCI addresses, core mapping and bandwidth with this generator's values.
+- version: 2
+  port_limit: 4
+  interfaces: ["0000:01:00.0", "dummy", "dummy", "0000:01:00.1"]
+  port_bandwidth_gb: 10
+  port_info:
+    - ip: 198.18.10.250
+      default_gw: 198.18.10.1
+    - ip: 198.18.40.1
+      default_gw: 198.18.40.2
+    - ip: 198.18.41.1
+      default_gw: 198.18.41.2
+    - ip: 198.18.30.250
+      default_gw: 198.18.30.1
+  platform:
+    master_thread_id: 0
+    latency_thread_id: 1
+    dual_if:
+      - socket: 0
+        threads: [2]
+      - socket: 0
+        threads: [3]

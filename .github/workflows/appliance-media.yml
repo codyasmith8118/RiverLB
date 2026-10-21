@@ -1,0 +1,37 @@
+name: Appliance ISO candidate
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  media:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y podman
+      - name: Check installer identity and setup navigation
+        run: |
+          python3 tests/appliance/branding.py
+          python3 tests/appliance/installed_branding.py
+          python3 tests/appliance/network_defaults.py
+          python3 tests/firstboot_ui.py
+      - run: scripts/build-rpm.sh
+      - run: scripts/test-rpm.sh
+      - run: scripts/fetch-base-iso.py
+      - name: Assemble and inspect both ISO candidates
+        run: |
+          iso=$(python3 -c 'import json; print("dist/base/" + json.load(open("appliance/base-media.json"))["filename"])')
+          checksum=$(python3 -c 'import json; print(json.load(open("appliance/base-media.json"))["sha256"])')
+          for mode in installer image; do
+            scripts/build-iso.sh "$iso" "$checksum" "$mode"
+            scripts/test-iso.sh "$mode"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appliance-iso-candidate-${{ github.sha }}
+          path: |
+            dist/iso/*
+            dist/rpm/*
+          if-no-files-found: error
+          retention-days: 7

@@ -1,0 +1,917 @@
+[
+  {
+    "name": "builtin-http-to-https",
+    "description": "Redirect plaintext HTTP to HTTPS, preserving the hostname, path and query.",
+    "category": "Redirects",
+    "usage": "Requires HTTP proxying or HTTPS termination. Assign to the plaintext HTTP listener, normally port 80, after HTTPS is available on port 443. TLS requests do not match. The request Host supplies the hostname; clone and set redirect_https.host for a fixed canonical hostname or custom HTTPS port. Place deliberate liveness exceptions before this terminal rule.",
+    "rules": [
+      {
+        "name": "redirect-plaintext-to-https",
+        "when": {
+          "tls": false
+        },
+        "actions": [
+          {
+            "kind": "redirect_https"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-x-forwarded-for",
+    "description": "Replace X-Forwarded-For with the connecting client IP.",
+    "category": "Forwarding",
+    "usage": "Requires HTTP proxying or HTTPS termination. The connecting peer may be another proxy. Replaces rather than appends to client-supplied values and changes only X-Forwarded-For. Use Proxy headers when the backend also needs verified scheme, host, listener port and X-Real-IP.",
+    "rules": [
+      {
+        "name": "replace-forwarded-client-ip",
+        "when": {},
+        "actions": [
+          {
+            "kind": "set_forwarded_for"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-proxy-headers",
+    "description": "Replace forwarded context using the real peer, TLS state, request host and listener port.",
+    "category": "Forwarding",
+    "usage": "Requires HTTP proxying or HTTPS termination. Overwrites X-Forwarded-For, X-Real-IP, X-Forwarded-Proto, X-Forwarded-Host and X-Forwarded-Port after removing incoming Forwarded and X-Forwarded-* fields. Applications must trust this listener and restrict direct access separately. Scheme reflects TLS at RiverLB rather than an unverified upstream proxy claim; forwarded host remains the client's Host, not an allowlisted identity. Place after forwarding cleanup.",
+    "rules": [
+      {
+        "name": "set-proxy-context",
+        "when": {},
+        "actions": [
+          {
+            "kind": "set_proxy_headers"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-strip-forwarding-headers",
+    "description": "Remove common client-supplied forwarding and client-IP headers.",
+    "category": "Forwarding",
+    "usage": "Requires HTTP proxying or HTTPS termination. Removes the listed headers without replacement. Use when the backend should use its immediate connection, or before Proxy headers supplies authoritative values. This preset removes common names explicitly; Proxy headers additionally removes all incoming X-Forwarded-* fields. Later request-header rules can supply new values.",
+    "rules": [
+      {
+        "name": "strip-common-forwarded-context",
+        "when": {},
+        "actions": [
+          {
+            "kind": "remove_request_header",
+            "name": "Forwarded"
+          },
+          {
+            "kind": "remove_request_header",
+            "name": "X-Forwarded-For"
+          },
+          {
+            "kind": "remove_request_header",
+            "name": "X-Forwarded-Proto"
+          },
+          {
+            "kind": "remove_request_header",
+            "name": "X-Forwarded-Host"
+          },
+          {
+            "kind": "remove_request_header",
+            "name": "X-Forwarded-Port"
+          },
+          {
+            "kind": "remove_request_header",
+            "name": "X-Forwarded-Prefix"
+          },
+          {
+            "kind": "remove_request_header",
+            "name": "X-Real-IP"
+          },
+          {
+            "kind": "remove_request_header",
+            "name": "Client-IP"
+          },
+          {
+            "kind": "remove_request_header",
+            "name": "True-Client-IP"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-forwarded-proto-http",
+    "description": "Set X-Forwarded-Proto to http for plaintext client connections.",
+    "category": "Forwarding",
+    "usage": "Requires HTTP proxying or HTTPS termination. Only plaintext client requests match; TLS requests and other forwarded fields remain unchanged. Choose this when the backend needs only the scheme, or Proxy headers for complete context.",
+    "rules": [
+      {
+        "name": "forward-plaintext-scheme",
+        "when": {
+          "tls": false
+        },
+        "actions": [
+          {
+            "kind": "set_request_header",
+            "name": "X-Forwarded-Proto",
+            "value": "http"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-forwarded-proto-https",
+    "description": "Set X-Forwarded-Proto to https for client connections terminated with TLS.",
+    "category": "Forwarding",
+    "usage": "Requires HTTP proxying or HTTPS termination. Only actual TLS client requests match. Backend-side TLS alone does not make the client scheme HTTPS. Choose Proxy headers when other forwarding fields also need replacement.",
+    "rules": [
+      {
+        "name": "forward-tls-scheme",
+        "when": {
+          "tls": true
+        },
+        "actions": [
+          {
+            "kind": "set_request_header",
+            "name": "X-Forwarded-Proto",
+            "value": "https"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-content-type-nosniff",
+    "description": "Tell browsers to use the response's declared content type.",
+    "category": "Browser policies",
+    "usage": "Requires HTTP proxying or HTTPS termination. Sets X-Content-Type-Options: nosniff. Verify that scripts and styles have correct MIME types. This does not inspect response content or provide a WAF.",
+    "rules": [
+      {
+        "name": "disable-content-type-sniffing",
+        "when": {},
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "X-Content-Type-Options",
+            "value": "nosniff"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-frame-deny",
+    "description": "Prevent browser framing, including same-origin frames.",
+    "category": "Browser policies",
+    "usage": "Requires HTTP proxying or HTTPS termination. Sets X-Frame-Options: DENY. Use on applications that must never be framed. Choose this or Frame same-origin; later conflicting header edits win. Application CSP frame-ancestors can take precedence.",
+    "rules": [
+      {
+        "name": "deny-framing",
+        "when": {},
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "X-Frame-Options",
+            "value": "DENY"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-frame-sameorigin",
+    "description": "Permit browser framing only from the same origin.",
+    "category": "Browser policies",
+    "usage": "Requires HTTP proxying or HTTPS termination. Sets X-Frame-Options: SAMEORIGIN. Cross-origin portals and embedded applications may stop working. Choose this or Frame deny. Browser framing policy does not authenticate clients; application CSP may govern framing separately.",
+    "rules": [
+      {
+        "name": "allow-same-origin-framing",
+        "when": {},
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "X-Frame-Options",
+            "value": "SAMEORIGIN"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-referrer-no-referrer",
+    "description": "Ask browsers not to send referrer information when navigating away.",
+    "category": "Browser policies",
+    "usage": "Requires HTTP proxying or HTTPS termination. Sets Referrer-Policy: no-referrer. Useful when URLs contain sensitive context, but analytics and applications using Referer may behave differently. Choose one referrer policy. It does not remove the Referer already received on the current request.",
+    "rules": [
+      {
+        "name": "suppress-outgoing-referrer",
+        "when": {},
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Referrer-Policy",
+            "value": "no-referrer"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-referrer-strict-origin",
+    "description": "Limit cross-origin referrers while retaining same-origin URL context.",
+    "category": "Browser policies",
+    "usage": "Requires HTTP proxying or HTTPS termination. Sets Referrer-Policy: strict-origin-when-cross-origin. Browsers send only the origin across origins and omit referrers on HTTPS-to-HTTP downgrades. Choose one referrer policy and verify application and analytics compatibility.",
+    "rules": [
+      {
+        "name": "limit-cross-origin-referrer",
+        "when": {},
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-hsts-one-day",
+    "description": "Advertise HTTPS-only access for one day on TLS responses.",
+    "category": "Browser policies",
+    "usage": "Requires HTTP proxying or HTTPS termination. TLS requests only: sets Strict-Transport-Security: max-age=86400, without includeSubDomains or preload. Enable only after trusted HTTPS works for the hostname. Browsers can retain the policy after unassignment and upgrade HTTP visits for the remaining day. IP literals and untrusted certificates do not establish normal browser HSTS policy. Clone to tune or deliberately clear an established policy using max-age=0.",
+    "rules": [
+      {
+        "name": "advertise-one-day-hsts",
+        "when": {
+          "tls": true
+        },
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Strict-Transport-Security",
+            "value": "max-age=86400"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-cache-no-store",
+    "description": "Ask private and shared caches not to store these responses.",
+    "category": "Caching",
+    "usage": "Requires HTTP proxying or HTTPS termination. Sets Cache-Control: private, no-store. Useful for sensitive or changing applications; caching benefits are lost. This is not encryption or authorization. Choose one Cache-Control preset; later edits replace earlier values. Cookie persistence may retain its stricter private, no-store policy.",
+    "rules": [
+      {
+        "name": "prevent-response-storage",
+        "when": {},
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "private, no-store"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-cache-revalidate",
+    "description": "Permit private browser caching with revalidation before reuse.",
+    "category": "Caching",
+    "usage": "Requires HTTP proxying or HTTPS termination. Sets Cache-Control: private, no-cache. Private caches may store the response and must validate before reuse; shared caches must not store it. This replaces the application's Cache-Control, so do not assign where no-store is required. Choose No store when storage is unwanted. Application ETag/Last-Modified can improve revalidation. Do not combine conflicting Cache-Control presets.",
+    "rules": [
+      {
+        "name": "require-response-revalidation",
+        "when": {},
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "private, no-cache"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-api-no-store",
+    "description": "Disable cache storage for the /api namespace.",
+    "category": "Caching",
+    "usage": "Requires HTTP proxying or HTTPS termination. Matches exact /api and the literal /api/ prefix; /apiculture does not match. Sets Cache-Control: private, no-store. Clone the paths for another namespace. Conditions inspect the parsed path without decoding escapes or inspecting authorization/body content.",
+    "rules": [
+      {
+        "name": "api-root-no-store",
+        "when": {
+          "path": "/api"
+        },
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "private, no-store"
+          }
+        ]
+      },
+      {
+        "name": "api-descendants-no-store",
+        "when": {
+          "path_prefix": "/api/"
+        },
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "private, no-store"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-strip-server-identity",
+    "description": "Remove common backend software-identification response headers.",
+    "category": "Browser policies",
+    "usage": "Requires HTTP proxying or HTTPS termination. Removes Server, X-Powered-By, X-AspNet-Version and X-AspNetMvc-Version. Bodies, cookies and other fields may still reveal identity; vulnerabilities remain unaffected. A later response-header rule can add a removed field again.",
+    "rules": [
+      {
+        "name": "remove-common-server-signatures",
+        "when": {},
+        "actions": [
+          {
+            "kind": "remove_response_header",
+            "name": "Server"
+          },
+          {
+            "kind": "remove_response_header",
+            "name": "X-Powered-By"
+          },
+          {
+            "kind": "remove_response_header",
+            "name": "X-AspNet-Version"
+          },
+          {
+            "kind": "remove_response_header",
+            "name": "X-AspNetMvc-Version"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-disable-cors",
+    "description": "Remove backend CORS permission headers from these responses.",
+    "category": "Browser policies",
+    "usage": "Requires HTTP proxying or HTTPS termination. Opt in only when the listener must not grant cross-origin browser read access. Removes the listed Access-Control-* permission fields. Requests still reach the server; this does not implement CSRF protection or authentication. Cross-origin applications and preflights may stop working. No wildcard or reflected origin is granted.",
+    "rules": [
+      {
+        "name": "remove-cors-permissions",
+        "when": {},
+        "actions": [
+          {
+            "kind": "remove_response_header",
+            "name": "Access-Control-Allow-Origin"
+          },
+          {
+            "kind": "remove_response_header",
+            "name": "Access-Control-Allow-Credentials"
+          },
+          {
+            "kind": "remove_response_header",
+            "name": "Access-Control-Allow-Methods"
+          },
+          {
+            "kind": "remove_response_header",
+            "name": "Access-Control-Allow-Headers"
+          },
+          {
+            "kind": "remove_response_header",
+            "name": "Access-Control-Expose-Headers"
+          },
+          {
+            "kind": "remove_response_header",
+            "name": "Access-Control-Max-Age"
+          },
+          {
+            "kind": "remove_response_header",
+            "name": "Access-Control-Allow-Private-Network"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-block-trace",
+    "description": "Return Forbidden for the TRACE method.",
+    "category": "Request controls",
+    "usage": "Requires HTTP proxying or HTTPS termination. Only method TRACE matches, case-sensitively. Returns local 403 without contacting a member; other methods continue. This is a method routing policy. CONNECT and unsupported upgrades have independent protocol validation.",
+    "rules": [
+      {
+        "name": "forbid-trace",
+        "when": {
+          "method": "TRACE"
+        },
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "no-store"
+          },
+          {
+            "kind": "respond",
+            "status": 403,
+            "body": "Forbidden\n"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-block-rest-writes",
+    "description": "Return Forbidden for PUT, PATCH and DELETE requests.",
+    "category": "Request controls",
+    "usage": "Requires HTTP proxying or HTTPS termination. Use when these three methods must not reach the application. POST and other methods remain allowed, so this is not a read-only or authorization policy. Rejections return local 403. Clone to adjust individual methods.",
+    "rules": [
+      {
+        "name": "forbid-put",
+        "when": {
+          "method": "PUT"
+        },
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "no-store"
+          },
+          {
+            "kind": "respond",
+            "status": 403,
+            "body": "Forbidden\n"
+          }
+        ]
+      },
+      {
+        "name": "forbid-patch",
+        "when": {
+          "method": "PATCH"
+        },
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "no-store"
+          },
+          {
+            "kind": "respond",
+            "status": 403,
+            "body": "Forbidden\n"
+          }
+        ]
+      },
+      {
+        "name": "forbid-delete",
+        "when": {
+          "method": "DELETE"
+        },
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "no-store"
+          },
+          {
+            "kind": "respond",
+            "status": 403,
+            "body": "Forbidden\n"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-maintenance",
+    "description": "Serve a local maintenance response without a backend connection.",
+    "category": "Maintenance",
+    "usage": "Requires HTTP proxying or HTTPS termination. Returns text 503 with Retry-After: 60 and Cache-Control: no-store. Assign after deliberate exceptions such as Listener liveness, and unassign to resume application traffic. This terminal rule prevents later assignments from running. Existing TCP/WebSocket tunnels are not stopped.",
+    "rules": [
+      {
+        "name": "serve-maintenance",
+        "when": {},
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "no-store"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Retry-After",
+            "value": "60"
+          },
+          {
+            "kind": "respond",
+            "status": 503,
+            "body": "Service temporarily unavailable. Please try again later.\n"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-api-maintenance",
+    "description": "Serve maintenance responses only for the /api namespace.",
+    "category": "Maintenance",
+    "usage": "Requires HTTP proxying or HTTPS termination. Matches exact /api and literal /api/ descendants; other paths continue normally. Returns local text 503 with Retry-After: 60 and no-store. Clone the path or body for your API contract. Place backend-independent exceptions before this terminal rule.",
+    "rules": [
+      {
+        "name": "api-root-maintenance",
+        "when": {
+          "path": "/api"
+        },
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "no-store"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Retry-After",
+            "value": "60"
+          },
+          {
+            "kind": "respond",
+            "status": 503,
+            "body": "API temporarily unavailable. Please try again later.\n"
+          }
+        ]
+      },
+      {
+        "name": "api-descendants-maintenance",
+        "when": {
+          "path_prefix": "/api/"
+        },
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "no-store"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Retry-After",
+            "value": "60"
+          },
+          {
+            "kind": "respond",
+            "status": 503,
+            "body": "API temporarily unavailable. Please try again later.\n"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-listener-liveness",
+    "description": "Answer GET /__riverlb/live locally without testing pool members.",
+    "category": "Diagnostics",
+    "usage": "Requires HTTP proxying or HTTPS termination. Reserves exact GET /__riverlb/live and returns text 200 with no-store. It proves only that this HTTP listener processes requests, not application readiness, member health or HA authority. Domain-routing hostname checks still apply. Place before maintenance or redirects if that deliberate exception is needed; clone for another path.",
+    "rules": [
+      {
+        "name": "serve-listener-liveness",
+        "when": {
+          "path": "/__riverlb/live",
+          "method": "GET"
+        },
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "no-store"
+          },
+          {
+            "kind": "respond",
+            "status": 200,
+            "body": "RiverLB HTTP listener is accepting requests.\n"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-robots-disallow",
+    "description": "Serve robots.txt asking compliant crawlers not to crawl the site.",
+    "category": "Browser policies",
+    "usage": "Requires HTTP proxying or HTTPS termination. Reserves exact GET /robots.txt and returns User-agent: * with Disallow: /. Replaces any application robots response. Crawlers can ignore it; private content still needs authorization. It does not reliably remove already indexed pages. Place before terminal maintenance/redirect rules only if desired.",
+    "rules": [
+      {
+        "name": "serve-no-crawl-robots",
+        "when": {
+          "path": "/robots.txt",
+          "method": "GET"
+        },
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "no-store"
+          },
+          {
+            "kind": "respond",
+            "status": 200,
+            "body": "User-agent: *\nDisallow: /\n"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-robots-noindex",
+    "description": "Ask compliant search engines not to index these responses.",
+    "category": "Browser policies",
+    "usage": "Requires HTTP proxying or HTTPS termination. Sets X-Robots-Tag: noindex, nofollow. Useful for staging or internal applications that still authenticate separately. Crawlers may ignore it. A robots.txt crawl ban can prevent crawlers from seeing noindex, so do not assume combining both removes existing search results.",
+    "rules": [
+      {
+        "name": "discourage-indexing",
+        "when": {},
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "X-Robots-Tag",
+            "value": "noindex, nofollow"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-deny-root-git",
+    "description": "Return Not found for the literal root /.git path and descendants.",
+    "category": "Path controls",
+    "usage": "Requires HTTP proxying or HTTPS termination. Matches exact /.git and /.git/ descendants, returning local 404 with no-store. Nested repositories, encoded paths, normalization differences and other source-control files are not covered. Prevent sensitive-file exposure in the application too; this is not a WAF.",
+    "rules": [
+      {
+        "name": "hide-root-git-directory",
+        "when": {
+          "path": "/.git"
+        },
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "no-store"
+          },
+          {
+            "kind": "respond",
+            "status": 404,
+            "body": "Not found\n"
+          }
+        ]
+      },
+      {
+        "name": "hide-root-git-descendants",
+        "when": {
+          "path_prefix": "/.git/"
+        },
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "no-store"
+          },
+          {
+            "kind": "respond",
+            "status": 404,
+            "body": "Not found\n"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-deny-root-env",
+    "description": "Return Not found for the exact root /.env path.",
+    "category": "Path controls",
+    "usage": "Requires HTTP proxying or HTTPS termination. Matches exact parsed path /.env, excluding its query. Does not match /.env.production, nested files or encoded variants. Prevent configuration/secret exposure at the backend independently. Clone explicit conditions for other known literal paths.",
+    "rules": [
+      {
+        "name": "hide-exact-root-env",
+        "when": {
+          "path": "/.env"
+        },
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "no-store"
+          },
+          {
+            "kind": "respond",
+            "status": 404,
+            "body": "Not found\n"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-deny-admin-path",
+    "description": "Return Forbidden for the literal /admin path and descendants.",
+    "category": "Path controls",
+    "usage": "Requires HTTP proxying or HTTPS termination. Use on a public listener where /admin and /admin/ must not route to the application. Returns local 403 with no-store; /administrator does not match. This does not authenticate administrators or cover encoded/alternate paths. Keep application authorization and expose management separately.",
+    "rules": [
+      {
+        "name": "forbid-admin-root",
+        "when": {
+          "path": "/admin"
+        },
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "no-store"
+          },
+          {
+            "kind": "respond",
+            "status": 403,
+            "body": "Forbidden\n"
+          }
+        ]
+      },
+      {
+        "name": "forbid-admin-descendants",
+        "when": {
+          "path_prefix": "/admin/"
+        },
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "Content-Type",
+            "value": "text/plain; charset=utf-8"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Cache-Control",
+            "value": "no-store"
+          },
+          {
+            "kind": "respond",
+            "status": 403,
+            "body": "Forbidden\n"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-disable-backend-compression",
+    "description": "Ask the backend to return identity-encoded content.",
+    "category": "Diagnostics",
+    "usage": "Requires HTTP proxying or HTTPS termination. Replaces Accept-Encoding with identity. Useful for compression/compatibility diagnosis; bandwidth may rise. The backend controls actual encoding. This does not remove Content-Encoding or transform compressed bytes.",
+    "rules": [
+      {
+        "name": "request-uncompressed-backend-content",
+        "when": {},
+        "actions": [
+          {
+            "kind": "set_request_header",
+            "name": "Accept-Encoding",
+            "value": "identity"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-remove-request-referer",
+    "description": "Remove incoming Referer before forwarding requests to the backend.",
+    "category": "Forwarding",
+    "usage": "Requires HTTP proxying or HTTPS termination. Removes every incoming Referer field to avoid forwarding that URL context to the application. Analytics, navigation and applications that validate Referer may behave differently; verify compatibility. This does not remove URLs from logs or configure the browser's outgoing referrer policy. Application authorization and CSRF protections remain necessary.",
+    "rules": [
+      {
+        "name": "remove-incoming-referrer-context",
+        "when": {},
+        "actions": [
+          {
+            "kind": "remove_request_header",
+            "name": "Referer"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "builtin-web-header-baseline",
+    "description": "Combine MIME, referrer, same-origin frame and server-header policies.",
+    "category": "Browser policies",
+    "usage": "Requires HTTP proxying or HTTPS termination. Opt-in bundle: nosniff, strict-origin-when-cross-origin, SAMEORIGIN and common software-header removal. Verify MIME types and same-origin embedding requirements first. Adds no CSP, HSTS or CORS permission. Avoid conflicting individual presets; later header edits win.",
+    "rules": [
+      {
+        "name": "apply-web-header-baseline",
+        "when": {},
+        "actions": [
+          {
+            "kind": "set_response_header",
+            "name": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "kind": "set_response_header",
+            "name": "X-Frame-Options",
+            "value": "SAMEORIGIN"
+          },
+          {
+            "kind": "remove_response_header",
+            "name": "Server"
+          },
+          {
+            "kind": "remove_response_header",
+            "name": "X-Powered-By"
+          },
+          {
+            "kind": "remove_response_header",
+            "name": "X-AspNet-Version"
+          },
+          {
+            "kind": "remove_response_header",
+            "name": "X-AspNetMvc-Version"
+          }
+        ]
+      }
+    ]
+  }
+]

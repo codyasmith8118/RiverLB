@@ -1,0 +1,25 @@
+[Unit]
+Description=RiverLB administrator-requested HA preparation
+After=network-online.target firewalld.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/riverlb/riverlb-ha-deploy
+ExecStopPost=/usr/bin/rm -f /run/riverlb-ha-deploy/request.json
+TimeoutStartSec=180
+User=root
+UMask=0077
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+# semanage records the dedicated SSH port and reloads the enforced policy.
+# pcsd creates and owns its state directory when prepare starts the service.
+# Allow the first preparation job to run before that directory exists.
+ReadWritePaths=/etc -/var/lib/pcsd /var/lib/selinux -/sys/fs/selinux /run/riverlb-ha-deploy
+NoNewPrivileges=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+StandardOutput=null
+StandardError=journal

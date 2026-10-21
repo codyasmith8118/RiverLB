@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""Set appliance presentation without changing distribution/package identity."""
+from pathlib import Path
+import re
+import subprocess
+
+
+def brand(root, version, stage):
+    root = Path(root)
+    if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version):
+        raise ValueError('Expected a numeric RiverLB application version')
+    if stage not in ('In development', 'Pre-production', 'Production'):
+        raise ValueError('Invalid RiverLB release stage')
+    label = f'RiverLB {version} · {stage}'
+    # Leave ID, ID_LIKE, VERSION_ID and support/repository metadata intact.
+    # Replace the /etc symlink with an override; preserve vendor /usr/lib data.
+    release = root / 'etc/os-release'
+    source = root / 'usr/lib/os-release' if release.is_symlink() else release
+    text = source.read_text()
+    for key, value in (('NAME', 'RiverLB'), ('PRETTY_NAME', label)):
+        text = re.sub(rf'^{key}=.*\n?', '', text, flags=re.MULTILINE)
+        text += f'{key}="{value}"\n'
+    if release.is_symlink():
+        release.unlink()
+    release.write_text(text)
+    release.chmod(0o644)
+    banner = (f'{label}\nManagement: HTTPS on port 18090 at the address selected during initial setup.\n'
+              'Local recovery: sign in as root with your console recovery password.\n\n')
+    for name in ('issue', 'issue.net'):
+        (root / 'etc' / name).write_text(banner)
+    grub = root / 'etc/default/grub'
+    if grub.exists():
+        text = re.sub(r'^GRUB_DISTRIBUTOR=.*\n?', '', grub.read_text(), flags=re.MULTILINE)
+        grub.write_text(text + 'GRUB_DISTRIBUTOR="RiverLB"\n')
+    # Already-created BLS entries predate the presentation override. Retain
+    # their kernel versions, identifiers and boot arguments for recovery.
+    for entry in (root / 'boot/loader/entries').glob('*.conf'):
+        text = entry.read_text()
+        kernel = re.search(r'^version (.+)$', text, re.MULTILINE)
+        title = label + (f' ({kernel.group(1)})' if kernel else '')
+        entry.write_text(re.sub(r'^title .*$', 'title ' + title, text, flags=re.MULTILINE))
+
+
+if __name__ == '__main__':
+    version = subprocess.check_output(['rpm', '-q', '--qf', '%{VERSION}', 'riverlb'], text=True).strip()
+    stage = Path('/usr/share/riverlb/release-stage').read_text().strip()
+    brand('/', version, stage)

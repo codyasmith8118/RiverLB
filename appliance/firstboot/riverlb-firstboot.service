@@ -1,0 +1,21 @@
+[Unit]
+Description=RiverLB console initial setup
+After=network-online.target firewalld.service systemd-vconsole-setup.service plymouth-quit-wait.service
+Wants=network-online.target firewalld.service
+Before=getty@tty1.service
+ConditionPathExists=!/var/lib/riverlb/.firstboot.complete
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/riverlb-setup
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TimeoutStartSec=infinity
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

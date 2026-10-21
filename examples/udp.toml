@@ -1,0 +1,29 @@
+# Local UDP text-protocol lab. Backends must reply "pong" to "ping".
+management = "127.0.0.1:18090"
+connect_timeout_ms = 1000
+session_timeout_secs = 300
+health_interval_secs = 2
+max_connections = 4096
+
+[[health_monitors]]
+name = "udp-ready"
+kind = "udp"
+send = "ping"
+receive = "pong"
+interval_secs = 2
+timeout_ms = 1000
+rise = 2
+fall = 2
+
+[[pools]]
+name = "udp-services"
+algorithm = "round_robin"
+members = ["127.0.0.1:9001", "127.0.0.1:9002"]
+monitor = "udp-ready"
+
+[[virtual_servers]]
+name = "udp-service"
+server_type = "udp"
+listen = "127.0.0.1:5353"
+default_pool = "udp-services"
+udp_idle_timeout_secs = 30

@@ -1,0 +1,17 @@
+[Unit]
+Description=RiverLB signed offline application update
+After=network-online.target
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/libexec/riverlb/riverlb-update activate
+TimeoutStartSec=900
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/usr/lib/riverlb /var/lib/riverlb /var/lib/riverlb-updater
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes

@@ -1,0 +1,6 @@
+#!/bin/sh
+# Both paths are maintained by root. The baseline updater remains available for recovery.
+if [ -e /usr/lib/riverlb/current ] || [ -L /usr/lib/riverlb/current ]; then
+    exec /usr/lib/riverlb/current/riverlb "$@"
+fi
+exec /usr/lib/riverlb/base/riverlb "$@"

@@ -1,0 +1,277 @@
+#!/usr/bin/python3
+"""Fence allowlisted Hyper-V VM GUIDs through a pinned, forced-command SSH key."""
+import argparse
+import base64
+import csv
+import ipaddress
+import json
+import os
+from pathlib import Path
+import re
+import selectors
+import stat
+import subprocess
+import sys
+import tempfile
+import time
+import uuid
+import xml.etree.ElementTree as ET
+
+SECRET_ROOT = Path('/etc/riverlb')
+SSH = '/usr/bin/ssh'
+REMOTE_COMMAND = 'riverlb-fence-v1'
+MAX_RESPONSE = 65536
+PARAMETERS = {
+    'ipaddr': ('Hyper-V host address', 'string', None, True),
+    'ipport': ('SSH port', 'integer', '22', False),
+    'login': ('Dedicated Windows fencing user', 'string', None, True),
+    'identity_file': ('Appliance SSH identity file', 'string', '/etc/riverlb/ha-sync-ed25519', False),
+    'ssh_host_key': ('Verified Windows SSH host public key', 'string', None, False),
+    'known_hosts': ('Existing pinned host file (alternative to host public key)', 'string', None, False),
+    'plug': ('Hyper-V VM GUID', 'string', None, False),
+    'power_timeout': ('Power state confirmation timeout in seconds', 'integer', '60', False),
+    'action': ('Fencing operation', 'string', 'reboot', False),
+}
+
+
+def metadata():
+    root = ET.Element('resource-agent', name='fence_riverlb_hyperv')
+    ET.SubElement(root, 'shortdesc', lang='en').text = 'RiverLB restricted Hyper-V fencing'
+    ET.SubElement(root, 'longdesc', lang='en').text = (
+        'Controls only allowlisted VM GUIDs through the RiverLB Windows receiver. '
+        'Requires key authentication, verified pinned host keys and a forced SSH command. '
+        'Off uses Stop-VM -TurnOff and verifies the Off state; unknown states never count as off. '
+        'For a single fixed Hyper-V host; live migration and Windows failover clusters need separate qualification.')
+    ET.SubElement(root, 'vendor-url').text = 'https://learn.microsoft.com/en-us/powershell/module/hyper-v/stop-vm'
+    parameters = ET.SubElement(root, 'parameters')
+    for name, (title, kind, default, required) in PARAMETERS.items():
+        parameter = ET.SubElement(parameters, 'parameter', name=name, unique='0', required='1' if required else '0')
+        ET.SubElement(parameter, 'shortdesc', lang='en').text = title
+        ET.SubElement(parameter, 'longdesc', lang='en').text = title
+        content = {'type': kind}
+        if default is not None:
+            content['default'] = default
+        ET.SubElement(parameter, 'content', content)
+    actions = ET.SubElement(root, 'actions')
+    for action in ('on', 'off', 'reboot', 'status', 'list', 'list-status', 'monitor', 'validate-all', 'metadata'):
+        ET.SubElement(actions, 'action', name=action, timeout='180' if action == 'reboot' else '90')
+    return '<?xml version="1.0"?>\n' + ET.tostring(root, encoding='unicode')
+
+
+def private_file(value):
+    path = Path(value)
+    if not path.is_absolute() or '..' in path.parts or path.resolve() != path:
+        raise ValueError('Fencing key files must use absolute paths without symlinks')
+    if not path.is_relative_to(SECRET_ROOT):
+        raise ValueError('Fencing key files must be under /etc/riverlb')
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+        raise ValueError('Fencing key files must be root-owned regular files with mode 0600 or stricter')
+    for parent in path.parents:
+        info = parent.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            raise ValueError('Fencing key directories must be root-owned and not writable by other users')
+    return str(path)
+
+
+def integer(value, minimum, maximum, label):
+    if not re.fullmatch(r'[0-9]{1,5}', value):
+        raise ValueError('Invalid ' + label)
+    result = int(value)
+    if not minimum <= result <= maximum:
+        raise ValueError('Invalid ' + label)
+    return result
+
+
+def configuration(parameters):
+    values = {key: default for key, (_, _, default, _) in PARAMETERS.items() if default is not None}
+    values.update(parameters)
+    address = values.get('ipaddr', '')
+    try:
+        ipaddress.ip_address(address)
+    except ValueError:
+        if len(address) > 253 or not re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?', address):
+            raise ValueError('Invalid Hyper-V host address') from None
+    if not re.fullmatch(r'[a-z_][a-z0-9_.-]{0,63}', values.get('login', '')):
+        raise ValueError('Use a dedicated local Windows fencing username')
+    values['ipport'] = integer(values['ipport'], 1, 65535, 'SSH port')
+    values['power_timeout'] = integer(values['power_timeout'], 5, 120, 'power timeout')
+    values['identity_file'] = private_file(values.get('identity_file', ''))
+    if bool(values.get('ssh_host_key')) == bool(values.get('known_hosts')):
+        raise ValueError('Provide one verified SSH host public key or an existing pinned host file')
+    if values.get('known_hosts'):
+        values['known_hosts'] = private_file(values['known_hosts'])
+    else:
+        values['ssh_host_key'] = host_public_key(values['ssh_host_key'])
+    if values.get('plug'):
+        try:
+            target = str(uuid.UUID(values['plug']))
+        except (ValueError, AttributeError):
+            raise ValueError('The target must be a Hyper-V VM GUID') from None
+        if target != values['plug'].lower():
+            raise ValueError('The target must use the full hyphenated Hyper-V VM GUID')
+        values['plug'] = target
+    return values
+
+
+def host_public_key(value):
+    match = re.fullmatch(r'ssh-ed25519 ([A-Za-z0-9+/]+={0,2})(?: [^\r\n]*)?', value)
+    if not match:
+        raise ValueError('Provide a plain Ed25519 SSH host public key')
+    try:
+        blob = base64.b64decode(match[1], validate=True)
+    except ValueError:
+        raise ValueError('Invalid SSH host public key') from None
+    if len(blob) != 51 or blob[:19] != b'\0\0\0\x0bssh-ed25519\0\0\0\x20':
+        raise ValueError('Invalid SSH host public key')
+    return 'ssh-ed25519 ' + base64.b64encode(blob).decode()
+
+
+def transport(values, action, target=None):
+    if values.get('ssh_host_key'):
+        with tempfile.TemporaryDirectory(prefix='riverlb-hyperv-host-') as temporary:
+            hostfile = Path(temporary, 'known_hosts')
+            address = values['ipaddr'] if values['ipport'] == 22 else '[' + values['ipaddr'] + ']:' + str(values['ipport'])
+            descriptor = os.open(hostfile, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(descriptor, 'w') as stream:
+                stream.write(address + ' ' + host_public_key(values['ssh_host_key']) + '\n')
+            return ssh_request({**values, 'known_hosts': str(hostfile)}, action, target)
+    return ssh_request(values, action, target)
+
+
+def ssh_request(values, action, target=None):
+    request = {'version': 1, 'action': action, 'timeout': values['power_timeout']}
+    if target is not None:
+        request['vm_id'] = target
+    command = [SSH, '-F', '/dev/null', '-T', '-o', 'BatchMode=yes',
+               '-o', 'StrictHostKeyChecking=yes', '-o', 'GlobalKnownHostsFile=/dev/null',
+               '-o', 'UserKnownHostsFile=' + values['known_hosts'],
+               '-o', 'HostKeyAlgorithms=ssh-ed25519', '-o', 'UpdateHostKeys=no',
+               '-o', 'IdentitiesOnly=yes', '-o', 'IdentityAgent=none',
+               '-o', 'CertificateFile=none', '-o', 'ClearAllForwardings=yes',
+               '-o', 'ConnectTimeout=10', '-o', 'ConnectionAttempts=1',
+               '-o', 'ServerAliveInterval=5', '-o', 'ServerAliveCountMax=2',
+               '-p', str(values['ipport']), '-i', values['identity_file'],
+               '-l', values['login'], values['ipaddr'], REMOTE_COMMAND]
+    deadline = time.monotonic() + values['power_timeout'] + 20
+    with subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) as process:
+        try:
+            process.stdin.write((json.dumps(request, separators=(',', ':')) + '\n').encode())
+            process.stdin.close()
+            response = bytearray()
+            with selectors.DefaultSelector() as selector:
+                selector.register(process.stdout, selectors.EVENT_READ)
+                while True:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise ValueError('Hyper-V fencing connection or power confirmation timed out')
+                    if not selector.select(remaining):
+                        continue
+                    data = os.read(process.stdout.fileno(), 8192)
+                    if not data:
+                        break
+                    response.extend(data)
+                    if len(response) > MAX_RESPONSE:
+                        raise ValueError('Hyper-V fencing response exceeded its limit')
+            returncode = process.wait(timeout=max(0.01, deadline - time.monotonic()))
+            if returncode:
+                raise ValueError('Hyper-V fencing SSH receiver failed; check host trust, keys and permissions')
+        except BaseException:
+            process.kill()
+            process.wait()
+            raise
+    try:
+        result = json.loads(response)
+    except (ValueError, UnicodeError):
+        raise ValueError('Hyper-V fencing receiver returned an invalid response') from None
+    if not isinstance(result, dict) or result.get('version') != 1 or result.get('ok') is not True:
+        raise ValueError('Hyper-V fencing receiver did not confirm success')
+    return result
+
+
+def confirmed_state(values, action, target):
+    result = transport(values, action, target)
+    reported = result.get('vm_id')
+    if not isinstance(reported, str) or reported.lower() != target or result.get('state') not in ('on', 'off'):
+        raise ValueError('Hyper-V fencing receiver did not confirm the selected VM state')
+    return result['state']
+
+
+def execute(parameters):
+    action = parameters.get('action', 'reboot')
+    if action in ('metadata', 'meta-data'):
+        print(metadata())
+        return 0
+    if action not in ('on', 'off', 'reboot', 'status', 'list', 'list-status', 'monitor', 'validate-all'):
+        raise ValueError('Unsupported fencing operation')
+    values = configuration(parameters)
+    if action == 'validate-all':
+        return 0
+    if action in ('list', 'list-status', 'monitor'):
+        machines = transport(values, 'list').get('machines')
+        if not isinstance(machines, list) or not 1 <= len(machines) <= 64:
+            raise ValueError('Hyper-V fencing receiver returned no valid allowed VM list')
+        output = []
+        for machine in machines:
+            if not isinstance(machine, dict):
+                raise ValueError('Hyper-V fencing receiver returned an invalid VM')
+            if not isinstance(machine.get('vm_id'), str):
+                raise ValueError('Hyper-V fencing receiver returned an invalid VM GUID')
+            target = str(uuid.UUID(machine['vm_id']))
+            state = machine.get('state')
+            if state not in ('on', 'off') or not isinstance(machine.get('name'), str):
+                raise ValueError('Hyper-V fencing receiver returned an invalid VM state')
+            name = re.sub(r'[\r\n,\x00-\x1f\x7f]', ' ', machine['name'])[:256]
+            output.append([target, name] + ([state] if action == 'list-status' else []))
+        if action != 'monitor':
+            csv.writer(sys.stdout, lineterminator='\n').writerows(output)
+        return 0
+    target = values.get('plug')
+    if not target:
+        raise ValueError('Select the Hyper-V VM GUID before a power or status operation')
+    if action == 'status':
+        state = confirmed_state(values, 'status', target)
+        print('Status: ' + state.upper())
+        return 0 if state == 'on' else 2
+    state = confirmed_state(values, 'off' if action == 'reboot' else action, target)
+    if state != ('off' if action in ('off', 'reboot') else 'on'):
+        raise ValueError('Hyper-V did not reach the requested power state')
+    if action == 'reboot' and confirmed_state(values, 'on', target) != 'on':
+        raise ValueError('Hyper-V VM remained off after fencing')
+    return 0
+
+
+def arguments(argv, stream):
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name in PARAMETERS:
+        flags = {'ipaddr': ['-a', '--ip', '--ipaddr'], 'login': ['-l', '--username', '--login'],
+                 'plug': ['-n', '--plug'], 'action': ['-o', '--action']}.get(name, ['--' + name.replace('_', '-')])
+        parser.add_argument(*flags, dest=name)
+    parser.add_argument('--metadata', dest='action', action='store_const', const='metadata')
+    if argv:
+        return {key: value for key, value in vars(parser.parse_args(argv)).items() if value is not None}
+    data = stream.read(16385)
+    if len(data) > 16384:
+        raise ValueError('Fencing input exceeded its limit')
+    result = {}
+    seen = set()
+    for line in data.splitlines():
+        if not line.strip():
+            continue
+        name, separator, value = line.partition('=')
+        # Pacemaker always supplies nodename for target-specific operations.
+        # It is context only: the mapped plug GUID remains the sole VM target.
+        if not separator or (name not in PARAMETERS and name != 'nodename' and not name.startswith('pcmk_')) or name in seen:
+            raise ValueError('Invalid or duplicate fencing parameter')
+        seen.add(name)
+        if name in PARAMETERS:
+            result[name] = value
+    return result
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(execute(arguments(sys.argv[1:], sys.stdin)))
+    except (ValueError, OSError, subprocess.SubprocessError):
+        print('Hyper-V fencing failed: validate settings, pinned SSH trust, receiver permissions and the selected VM.', file=sys.stderr)
+        sys.exit(1)
