@@ -138,9 +138,16 @@ class Qualification(unittest.TestCase):
         m.bounded_command([sys.executable, '-c', leader], self.root / 'orphan.log', dict(os.environ), 5)
         self.assertLess(time.monotonic() - start, 5)
         status = Path('/proc') / pidfile.read_text() / 'status'
-        if status.exists():
-            state = next(line for line in status.read_text().splitlines() if line.startswith('State:'))
-            self.assertIn('Z', state)  # Exited, awaiting the host's orphan reaper.
+        deadline = time.monotonic() + 2
+        while True:
+            try:
+                state = next(line.split()[1] for line in status.read_text().splitlines() if line.startswith('State:'))
+            except FileNotFoundError:
+                break
+            if state in ('Z', 'X'):  # Exited; the host may still be reaping it.
+                break
+            self.assertLess(time.monotonic(), deadline, 'descendant remained alive')
+            time.sleep(0.01)
 
     def test_real_term_interrupt_has_private_evidence(self):
         ready = self.root / 'ready'
