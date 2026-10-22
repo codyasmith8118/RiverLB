@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import shlex
 import socket
 import subprocess
 import sys
@@ -182,7 +183,7 @@ class Qualification(unittest.TestCase):
             def chord(self, *_keys): pass
             def close(self): pass
             def type(self, command):
-                processes.append(subprocess.Popen(['bash', '-c', command]))
+                processes.append(subprocess.Popen(['bash', '-c', command.replace('/dev/ttyS0', shlex.quote(str(serial))).replace(' > ', ' >> ')]))
         def command(script, marker):
             return original_command(script, marker, serial)
         try:
@@ -190,13 +191,52 @@ class Qualification(unittest.TestCase):
                 output = fixture.shell(serial, "import time;time.sleep(3.2);print('late-completion')")
             self.assertIn('late-completion', output)
             self.assertNotIn('RIVERLB_PROBE_DONE_', output)
-            self.assertEqual(processes[0].wait(timeout=5), 0)
+            self.assertTrue(all(process.wait(timeout=5) == 0 for process in processes))
+            self.assertGreaterEqual(len(processes), 2)
             with self.assertRaises(ValueError):
                 original_command('print(1)', 'invalid-marker')
         finally:
             for process in processes:
                 if process.poll() is None:
                     process.kill(); process.wait()
+
+    def test_unready_console_never_receives_probe_payload(self):
+        import installer as fixture
+        serial = self.root / 'unready.serial'
+        typed = []
+        class Console:
+            def __init__(self, _port): pass
+            def chord(self, *_keys): pass
+            def close(self): pass
+            def type(self, command): typed.append(command)
+        with patch.object(fixture, 'Console', Console):
+            with self.assertRaisesRegex(fixture.InstallerFailure, 'shell-not-ready'):
+                fixture.shell(serial, 'sensitive-probe-payload', ready_seconds=0.1)
+        self.assertTrue(typed)
+        self.assertTrue(all(command.startswith('printf riverlb_shell_ready_') for command in typed))
+
+    def test_probe_transport_payload_uses_lowercase_hex_and_guest_deadline(self):
+        import installer as fixture
+        import zlib
+        command = fixture.probe_command(fixture.GUI_PROBE, 'RIVERLB_PROBE_DONE_' + 'a'*16)
+        self.assertIn('signal.alarm(30)', command)
+        payload = zlib.compress(fixture.GUI_PROBE.encode()).hex()
+        self.assertIn(payload, command)
+        self.assertEqual(payload, payload.lower())
+        self.assertLess(len(command), 4096)  # Linux canonical console input limit.
+
+    def test_hung_probe_returns_completion_after_guest_deadline(self):
+        import installer as fixture
+        serial = self.root / 'hung-probe.serial'
+        marker = 'RIVERLB_PROBE_DONE_' + 'b'*16
+        script = "import time;print('RIVERLB_GUI_STAGE=accessibility-query',flush=True);time.sleep(120)"
+        command = fixture.probe_command(script, marker, serial)
+        started = time.monotonic()
+        subprocess.run(['bash', '-c', command], check=True, timeout=35)
+        self.assertLess(time.monotonic() - started, 35)
+        output = serial.read_text()
+        self.assertIn('RIVERLB_GUI_STAGE=accessibility-query', output)
+        self.assertIn(marker, output)
 
     def test_installer_diagnostics_allow_only_known_codes(self):
         path = self.root / 'failure.json'

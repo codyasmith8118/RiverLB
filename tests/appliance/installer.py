@@ -1,5 +1,4 @@
 """Qualify interactive media on blank disposable disks; never begin installation."""
-import base64
 import json
 import os
 from pathlib import Path
@@ -42,20 +41,41 @@ def checkpoint(name):
 def probe_command(script, marker, serial_device='/dev/ttyS0'):
     if not re.fullmatch(r'RIVERLB_PROBE_DONE_[a-f0-9]{16}', marker):
         raise ValueError('Invalid probe marker')
-    encoded = base64.b64encode(zlib.compress(script.encode())).decode()
-    code = "import base64,zlib;exec(zlib.decompress(base64.b64decode('" + encoded + "')))"
+    # Lowercase hex follows the passing boot fixture: avoid sustained shifted
+    # key sequences through firmware/installer keyboard state.
+    encoded = zlib.compress(script.encode()).hex()
+    code = "import signal,zlib;signal.alarm(30);exec(zlib.decompress(bytes.fromhex('" + encoded + "')))"
     sink = shlex.quote(str(serial_device))
     return 'python3 -c ' + shlex.quote(code) + ' > ' + sink + " 2>&1; printf '\\n" + marker + "\\n' >> " + sink + '\n'
 
 
-def shell(serial, script, return_tty=1):
+def shell(serial, script, return_tty=1, ready_seconds=180):
     """Wait for completion; never discard a slow probe's late serial response."""
     before = serial.stat().st_size if serial.exists() else 0
     marker = 'RIVERLB_PROBE_DONE_' + secrets.token_hex(8)
     console = Console(5920)
     try:
-        console.chord('ctrl', 'alt', 'f2')
-        time.sleep(1)
+        # Verify a responsive shell before typing a long script. A fixed boot
+        # delay alone cannot establish that the installer has started TTY2.
+        ready = 'riverlb_shell_ready_' + secrets.token_hex(8)
+        end = time.monotonic() + ready_seconds
+        while True:
+            # Starting the graphical session can switch away from TTY2.
+            console.chord('ctrl', 'alt', 'f2')
+            time.sleep(1)
+            console.type('printf ' + ready + ' > /dev/ttyS0\n')
+            deadline = min(end, time.monotonic() + 5)
+            data = ''
+            while time.monotonic() < deadline:
+                data = serial.read_bytes()[before:].decode('utf-8', errors='replace') if serial.exists() else ''
+                if ready in data:
+                    break
+                time.sleep(0.2)
+            if ready in data:
+                break
+            if time.monotonic() >= end:
+                raise InstallerFailure('shell-not-ready')
+        before = serial.stat().st_size
         console.type(probe_command(script, marker))
         end = time.monotonic() + 45
         while time.monotonic() < end:
@@ -93,6 +113,9 @@ def wait_gui(serial, seconds=180):
     reason = 'gui-probe-no-result'
     while time.monotonic() < end:
         output = shell(serial, GUI_PROBE, return_tty=6)
+        stages = re.findall(r'RIVERLB_GUI_STAGE=([a-z-]+)', output)
+        if stages and stages[-1] in ('environment', 'accessibility-import', 'accessibility-query', 'product'):
+            reason = 'gui-timeout-' + stages[-1]
         failure = re.search(r'RIVERLB_GUI_FAILURE=([a-z-]+)', output)
         if failure and failure.group(1) in GUI_REASONS:
             reason = failure.group(1)

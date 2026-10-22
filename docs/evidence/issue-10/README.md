@@ -1,6 +1,6 @@
 # Issue #10 qualification evidence
 
-Source under test: `cc3acee8fe0c4d6fbe65a8a271dbf4ed4cfc76a3` on `release-2.0`.
+Initial negative-run source: `cc3acee8fe0c4d6fbe65a8a271dbf4ed4cfc76a3` on `release-2.0`.
 Implementation: [PR #76](https://github.com/codyasmith8118/RiverLB/pull/76).
 
 The [negative run](https://github.com/codyasmith8118/RiverLB/actions/runs/39700106027)
@@ -55,3 +55,22 @@ transport compresses the typed script and waits for an explicit completion marke
 instead of assuming the result is available three seconds after submission.
 Component regressions use synthetic process metadata, a real local Unix socket
 and a delayed local shell response; they are not guest qualification evidence.
+
+## Probe completion timeout on both firmware types
+
+Run [39811444098](https://github.com/codyasmith8118/RiverLB/actions/runs/39811444098)
+tested `5d75c95d93d5242d0e9b911b07f845228136199a`. Both firmware jobs
+passed the eight stages preceding the installer suite, all eleven boot assertions,
+and cleanup. The checksum-verified sanitized reports identify the same failure:
+`graphical` / `graphical-summary` / `probe-timeout`.
+
+- [BIOS failure report](full-39811444098/bios/report.json)
+- [UEFI failure report](full-39811444098/uefi/report.json)
+
+The completion marker did not arrive. This does not distinguish an unresponsive
+console from a hung guest probe; private guest state was removed by cleanup.
+The fixture now verifies a short shell-readiness response before transmitting the
+probe, uses compressed lowercase hex like the passing boot fixture, and bounds
+guest execution with Python's default 30-second termination alarm. Fixed probe-stage markers distinguish
+which operation was active if execution hangs. These changes require a fresh
+approved guest run; the host component regressions do not qualify the installer.
