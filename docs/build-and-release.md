@@ -71,11 +71,12 @@ application archives/RPM/ISO candidates are separate from signed update bundles.
 | [CI](../.github/workflows/ci.yml) | Formatting, lint, Rust/socket/DOM regressions, documentation checks and isolated networking/HA fixtures |
 | [Application release candidate](../.github/workflows/release-candidate.yml) | Unsigned application archives and AlmaLinux RPM install tests; tags must match the package version |
 | [Appliance ISO candidate](../.github/workflows/appliance-media.yml) | Pinned media fetch, package tests, both ISO variants and structural verification |
-| [Appliance disk candidate](../.github/workflows/appliance-image.yml) | Dedicated KVM runner, BIOS/UEFI installation and disposable guest tests |
+| [Isolated KVM appliance qualification](../.github/workflows/appliance-image.yml) | Fresh hosted VMs, protected BIOS/UEFI disk boot and interactive installer suites; sanitized JSON evidence only |
 
 Candidate workflows upload artifacts; they do not publish a production release.
-The KVM runner needs trusted-ref restrictions, isolation and a configured
-`appliance-build` environment. Untrusted pull-request code must not receive signing
+KVM qualification accepts only `release-2.0` and requires the protected
+`appliance-build` environment. Follow the [qualification runbook](isolated-qualification.md)
+for approval, resource limits, evidence retention and recovery. Untrusted pull-request code must not receive signing
 keys, deployment access or privileged appliance-builder access.
 
 ## Application update pipeline
