@@ -14,12 +14,12 @@ The public safety-policy workflow runs ordinary unit tests for PRs, never guests
 
 The `appliance-build` GitHub environment must require reviewer `codyasmith8118`,
 disable administrator bypass and allow only the exact `release-2.0` branch.
-The checked-in [environment configuration](../packaging/qualification/environment.json)
+The checked-in [environment configuration](../.github/qualification-environment.json)
 is applied with repository administration permissions:
 
 ```sh
 gh api --method PUT repos/codyasmith8118/RiverLB/environments/appliance-build \
-  --input packaging/qualification/environment.json
+  --input .github/qualification-environment.json
 gh api --method POST repos/codyasmith8118/RiverLB/environments/appliance-build/deployment-branch-policies \
   -f name=release-2.0 -f type=branch
 ```
