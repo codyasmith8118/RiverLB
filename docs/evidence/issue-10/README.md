@@ -113,3 +113,35 @@ the known secondary CD device directly, and reports a separate static failure
 code for each media step. It keeps read-only mounting and existing assertions.
 A fresh protected guest run must verify this change; host regressions are not
 installer qualification evidence.
+
+## Executed shell replies expose distinct installer failures
+
+Run [39844963597](https://github.com/codyasmith8118/RiverLB/actions/runs/39844963597)
+tested `bb16fb94d97fd50ea0620327748ffee2d826a2ab`. Both firmware jobs passed
+the eight stages preceding installer qualification, all eleven boot assertions,
+and cleanup. Checksum-verified reports preserve source, inputs and artifact hashes:
+
+- [BIOS failure report](full-39844963597/bios/report.json)
+- [UEFI failure report](full-39844963597/uefi/report.json)
+
+BIOS reached the `select` case and failed at `storage-selection` with
+`shell-not-ready`, after completing the graphical case. UEFI failed at
+`graphical` / `graphical-summary` with `probe-command-timeout`: shell readiness
+was established but a subsequent command did not return its status. This code
+does not identify which command timed out. These partial results do not establish
+full installer qualification. Issue #10 remains In Progress.
+
+A bounded local software-emulation diagnostic using the pinned tools and an
+existing development installer ISO reproduced a text-boot sequencing problem:
+the original separate input submissions left the guest at GRUB. Allowing initrd
+loading to finish, or submitting `linux; initrd; boot` as one command list, entered
+the kernel. The revised command list reached the installer shell, mounted the
+read-only fixture CD and executed its probe. That local text case later failed
+`text-screen-not-ready`; it is diagnostic evidence, not source-matched KVM
+qualification. No private local guest files are retained here.
+
+The fixture now submits one GRUB command list, reselects the shell VT before each
+command (Anaconda graphical startup explicitly activates VT6), and emits distinct
+ready/mountpoint/device/mount/content/script/execution timeout codes. The UEFI
+report above does not prove a focus switch caused its timeout. Fresh protected
+BIOS/UEFI qualification is still required.

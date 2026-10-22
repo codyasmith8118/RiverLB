@@ -80,6 +80,10 @@ def probe_command(script, marker, serial_device='/dev/ttyS0', media_root=None):
 
 
 def shell_status(console, serial, command, seconds=20):
+    # Anaconda's graphical startup can activate VT6 after the first shell reply.
+    # Reacquire the shell for every command instead of retaining a focus assumption.
+    console.chord('ctrl', 'alt', 'f2')
+    time.sleep(0.2)
     before = serial.stat().st_size if serial.exists() else 0
     marker = 'riverlb_status_' + secrets.token_hex(8)
     console.type(status_command(command, marker))
@@ -96,7 +100,7 @@ def shell_status(console, serial, command, seconds=20):
 def ensure_probe_media(console, serial, seconds=20):
     root = shlex.quote(str(PROBE_ROOT))
     ready = 'test -r ' + shlex.quote(str(PROBE_ROOT / 'ready'))
-    if shell_status(console, serial, ready, seconds)[0] == 0:
+    if probe_status(console, serial, ready, 'probe-ready', seconds)[0] == 0:
         return
     # QEMU attaches the candidate at IDE index 2 and this read-only CD at 3.
     # Use its known device directly; do not depend on installer udev label links.
@@ -105,8 +109,17 @@ def ensure_probe_media(console, serial, seconds=20):
              ('mount -r -t iso9660 /dev/sr1 ' + root, 'probe-mount-failed'),
              (ready, 'probe-content-missing')]
     for command, reason in steps:
-        if shell_status(console, serial, command, seconds)[0] != 0:
+        if probe_status(console, serial, command, reason.removesuffix('-failed').removesuffix('-missing'), seconds)[0] != 0:
             raise InstallerFailure(reason)
+
+
+def probe_status(console, serial, command, operation, seconds):
+    try:
+        return shell_status(console, serial, command, seconds)
+    except InstallerFailure as error:
+        if str(error) != 'probe-command-timeout':
+            raise
+        raise InstallerFailure(operation + '-timeout') from None
 
 
 def shell(serial, script, return_tty=1, ready_seconds=180, media_seconds=20):
@@ -130,9 +143,9 @@ def shell(serial, script, return_tty=1, ready_seconds=180, media_seconds=20):
         ensure_probe_media(console, serial, media_seconds)
         program = probe_program(script)
         path = program.removeprefix('python3 ')
-        if shell_status(console, serial, 'test -r ' + path, media_seconds)[0] != 0:
+        if probe_status(console, serial, 'test -r ' + path, 'probe-script', media_seconds)[0] != 0:
             raise InstallerFailure('probe-content-missing')
-        status, output = shell_status(console, serial, program, 45)
+        status, output = probe_status(console, serial, program, 'probe-execution', 45)
         if status == 127:
             raise InstallerFailure('probe-interpreter-missing')
         return output
@@ -191,8 +204,10 @@ def boot_text(console):
     assert match, report.stdout + report.stderr
     label = match.group(1)
     console.key('c')
-    console.type(f'linux /images/pxeboot/vmlinuz inst.stage2=hd:LABEL={label} inst.ks=hd:LABEL={label}:/installer.ks inst.text\n')
-    console.type('initrd /images/pxeboot/initrd.img\nboot\n')
+    # Submit one GRUB command list. Loading the initrd can stop GRUB from
+    # receiving keys; typing "boot" during that load can leave us at its prompt.
+    console.type(f'linux /images/pxeboot/vmlinuz inst.stage2=hd:LABEL={label} inst.ks=hd:LABEL={label}:/installer.ks inst.text; '
+                 'initrd /images/pxeboot/initrd.img; boot\n')
 
 
 def case(name):

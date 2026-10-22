@@ -192,7 +192,10 @@ def installer_failure(path, firmware):
         'gui-timeout-environment', 'gui-timeout-accessibility-import',
         'gui-timeout-accessibility-query', 'gui-timeout-product', 'probe-media-not-ready',
         'probe-command-timeout', 'probe-mountpoint-failed', 'probe-cdrom-missing',
-        'probe-mount-failed', 'probe-content-missing', 'probe-interpreter-missing'}
+        'probe-mount-failed', 'probe-content-missing', 'probe-interpreter-missing',
+        'probe-ready-timeout', 'probe-mountpoint-timeout', 'probe-cdrom-timeout',
+        'probe-mount-timeout', 'probe-content-timeout', 'probe-script-timeout',
+        'probe-execution-timeout'}
     if (set(data) != {'schema', 'firmware', 'case', 'checkpoint', 'reason'}
             or data['schema'] != 1 or data['firmware'] != firmware
             or not isinstance(data['case'], str) or data['case'] not in cases

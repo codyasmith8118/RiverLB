@@ -124,8 +124,11 @@ separate short command and exit-status reply for each step. All fixture media an
 guest data are removed during owned cleanup.
 
 Guest probe execution has a 30-second Python termination alarm and the host waits
-for its reply. Public failure codes distinguish shell readiness, command-response
-timeouts, missing CD devices, mountpoint/mount failures, missing probe content and
+for its reply. Every command reselects the shell VT because graphical startup
+can change the active VT after an earlier readiness response. Text-mode boot
+submits the kernel, initrd and boot commands as a single GRUB command list so
+input is not sent while GRUB loads the initrd. Public failure codes distinguish
+shell readiness, operation-specific command-response timeouts, missing CD devices, mountpoint/mount failures, missing probe content and
 an unavailable interpreter. Known GUI operation codes distinguish environment,
 accessibility import/query and product lookup. Raw command output, console text
 and accessibility names remain private and are removed during cleanup.
