@@ -120,6 +120,34 @@ class Qualification(unittest.TestCase):
         with self.assertRaises(m.Rejected):
             m.fixture_report(path,'bios',m.BOOT_TESTS)
 
+    def test_later_failure_preserves_validated_identity_and_boot_evidence(self):
+        # Controller regression only: synthetic files are not guest qualification.
+        m.fresh_workspace(self.root, self.env)
+        lock = json.loads((ROOT / 'packaging/build-inputs.lock.json').read_text())
+        for folder in ('packaging', 'appliance', 'dist/rpm', 'dist/iso', 'dist/image', 'dist/test-vm'):
+            (self.root / folder).mkdir(parents=True, exist_ok=True)
+        (self.root / 'packaging/build-inputs.lock.json').write_text(json.dumps(lock))
+        (self.root / 'appliance/base-media.json').write_text((ROOT / 'appliance/base-media.json').read_text())
+        (self.root / 'dist/rpm/build-manifest.json').write_text(json.dumps(dict(commit=self.env['GITHUB_SHA'], dirty=False, build_inputs=lock)))
+        for name in ('riverlb-image.iso', 'riverlb-installer.iso'):
+            (self.root / 'dist/iso' / name).write_bytes(b'synthetic media')
+        for name in ('riverlb.qcow2', 'riverlb.raw'):
+            (self.root / 'dist/image' / name).write_bytes(b'synthetic disk')
+        (self.root / 'dist/test-vm/report.json').write_text(json.dumps(dict(status='passed',firmware='bios',tests=sorted(m.BOOT_TESTS))))
+        report = dict(status='ready',source=self.env['GITHUB_SHA'],firmware='bios',stages={})
+        def execute(args, *_):
+            if args[-1] == 'scripts/test-installer.sh':
+                raise m.Rejected('command-failed')
+        with patch.object(m, 'bounded_command', side_effect=execute):
+            with self.assertRaisesRegex(m.Rejected, 'command-failed'):
+                m.qualify(self.root, self.env, report)
+        saved = json.loads((self.root / 'dist' / m.EVIDENCE / 'report.json').read_text())
+        self.assertEqual(saved['stage'], 'installer-suite')
+        self.assertEqual(set(saved['artifacts']), {'riverlb-image.iso','riverlb-installer.iso','riverlb.qcow2','riverlb.raw'})
+        self.assertEqual(saved['boot']['tests'], sorted(m.BOOT_TESTS))
+        self.assertNotIn('installer-suite', saved['stages'])
+        self.assertNotEqual(saved['status'], 'passed')
+
     def test_timeout_kills_owned_process_group_and_bounds_logs(self):
         log = self.root / 'private.log'
         start = time.monotonic()

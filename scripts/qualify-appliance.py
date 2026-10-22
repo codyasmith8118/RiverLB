@@ -236,14 +236,21 @@ def qualify(root, env, report):
             save_report(root, report)
             print('Qualification stage: ' + name, flush=True)
             bounded_command(args, Path(private) / (name + '.log'), child_env, timeout)
+            if name in ('image-media', 'installer-media'):
+                mode = 'image' if name == 'image-media' else 'installer'
+                artifact = f'riverlb-{mode}.iso'
+                report.setdefault('artifacts', {})[artifact] = sha256(root / 'dist/iso' / artifact)
+            elif name == 'disk-build':
+                image = 'image-uefi' if firmware == 'uefi' else 'image'
+                report.setdefault('artifacts', {}).update({artifact: sha256(root / 'dist' / image / artifact)
+                    for artifact in ('riverlb.qcow2', 'riverlb.raw')})
+            elif name == 'boot-suite':
+                boot = 'test-vm-uefi' if firmware == 'uefi' else 'test-vm'
+                report['boot'] = fixture_report(root / 'dist' / boot / 'report.json', firmware, BOOT_TESTS)
+            elif name == 'installer-suite':
+                report['installer'] = fixture_report(root / 'dist/test-installer-vm/report.json', firmware, INSTALLER_TESTS)
             report['stages'][name] = 'passed'
-    report['stage'] = 'report-validation'
-    boot = 'test-vm-uefi' if firmware == 'uefi' else 'test-vm'
-    report['boot'] = fixture_report(root / 'dist' / boot / 'report.json', firmware, BOOT_TESTS)
-    report['installer'] = fixture_report(root / 'dist/test-installer-vm/report.json', firmware, INSTALLER_TESTS)
-    image = 'image-uefi' if firmware == 'uefi' else 'image'
-    report['artifacts'] = {name: sha256(root / 'dist' / image / name) for name in ('riverlb.qcow2', 'riverlb.raw')}
-    report['artifacts'].update({f'riverlb-{mode}.iso': sha256(root / f'dist/iso/riverlb-{mode}.iso') for mode in ('image', 'installer')})
+            save_report(root, report)
     report.update(status='passed', stage='complete')
 
 
