@@ -44,9 +44,9 @@ def probe_command(script, marker, serial_device='/dev/ttyS0'):
     # Lowercase hex follows the passing boot fixture: avoid sustained shifted
     # key sequences through firmware/installer keyboard state.
     encoded = zlib.compress(script.encode()).hex()
-    code = "import zlib;exec(zlib.decompress(bytes.fromhex('" + encoded + "')))"
+    code = "import signal,zlib;signal.alarm(30);exec(zlib.decompress(bytes.fromhex('" + encoded + "')))"
     sink = shlex.quote(str(serial_device))
-    return 'timeout -k 5 30 python3 -c ' + shlex.quote(code) + ' > ' + sink + " 2>&1; printf '\\n" + marker + "\\n' >> " + sink + '\n'
+    return 'python3 -c ' + shlex.quote(code) + ' > ' + sink + " 2>&1; printf '\\n" + marker + "\\n' >> " + sink + '\n'
 
 
 def shell(serial, script, return_tty=1, ready_seconds=180):

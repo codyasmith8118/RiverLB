@@ -71,6 +71,6 @@ The completion marker did not arrive. This does not distinguish an unresponsive
 console from a hung guest probe; private guest state was removed by cleanup.
 The fixture now verifies a short shell-readiness response before transmitting the
 probe, uses compressed lowercase hex like the passing boot fixture, and bounds
-guest execution with a 30-second timeout. Fixed probe-stage markers distinguish
+guest execution with Python's default 30-second termination alarm. Fixed probe-stage markers distinguish
 which operation was active if execution hangs. These changes require a fresh
 approved guest run; the host component regressions do not qualify the installer.

@@ -219,7 +219,7 @@ class Qualification(unittest.TestCase):
         import installer as fixture
         import zlib
         command = fixture.probe_command(fixture.GUI_PROBE, 'RIVERLB_PROBE_DONE_' + 'a'*16)
-        self.assertTrue(command.startswith('timeout -k 5 30 python3 -c '))
+        self.assertIn('signal.alarm(30)', command)
         payload = zlib.compress(fixture.GUI_PROBE.encode()).hex()
         self.assertIn(payload, command)
         self.assertEqual(payload, payload.lower())

@@ -117,7 +117,7 @@ actual hosted run URLs separately; never label mocked/unit results as KVM eviden
 
 The installer console probe first requires a nonce shell-readiness response.
 Its compressed payload uses lowercase hex to reduce shifted-key traffic; guest
-execution has a 30-second deadline and the host waits for completion. Public
+execution has a 30-second Python termination alarm and the host waits for completion. Public
 failure codes distinguish an unavailable shell (`shell-not-ready`), a missing
 completion response (`probe-timeout`), and a timeout at a fixed probe operation
 (`gui-timeout-environment`, `gui-timeout-accessibility-import`,
