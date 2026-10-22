@@ -74,3 +74,22 @@ probe, uses compressed lowercase hex like the passing boot fixture, and bounds
 guest execution with Python's default 30-second termination alarm. Fixed probe-stage markers distinguish
 which operation was active if execution hangs. These changes require a fresh
 approved guest run; the host component regressions do not qualify the installer.
+
+## Responsive shell, but long probe exchange still times out
+
+Run [39819651615](https://github.com/codyasmith8118/RiverLB/actions/runs/39819651615)
+tested `c218b1642b61fbf5ff09a75f9dfcfab1f53df757`. Both firmware reports again
+record eight preceding stages passed, eleven boot assertions passed, successful
+cleanup, and `graphical` / `graphical-summary` / `probe-timeout`.
+
+- [BIOS failure report](full-39819651615/bios/report.json)
+- [UEFI failure report](full-39819651615/uefi/report.json)
+
+This failure occurs after the short shell-readiness response succeeded. The
+longer probe exchange still did not return its completion marker; the reports do
+not establish whether that command was received intact. The fixture now delivers
+public probe scripts on a separate read-only test CD and types only a short file
+invocation. It verifies fixture-media readiness, keeps the guest execution deadline,
+and uses lowercase nonce completion markers. The candidate installer ISO remains
+unchanged by this test transport. A fresh approved real-guest run must verify it;
+local shell/media checks do not establish installer qualification.
