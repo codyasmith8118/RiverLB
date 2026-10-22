@@ -1,11 +1,11 @@
 """Qualify interactive media on blank disposable disks; never begin installation."""
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import secrets
 import shlex
-import zlib
 import shutil
 import subprocess
 import sys
@@ -38,24 +38,51 @@ def checkpoint(name):
     CHECKPOINT = name
 
 
-def probe_command(script, marker, serial_device='/dev/ttyS0'):
-    if not re.fullmatch(r'RIVERLB_PROBE_DONE_[a-f0-9]{16}', marker):
+PROBE_ROOT = Path('/run/riverlb-probe')
+PROBE_LABEL = 'riverlb_probe'
+TEXT_PROBE = "import pathlib; print(pathlib.Path('/dev/vcs1').read_bytes().decode('ascii', errors='replace'))"
+
+
+def write_probe(script, folder):
+    path = folder / (hashlib.sha256(script.encode()).hexdigest() + '.py')
+    path.write_text('import signal; signal.alarm(30)\n' + script)
+    return path
+
+
+def prepare_probe_media():
+    # Public fixture source only; never remaster the candidate or attach host disks.
+    source = OUTPUT / 'probe-source'
+    source.mkdir(mode=0o700)
+    for script in (GUI_PROBE, TEXT_PROBE):
+        write_probe(script, source)
+    (source / 'ready').write_text('RiverLB disposable test fixture\n')
+    command('xorriso', '-as', 'mkisofs', '-quiet', '-R', '-V', PROBE_LABEL,
+            '-o', str(OUTPUT / 'probe.iso'), str(source))
+
+
+def probe_command(script, marker, serial_device='/dev/ttyS0', media_root=None):
+    if not re.fullmatch(r'riverlb_probe_done_[a-f0-9]{16}', marker):
         raise ValueError('Invalid probe marker')
-    # Lowercase hex follows the passing boot fixture: avoid sustained shifted
-    # key sequences through firmware/installer keyboard state.
-    encoded = zlib.compress(script.encode()).hex()
-    code = "import signal,zlib;signal.alarm(30);exec(zlib.decompress(bytes.fromhex('" + encoded + "')))"
+    path = (PROBE_ROOT if media_root is None else media_root) / (hashlib.sha256(script.encode()).hexdigest() + '.py')
     sink = shlex.quote(str(serial_device))
-    return 'python3 -c ' + shlex.quote(code) + ' > ' + sink + " 2>&1; printf '\\n" + marker + "\\n' >> " + sink + '\n'
+    # No script payload or nested Python quoting crosses the keyboard channel.
+    return 'python3 ' + shlex.quote(str(path)) + ' > ' + sink + ' 2>&1; echo ' + marker + ' >> ' + sink + '\n'
 
 
-def shell(serial, script, return_tty=1, ready_seconds=180):
+def mount_probe_command(marker):
+    root = shlex.quote(str(PROBE_ROOT))
+    ready = shlex.quote(str(PROBE_ROOT / 'ready'))
+    return ('mkdir -p ' + root + '; test -r ' + ready + ' || mount -o ro /dev/disk/by-label/'
+            + PROBE_LABEL + ' ' + root + '; test -r ' + ready + ' && echo ' + marker + ' > /dev/ttyS0\n')
+
+
+def shell(serial, script, return_tty=1, ready_seconds=180, media_seconds=20):
     """Wait for completion; never discard a slow probe's late serial response."""
     before = serial.stat().st_size if serial.exists() else 0
-    marker = 'RIVERLB_PROBE_DONE_' + secrets.token_hex(8)
+    marker = 'riverlb_probe_done_' + secrets.token_hex(8)
     console = Console(5920)
     try:
-        # Verify a responsive shell before typing a long script. A fixed boot
+        # Verify a responsive shell before issuing probe commands. A fixed boot
         # delay alone cannot establish that the installer has started TTY2.
         ready = 'riverlb_shell_ready_' + secrets.token_hex(8)
         end = time.monotonic() + ready_seconds
@@ -75,6 +102,16 @@ def shell(serial, script, return_tty=1, ready_seconds=180):
                 break
             if time.monotonic() >= end:
                 raise InstallerFailure('shell-not-ready')
+        media_ready = 'riverlb_media_ready_' + secrets.token_hex(8)
+        console.type(mount_probe_command(media_ready))
+        end = time.monotonic() + media_seconds
+        while time.monotonic() < end:
+            data = serial.read_bytes()[before:].decode('utf-8', errors='replace')
+            if media_ready in data:
+                break
+            time.sleep(0.2)
+        else:
+            raise InstallerFailure('probe-media-not-ready')
         before = serial.stat().st_size
         console.type(probe_command(script, marker))
         end = time.monotonic() + 45
@@ -92,7 +129,7 @@ def shell(serial, script, return_tty=1, ready_seconds=180):
 
 
 def console_text(serial):
-    return shell(serial, "import pathlib; print(pathlib.Path('/dev/vcs1').read_bytes().decode('ascii', errors='replace'))")
+    return shell(serial, TEXT_PROBE)
 
 
 def wait_text(serial, phrase, seconds=180):
@@ -160,6 +197,7 @@ def case(name):
     guest = subprocess.Popen(['/usr/libexec/qemu-kvm', '-machine', 'accel=kvm', '-cpu', 'host',
         '-m', '4096', '-smp', '2', '-display', 'none', '-vga', 'std', '-vnc', '127.0.0.1:20',
         '-drive', f'file={disk},format=qcow2,if=virtio', '-cdrom', MEDIA,
+        '-drive', f'file={OUTPUT}/probe.iso,if=ide,index=3,media=cdrom,readonly=on,format=raw',
         '-boot', 'd', '-serial', f'file:{serial}', '-netdev', 'user,id=net0',
         '-device', 'virtio-net-pci,netdev=net0'] + firmware_args, stdout=log, stderr=log)
     log.close()
@@ -232,6 +270,7 @@ def main():
         raise SystemExit('Use scripts/test-installer.sh')
     os.umask(0o077)
     try:
+        prepare_probe_media()
         command('qemu-img', 'create', '-f', 'raw', '/output/blank.raw', '16G')
         selected = sys.argv[1:]
         if selected and selected not in (['graphical'], ['cancel'], ['select']):
