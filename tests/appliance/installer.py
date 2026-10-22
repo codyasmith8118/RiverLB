@@ -133,7 +133,7 @@ def case(name):
         firmware_args = ['-drive', 'if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/edk2/ovmf/OVMF_CODE.fd',
                          '-drive', f'if=pflash,format=raw,unit=1,file={nvram}']
     guest = subprocess.Popen(['/usr/libexec/qemu-kvm', '-machine', 'accel=kvm', '-cpu', 'host',
-        '-m', '4096', '-smp', '2', '-display', 'none', '-vga', 'virtio', '-vnc', '127.0.0.1:20',
+        '-m', '4096', '-smp', '2', '-display', 'none', '-vga', 'std', '-vnc', '127.0.0.1:20',
         '-drive', f'file={disk},format=qcow2,if=virtio', '-cdrom', MEDIA,
         '-boot', 'd', '-serial', f'file:{serial}', '-netdev', 'user,id=net0',
         '-device', 'virtio-net-pci,netdev=net0'] + firmware_args, stdout=log, stderr=log)

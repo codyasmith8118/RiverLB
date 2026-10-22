@@ -41,7 +41,9 @@ gh workflow run appliance-image.yml --ref release-2.0 -f mode=negative-preflight
 gh workflow run appliance-image.yml --ref release-2.0 -f mode=full
 ```
 
-Approve pending environment deployments in the run's Actions page. Each BIOS or
+Approve pending environment deployments in the run's Actions page. Both firmware
+jobs may run concurrently (maximum two isolated VMs), so review both pending
+deployments together; each retains the same environment protection. Each BIOS or
 UEFI cell uses a separate GitHub-hosted Ubuntu 24.04 VM. Runtime checks require
 writable `/dev/kvm`; software emulation is not substituted if KVM is unavailable.
 Require 40 GiB free disk, 6 GiB available memory and two logical CPUs. Unused
@@ -85,7 +87,8 @@ marker and each container's exact ownership label before removing it by ID.
 It removes only this job's generated output, preserving the sanitized evidence.
 It never performs global container/image/volume pruning or host-wide process kills.
 
-Normal failures retain a static stage/reason and completed-stage results. Raw
+Normal failures retain a static stage/reason, completed-stage results, and artifact
+hashes and validated fixture assertions recorded as each producing stage finishes. Raw
 exception strings, console logs, screenshots, private overlays, account data and
 guest credentials are excluded. Fix the named stage and rerun a fresh workflow;
 do not recover or reuse private guest state. Private logs are bounded to 1 MiB
