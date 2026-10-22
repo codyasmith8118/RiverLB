@@ -19,7 +19,14 @@ artifacts are named `qualification-<firmware>-39700106027-1`; Actions retention 
 30 days. These copies preserve the sanitized reports beyond that expiration.
 
 The [full run](https://github.com/codyasmith8118/RiverLB/actions/runs/39700108775)
-has passed RPM build/package qualification. At this record's creation, guest
-qualification is waiting for its separate protected-environment approval. This
-record proves negative preflight and cleanup only; it does not establish passing
-BIOS/UEFI guest qualification. Issue #10 remains In Progress.
+passed RPM qualification and BIOS resource probes, disk installation, boot suite,
+and both ISO structure checks. It then failed at `installer-suite`; cleanup
+passed. The [BIOS failure report](full-39700108775/bios/report.json) and checksum
+were verified before retention. This is partial evidence, not full qualification.
+
+The installer requested `-vga virtio`, but the pinned tools image's real
+`/usr/libexec/qemu-kvm -vga help` reports only `none` and `std`. This was reproduced
+with the exact image identity in the report, without booting a guest. The fixture
+now requests supported standard VGA. A fresh protected run must verify this fix;
+passing image boot does not establish passing interactive installer coverage.
+Issue #10 remains In Progress.
