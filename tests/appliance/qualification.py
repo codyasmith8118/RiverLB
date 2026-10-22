@@ -128,6 +128,20 @@ class Qualification(unittest.TestCase):
         self.assertLess(time.monotonic()-start,15)
         self.assertLessEqual(log.stat().st_size,1024*1024)
 
+    def test_exited_leader_does_not_leave_a_running_descendant(self):
+        pidfile = self.root / 'descendant.pid'
+        child = "import time; time.sleep(60)"
+        leader = ("import subprocess;from pathlib import Path;"
+                  f"p=subprocess.Popen([{sys.executable!r},'-c',{child!r}]);"
+                  f"Path({str(pidfile)!r}).write_text(str(p.pid))")
+        start = time.monotonic()
+        m.bounded_command([sys.executable, '-c', leader], self.root / 'orphan.log', dict(os.environ), 5)
+        self.assertLess(time.monotonic() - start, 5)
+        status = Path('/proc') / pidfile.read_text() / 'status'
+        if status.exists():
+            state = next(line for line in status.read_text().splitlines() if line.startswith('State:'))
+            self.assertIn('Z', state)  # Exited, awaiting the host's orphan reaper.
+
     def test_real_term_interrupt_has_private_evidence(self):
         ready = self.root / 'ready'
         driver = self.root / 'driver.py'

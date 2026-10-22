@@ -122,13 +122,22 @@ def resources(root, minimum_gib=40, measured=None):
 
 
 def stop_process(process):
-    if process.poll() is None:
+    # Descendants may outlive the stage leader and retain its output pipe.
+    # Always stop the owned group, even after the leader has already exited.
+    try:
         os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        pass
+    finally:
         try:
-            process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
             os.killpg(process.pid, signal.SIGKILL)
-            process.wait(timeout=10)
+        except ProcessLookupError:
+            pass
+        process.wait(timeout=10)
 
 
 def bounded_command(argv, log, env, timeout):
@@ -222,8 +231,9 @@ def qualify(root, env, report):
         base = json.loads((root / 'appliance/base-media.json').read_text())
         for name, args, timeout in stages:
             report['stage'] = name
-            save_report(root, report)
             args = [str(root / 'dist/base' / base['filename']) if a == 'BASE' else base['sha256'] if a == 'HASH' else a for a in args]
+            report.setdefault('commands', {})[name] = dict(argv=args, timeout_seconds=timeout)
+            save_report(root, report)
             print('Qualification stage: ' + name, flush=True)
             bounded_command(args, Path(private) / (name + '.log'), child_env, timeout)
             report['stages'][name] = 'passed'
