@@ -249,15 +249,53 @@ class Qualification(unittest.TestCase):
         import installer as fixture
         serial = self.root / 'echo-only.serial'
         class Echo:
+            def chord(self, *_keys): pass
             def type(self, command): serial.write_text(command)
         with self.assertRaisesRegex(fixture.InstallerFailure, 'probe-command-timeout'):
             fixture.shell_status(Echo(), serial, 'true', seconds=0.1)
+
+    def test_probe_timeouts_identify_operation_without_guest_output(self):
+        import installer as fixture
+        commands = ['test -r /run/riverlb-probe/ready', 'mkdir -p /run/riverlb-probe',
+                    'test -b /dev/sr1', 'mount -r -t iso9660 /dev/sr1 /run/riverlb-probe',
+                    'test -r /run/riverlb-probe/ready']
+        reasons = ['probe-ready-timeout', 'probe-mountpoint-timeout', 'probe-cdrom-timeout',
+                   'probe-mount-timeout', 'probe-content-timeout']
+        for failed, reason in enumerate(reasons):
+            seen = []
+            def status(_console, _serial, command, _seconds):
+                seen.append(command)
+                if len(seen) == failed + 1:
+                    raise fixture.InstallerFailure('probe-command-timeout')
+                return (1 if len(seen) == 1 else 0), 'private guest output'
+            with self.subTest(reason=reason), patch.object(fixture, 'shell_status', status):
+                with self.assertRaisesRegex(fixture.InstallerFailure, '^' + reason + '$'):
+                    fixture.ensure_probe_media(None, None)
+            self.assertEqual(seen, commands[:failed + 1])
+
+    def test_text_boot_submits_load_and_boot_as_one_grub_command_list(self):
+        import installer as fixture
+        from types import SimpleNamespace
+        events = []
+        class Console:
+            def key(self, key): events.append(('key', key))
+            def type(self, text): events.append(('type', text))
+        output = SimpleNamespace(stdout="Volume Id : 'installer-label'", stderr='')
+        with patch.object(fixture.subprocess, 'run', return_value=output):
+            fixture.boot_text(Console())
+        self.assertEqual(events[0], ('key', 'c'))
+        self.assertEqual(len(events), 2)
+        command = events[1][1]
+        self.assertEqual(command.count('\n'), 1)
+        self.assertTrue(command.endswith('; initrd /images/pxeboot/initrd.img; boot\n'))
+        self.assertIn('inst.ks=hd:LABEL=installer-label:/installer.ks inst.text', command)
 
     def test_shell_status_preserves_real_nonzero_exit_status(self):
         import installer as fixture
         serial = self.root / 'exit-status.serial'
         processes = []
         class Console:
+            def chord(self, *_keys): pass
             def type(self, command):
                 command = command.replace('/dev/ttyS0', shlex.quote(str(serial))).replace(' > ', ' >> ')
                 processes.append(subprocess.Popen(['bash', '-c', command]))
@@ -269,6 +307,25 @@ class Qualification(unittest.TestCase):
             for process in processes:
                 if process.poll() is None:
                     process.kill(); process.wait()
+
+    def test_shell_commands_reacquire_focus_after_installer_switches_vt(self):
+        import installer as fixture
+        import re
+        serial = self.root / 'focus.serial'
+        class Console:
+            focused = False
+            def chord(self, *keys):
+                self.focused = keys == ('ctrl', 'alt', 'f2')
+            def type(self, command):
+                if self.focused:
+                    marker = re.search(r'riverlb_status_[a-f0-9]{16}', command).group()
+                    with serial.open('a') as stream:
+                        stream.write(marker + '_0\n')
+                # Graphical startup takes focus between commands.
+                self.focused = False
+        console = Console()
+        for _ in range(2):
+            self.assertEqual(fixture.shell_status(console, serial, 'true', seconds=0.1)[0], 0)
 
     def test_probe_source_is_read_from_media_not_typed(self):
         import installer as fixture
@@ -300,6 +357,10 @@ class Qualification(unittest.TestCase):
         valid = dict(schema=1, firmware='bios', case='graphical', checkpoint='graphical-summary', reason='gui-session-bus-missing')
         path.write_text(json.dumps(valid))
         self.assertEqual(m.installer_failure(path, 'bios'), valid)
+        for operation in ('ready', 'mountpoint', 'cdrom', 'mount', 'content', 'script', 'execution'):
+            diagnostic = {**valid, 'reason': 'probe-' + operation + '-timeout'}
+            path.write_text(json.dumps(diagnostic))
+            self.assertEqual(m.installer_failure(path, 'bios'), diagnostic)
         for extra in ({'password':'do-not-copy'}, {'reason':'do-not-copy'}, {'case':'do-not-copy'}, {'checkpoint':'do-not-copy'}, {'firmware':'uefi'}):
             path.write_text(json.dumps({**valid, **extra}))
             with self.assertRaises(m.Rejected):
