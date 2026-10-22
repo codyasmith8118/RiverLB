@@ -1,0 +1,26 @@
+{
+  "cleanup": "passed",
+  "expected_negative": true,
+  "finished_at_utc": "2026-10-22T12:39:13Z",
+  "firmware": "bios",
+  "platform": {
+    "kernel": "7.0.0-1017-azure",
+    "runner_image": "20261018.339.1"
+  },
+  "reason": "insufficient-disk",
+  "resources": {
+    "available_memory_bytes": 15771869184,
+    "free_disk_bytes": 109199089664,
+    "logical_cpus": 4,
+    "required_disk_bytes": 1073741824000000,
+    "required_logical_cpus": 2,
+    "required_memory_bytes": 6442450944
+  },
+  "run_attempt": "1",
+  "run_id": "39700106027",
+  "schema": 1,
+  "source": "cc3acee8fe0c4d6fbe65a8a271dbf4ed4cfc76a3",
+  "stage": "preflight",
+  "stages": {},
+  "status": "rejected"
+}
