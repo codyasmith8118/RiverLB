@@ -75,7 +75,7 @@ guest execution with Python's default 30-second termination alarm. Fixed probe-s
 which operation was active if execution hangs. These changes require a fresh
 approved guest run; the host component regressions do not qualify the installer.
 
-## Responsive shell, but long probe exchange still times out
+## Readiness marker returned, but long probe exchange still times out
 
 Run [39819651615](https://github.com/codyasmith8118/RiverLB/actions/runs/39819651615)
 tested `c218b1642b61fbf5ff09a75f9dfcfab1f53df757`. Both firmware reports again
@@ -85,7 +85,7 @@ cleanup, and `graphical` / `graphical-summary` / `probe-timeout`.
 - [BIOS failure report](full-39819651615/bios/report.json)
 - [UEFI failure report](full-39819651615/uefi/report.json)
 
-This failure occurs after the short shell-readiness response succeeded. The
+This failure occurs after the original short shell-readiness marker was received. The
 longer probe exchange still did not return its completion marker; the reports do
 not establish whether that command was received intact. The fixture now delivers
 public probe scripts on a separate read-only test CD and types only a short file
@@ -93,3 +93,23 @@ invocation. It verifies fixture-media readiness, keeps the guest execution deadl
 and uses lowercase nonce completion markers. The candidate installer ISO remains
 unchanged by this test transport. A fresh approved real-guest run must verify it;
 local shell/media checks do not establish installer qualification.
+
+## Fixture media readiness fails on both firmware types
+
+Run [39829613032](https://github.com/codyasmith8118/RiverLB/actions/runs/39829613032)
+tested `3ea88298937e6d87badeefb45898f9e4c3558a7c`. Both firmware jobs passed
+the eight preceding stages, all eleven boot assertions and cleanup, then reported
+`graphical` / `graphical-summary` / `probe-media-not-ready`. The probe itself did
+not run. Checksum-verified reports retain exact source/input/artifact identity:
+
+- [BIOS failure report](full-39829613032/bios/report.json)
+- [UEFI failure report](full-39829613032/uefi/report.json)
+
+That check combined label-link discovery, mounting and content readiness, so its
+failure does not establish which operation failed. It also accepted a literal
+readiness nonce; echoed command text alone cannot prove execution. The revised
+protocol requires a computed numeric exit status, rejects echoed input, checks
+the known secondary CD device directly, and reports a separate static failure
+code for each media step. It keeps read-only mounting and existing assertions.
+A fresh protected guest run must verify this change; host regressions are not
+installer qualification evidence.

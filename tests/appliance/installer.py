@@ -60,67 +60,82 @@ def prepare_probe_media():
             '-o', str(OUTPUT / 'probe.iso'), str(source))
 
 
-def probe_command(script, marker, serial_device='/dev/ttyS0', media_root=None):
-    if not re.fullmatch(r'riverlb_probe_done_[a-f0-9]{16}', marker):
+def status_command(command, marker, serial_device='/dev/ttyS0'):
+    if not re.fullmatch(r'riverlb_(?:status|probe_done)_[a-f0-9]{16}', marker):
         raise ValueError('Invalid probe marker')
-    path = (PROBE_ROOT if media_root is None else media_root) / (hashlib.sha256(script.encode()).hexdigest() + '.py')
+    if '\n' in command:
+        raise ValueError('Probe commands must be one line')
     sink = shlex.quote(str(serial_device))
-    # No script payload or nested Python quoting crosses the keyboard channel.
-    return 'python3 ' + shlex.quote(str(path)) + ' > ' + sink + ' 2>&1; echo ' + marker + ' >> ' + sink + '\n'
+    # The reply contains an expanded exit status, never just echoed input text.
+    return command + ' > ' + sink + ' 2>&1; echo ' + marker + '_$? >> ' + sink + '\n'
 
 
-def mount_probe_command(marker):
+def probe_program(script, media_root=None):
+    path = (PROBE_ROOT if media_root is None else media_root) / (hashlib.sha256(script.encode()).hexdigest() + '.py')
+    return 'python3 ' + shlex.quote(str(path))
+
+
+def probe_command(script, marker, serial_device='/dev/ttyS0', media_root=None):
+    return status_command(probe_program(script, media_root), marker, serial_device)
+
+
+def shell_status(console, serial, command, seconds=20):
+    before = serial.stat().st_size if serial.exists() else 0
+    marker = 'riverlb_status_' + secrets.token_hex(8)
+    console.type(status_command(command, marker))
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        output = serial.read_bytes()[before:].decode('utf-8', errors='replace') if serial.exists() else ''
+        match = re.search(re.escape(marker) + r'_(\d{1,3})\r?\n', output)
+        if match and int(match.group(1)) <= 255:
+            return int(match.group(1)), output[:match.start()]
+        time.sleep(0.2)
+    raise InstallerFailure('probe-command-timeout')
+
+
+def ensure_probe_media(console, serial, seconds=20):
     root = shlex.quote(str(PROBE_ROOT))
-    ready = shlex.quote(str(PROBE_ROOT / 'ready'))
-    return ('mkdir -p ' + root + '; test -r ' + ready + ' || mount -o ro /dev/disk/by-label/'
-            + PROBE_LABEL + ' ' + root + '; test -r ' + ready + ' && echo ' + marker + ' > /dev/ttyS0\n')
+    ready = 'test -r ' + shlex.quote(str(PROBE_ROOT / 'ready'))
+    if shell_status(console, serial, ready, seconds)[0] == 0:
+        return
+    # QEMU attaches the candidate at IDE index 2 and this read-only CD at 3.
+    # Use its known device directly; do not depend on installer udev label links.
+    steps = [('mkdir -p ' + root, 'probe-mountpoint-failed'),
+             ('test -b /dev/sr1', 'probe-cdrom-missing'),
+             ('mount -r -t iso9660 /dev/sr1 ' + root, 'probe-mount-failed'),
+             (ready, 'probe-content-missing')]
+    for command, reason in steps:
+        if shell_status(console, serial, command, seconds)[0] != 0:
+            raise InstallerFailure(reason)
 
 
 def shell(serial, script, return_tty=1, ready_seconds=180, media_seconds=20):
     """Wait for completion; never discard a slow probe's late serial response."""
-    before = serial.stat().st_size if serial.exists() else 0
-    marker = 'riverlb_probe_done_' + secrets.token_hex(8)
     console = Console(5920)
     try:
-        # Verify a responsive shell before issuing probe commands. A fixed boot
-        # delay alone cannot establish that the installer has started TTY2.
-        ready = 'riverlb_shell_ready_' + secrets.token_hex(8)
+        # Require an executed challenge response, not a literal marker that a
+        # console might echo while the installer is still starting.
         end = time.monotonic() + ready_seconds
         while True:
-            # Starting the graphical session can switch away from TTY2.
             console.chord('ctrl', 'alt', 'f2')
             time.sleep(1)
-            console.type('printf ' + ready + ' > /dev/ttyS0\n')
-            deadline = min(end, time.monotonic() + 5)
-            data = ''
-            while time.monotonic() < deadline:
-                data = serial.read_bytes()[before:].decode('utf-8', errors='replace') if serial.exists() else ''
-                if ready in data:
+            try:
+                if shell_status(console, serial, 'true', min(5, max(0.1, end - time.monotonic())))[0] == 0:
                     break
-                time.sleep(0.2)
-            if ready in data:
-                break
+            except InstallerFailure as error:
+                if str(error) != 'probe-command-timeout':
+                    raise
             if time.monotonic() >= end:
                 raise InstallerFailure('shell-not-ready')
-        media_ready = 'riverlb_media_ready_' + secrets.token_hex(8)
-        console.type(mount_probe_command(media_ready))
-        end = time.monotonic() + media_seconds
-        while time.monotonic() < end:
-            data = serial.read_bytes()[before:].decode('utf-8', errors='replace')
-            if media_ready in data:
-                break
-            time.sleep(0.2)
-        else:
-            raise InstallerFailure('probe-media-not-ready')
-        before = serial.stat().st_size
-        console.type(probe_command(script, marker))
-        end = time.monotonic() + 45
-        while time.monotonic() < end:
-            output = serial.read_bytes()[before:].decode('utf-8', errors='replace') if serial.exists() else ''
-            if marker in output:
-                return output.split(marker, 1)[0]
-            time.sleep(0.2)
-        raise InstallerFailure('probe-timeout')
+        ensure_probe_media(console, serial, media_seconds)
+        program = probe_program(script)
+        path = program.removeprefix('python3 ')
+        if shell_status(console, serial, 'test -r ' + path, media_seconds)[0] != 0:
+            raise InstallerFailure('probe-content-missing')
+        status, output = shell_status(console, serial, program, 45)
+        if status == 127:
+            raise InstallerFailure('probe-interpreter-missing')
+        return output
     finally:
         try:
             console.chord('ctrl', 'alt', f'f{return_tty}')

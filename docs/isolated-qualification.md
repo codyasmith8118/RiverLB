@@ -115,17 +115,17 @@ The unit suite covers admission denial, resource rejection, ownership boundaries
 report allowlisting, bounded output, deadlines and SIGTERM interruption. Record
 actual hosted run URLs separately; never label mocked/unit results as KVM evidence.
 
-The installer console probe first requires a nonce shell-readiness response.
-Public GUI and text probe scripts are delivered on a separate read-only fixture
-CD, identified by its `riverlb_probe` volume label. The candidate installer ISO is
-not modified by this test transport. Only short file invocations and nonce markers
-cross the keyboard channel. Fixture-media readiness is checked before execution;
-all fixture media and guest data are removed during owned cleanup.
+The installer console probe first requires an executed challenge response: a
+nonce followed by a computed exit status. Merely echoing the typed command is not
+accepted. GUI and text probe scripts are delivered on a separate read-only fixture
+CD at IDE index 3 (`/dev/sr1` in these guests). Media checks create the mountpoint,
+check the block device, mount it read-only as ISO9660 and verify content, with a
+separate short command and exit-status reply for each step. All fixture media and
+guest data are removed during owned cleanup.
 
-Guest execution has a 30-second Python termination alarm and the host waits for
-completion. Public failure codes distinguish an unavailable shell
-(`shell-not-ready`), unavailable test media (`probe-media-not-ready`), a missing
-completion response (`probe-timeout`), and a timeout at a fixed probe operation
-(`gui-timeout-environment`, `gui-timeout-accessibility-import`,
-`gui-timeout-accessibility-query`, or `gui-timeout-product`). Raw console output
+Guest probe execution has a 30-second Python termination alarm and the host waits
+for its reply. Public failure codes distinguish shell readiness, command-response
+timeouts, missing CD devices, mountpoint/mount failures, missing probe content and
+an unavailable interpreter. Known GUI operation codes distinguish environment,
+accessibility import/query and product lookup. Raw command output, console text
 and accessibility names remain private and are removed during cleanup.

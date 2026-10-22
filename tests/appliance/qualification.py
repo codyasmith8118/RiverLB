@@ -187,14 +187,13 @@ class Qualification(unittest.TestCase):
             def close(self): pass
             def type(self, command):
                 processes.append(subprocess.Popen(['bash', '-c', command.replace('/dev/ttyS0', shlex.quote(str(serial))).replace(' > ', ' >> ')]))
-        def command(script, marker):
-            fixture.write_probe(script, media)
-            return original_command(script, marker, serial, media)
+        script = "import time;time.sleep(3.2);print('late-completion')"
+        fixture.write_probe(script, media)
         try:
-            with patch.object(fixture, 'Console', Console), patch.object(fixture, 'probe_command', command), patch.object(fixture, 'PROBE_ROOT', media):
-                output = fixture.shell(serial, "import time;time.sleep(3.2);print('late-completion')")
+            with patch.object(fixture, 'Console', Console), patch.object(fixture, 'PROBE_ROOT', media):
+                output = fixture.shell(serial, script)
             self.assertIn('late-completion', output)
-            self.assertNotIn('riverlb_probe_done_', output)
+            self.assertNotIn('riverlb_status_', output)
             self.assertTrue(all(process.wait(timeout=5) == 0 for process in processes))
             self.assertGreaterEqual(len(processes), 2)
             with self.assertRaises(ValueError):
@@ -217,24 +216,59 @@ class Qualification(unittest.TestCase):
             with self.assertRaisesRegex(fixture.InstallerFailure, 'shell-not-ready'):
                 fixture.shell(serial, 'sensitive-probe-payload', ready_seconds=0.1)
         self.assertTrue(typed)
-        self.assertTrue(all(command.startswith('printf riverlb_shell_ready_') for command in typed))
+        self.assertTrue(all(command.startswith('true > ') for command in typed))
 
     def test_missing_probe_media_prevents_probe_execution(self):
         import installer as fixture
-        serial = self.root / 'no-media.serial'
-        typed = []
+        commands = []
         class Console:
             def __init__(self, _port): pass
             def chord(self, *_keys): pass
             def close(self): pass
+        def status(_console, _serial, command, _seconds):
+            commands.append(command)
+            return (0 if command == 'true' or command.startswith('mkdir ') else 1), ''
+        with patch.object(fixture, 'Console', Console), patch.object(fixture, 'shell_status', status):
+            with self.assertRaisesRegex(fixture.InstallerFailure, 'probe-cdrom-missing'):
+                fixture.shell(self.root / 'missing-media.serial', 'must-not-execute')
+        self.assertFalse(any(command.startswith(('python3 ', 'mount ')) for command in commands))
+
+    def test_mount_failure_stops_at_readonly_cd_and_keeps_static_reason(self):
+        import installer as fixture
+        commands = []
+        results = iter([1, 0, 0, 32])
+        def status(_console, _serial, command, _seconds):
+            commands.append(command)
+            return next(results), 'private guest error must not become a public reason'
+        with patch.object(fixture, 'shell_status', status):
+            with self.assertRaisesRegex(fixture.InstallerFailure, '^probe-mount-failed$'):
+                fixture.ensure_probe_media(None, None)
+        self.assertEqual(commands[-1], 'mount -r -t iso9660 /dev/sr1 /run/riverlb-probe')
+
+    def test_echoed_input_is_not_a_successful_status_reply(self):
+        import installer as fixture
+        serial = self.root / 'echo-only.serial'
+        class Echo:
+            def type(self, command): serial.write_text(command)
+        with self.assertRaisesRegex(fixture.InstallerFailure, 'probe-command-timeout'):
+            fixture.shell_status(Echo(), serial, 'true', seconds=0.1)
+
+    def test_shell_status_preserves_real_nonzero_exit_status(self):
+        import installer as fixture
+        serial = self.root / 'exit-status.serial'
+        processes = []
+        class Console:
             def type(self, command):
-                typed.append(command)
-                if command.startswith('printf riverlb_shell_ready_'):
-                    serial.write_text(command.split()[1])
-        with patch.object(fixture, 'Console', Console):
-            with self.assertRaisesRegex(fixture.InstallerFailure, 'probe-media-not-ready'):
-                fixture.shell(serial, 'must-not-execute', media_seconds=0.1)
-        self.assertFalse(any(command.startswith('python3 ') for command in typed))
+                command = command.replace('/dev/ttyS0', shlex.quote(str(serial))).replace(' > ', ' >> ')
+                processes.append(subprocess.Popen(['bash', '-c', command]))
+        try:
+            self.assertEqual(fixture.shell_status(Console(), serial, 'true')[0], 0)
+            self.assertEqual(fixture.shell_status(Console(), serial, 'false')[0], 1)
+            self.assertTrue(all(process.wait(timeout=5) == 0 for process in processes))
+        finally:
+            for process in processes:
+                if process.poll() is None:
+                    process.kill(); process.wait()
 
     def test_probe_source_is_read_from_media_not_typed(self):
         import installer as fixture
@@ -246,7 +280,6 @@ class Qualification(unittest.TestCase):
             path = fixture.write_probe(script, self.root)
             self.assertEqual(path.read_text(), 'import signal; signal.alarm(30)\n' + script)
             self.assertIn(path.name, command)
-        self.assertIn('mount -o ro ', fixture.mount_probe_command('riverlb_media_ready_' + 'a'*16))
 
     def test_hung_probe_returns_completion_after_guest_deadline(self):
         import installer as fixture
@@ -260,7 +293,7 @@ class Qualification(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 35)
         output = serial.read_text()
         self.assertIn('RIVERLB_GUI_STAGE=accessibility-query', output)
-        self.assertIn(marker, output)
+        self.assertIn(marker + '_142', output)
 
     def test_installer_diagnostics_allow_only_known_codes(self):
         path = self.root / 'failure.json'
