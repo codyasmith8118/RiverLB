@@ -87,8 +87,10 @@ marker and each container's exact ownership label before removing it by ID.
 It removes only this job's generated output, preserving the sanitized evidence.
 It never performs global container/image/volume pruning or host-wide process kills.
 
+Stage changes also emit Actions notices containing only the fixed stage name.
 Normal failures retain a static stage/reason, completed-stage results, and artifact
-hashes and validated fixture assertions recorded as each producing stage finishes. Raw
+hashes and validated fixture assertions recorded as each producing stage finishes. Installer failures may include allowlisted case/checkpoint/reason codes; unknown
+fields or free text are rejected. Raw
 exception strings, console logs, screenshots, private overlays, account data and
 guest credentials are excluded. Fix the named stage and rerun a fresh workflow;
 do not recover or reuse private guest state. Private logs are bounded to 1 MiB

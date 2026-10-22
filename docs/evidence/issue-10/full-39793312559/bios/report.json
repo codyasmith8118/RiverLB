@@ -1,0 +1,136 @@
+{
+  "artifacts": {
+    "riverlb-image.iso": "77d8fdf5c9bdf65947c37c5d3e2fa0b5bdd8b810113a736385df4887ef362a80",
+    "riverlb-installer.iso": "8099904f67de1a622e9369e59d891878250fe6edb0e382ee31ab2fdbfd4a557e",
+    "riverlb.qcow2": "604103c3ff44d9e39fe7537554a09effda0a20c9745385fba831fda15181b767",
+    "riverlb.raw": "b0ba0f8ef781551ef790942f623371fb98ac40402acecd305da997842d27f26d"
+  },
+  "boot": {
+    "firmware": "bios",
+    "status": "passed",
+    "tests": [
+      "SELinux enforcing",
+      "SSH disabled",
+      "clean shutdown",
+      "console recovery login",
+      "console setup",
+      "independent clone certificates and machine IDs",
+      "persisted traffic statistics",
+      "private database permissions",
+      "real firewalld VIP TCP forwarding",
+      "reboot configuration/account/certificate persistence",
+      "verified HTTPS login"
+    ]
+  },
+  "cleanup": "passed",
+  "commands": {
+    "base-media": {
+      "argv": [
+        "python3",
+        "scripts/fetch-base-iso.py"
+      ],
+      "timeout_seconds": 900
+    },
+    "boot-suite": {
+      "argv": [
+        "bash",
+        "scripts/test-image.sh"
+      ],
+      "timeout_seconds": 1800
+    },
+    "disk-build": {
+      "argv": [
+        "bash",
+        "scripts/build-image.sh"
+      ],
+      "timeout_seconds": 5400
+    },
+    "image-media": {
+      "argv": [
+        "bash",
+        "scripts/build-iso.sh",
+        "/home/runner/work/RiverLB/RiverLB/dist/base/AlmaLinux-10.2-x86_64-minimal.iso",
+        "1b532f534231da0d1cd0ccae622bea6cd588d8a0d7b259f1f131501a6eed41a4",
+        "image"
+      ],
+      "timeout_seconds": 900
+    },
+    "image-structure": {
+      "argv": [
+        "bash",
+        "scripts/test-iso.sh",
+        "image"
+      ],
+      "timeout_seconds": 300
+    },
+    "installer-media": {
+      "argv": [
+        "bash",
+        "scripts/build-iso.sh",
+        "/home/runner/work/RiverLB/RiverLB/dist/base/AlmaLinux-10.2-x86_64-minimal.iso",
+        "1b532f534231da0d1cd0ccae622bea6cd588d8a0d7b259f1f131501a6eed41a4",
+        "installer"
+      ],
+      "timeout_seconds": 900
+    },
+    "installer-structure": {
+      "argv": [
+        "bash",
+        "scripts/test-iso.sh",
+        "installer"
+      ],
+      "timeout_seconds": 300
+    },
+    "installer-suite": {
+      "argv": [
+        "bash",
+        "scripts/test-installer.sh"
+      ],
+      "timeout_seconds": 1800
+    },
+    "resource-controls": {
+      "argv": [
+        "python3",
+        "tests/appliance/qualification_resources.py"
+      ],
+      "timeout_seconds": 900
+    }
+  },
+  "finished_at_utc": "2026-10-22T15:46:09Z",
+  "firmware": "bios",
+  "inputs": {
+    "lock_sha256": "dae1adf6aa4d1c78a469b80f3cebfcbf8f093fb864bfb84a742dae7c8bba2a71",
+    "rpm_manifest_sha256": "330146d3afb1263d8e907a86e05fc67c676be93adb70a93e55ec00e03e06339a",
+    "snapshot_sha256": "7b61b31de8c9e5c29a0c159567bfa3f13306cdd4c934c2276ed78e2e5bc7ff6c",
+    "tools_image": "sha256:c14a1c383313a2e10db31abdf68d6c899e0c75316953908159084c42de983e94"
+  },
+  "platform": {
+    "kernel": "7.0.0-1017-azure",
+    "runner_image": "20261018.339.1"
+  },
+  "reason": "command-failed",
+  "resources": {
+    "available_memory_bytes": 15743270912,
+    "free_disk_bytes": 109198913536,
+    "logical_cpus": 4,
+    "required_disk_bytes": 42949672960,
+    "required_logical_cpus": 2,
+    "required_memory_bytes": 6442450944
+  },
+  "run_attempt": "1",
+  "run_id": "39793312559",
+  "schema": 1,
+  "source": "071d0b0bb2f2bdb64d89e35009f6172e0546775b",
+  "stage": "installer-suite",
+  "stages": {
+    "base-media": "passed",
+    "boot-suite": "passed",
+    "disk-build": "passed",
+    "image-media": "passed",
+    "image-structure": "passed",
+    "installer-media": "passed",
+    "installer-structure": "passed",
+    "resource-controls": "passed"
+  },
+  "status": "failed"
+}

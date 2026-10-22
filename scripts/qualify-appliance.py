@@ -177,6 +177,27 @@ def fixture_report(path, firmware, expected):
     return dict(status='passed', firmware=firmware, tests=sorted(expected))
 
 
+def installer_failure(path, firmware):
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > 4096:
+        raise Rejected('installer-diagnostic-unsafe')
+    data = json.loads(path.read_text())
+    cases = {'initialization', 'graphical', 'select', 'cancel'}
+    checkpoints = {'initialization', 'guest-start', 'boot-menu', 'graphical-summary',
+        'storage-selection', 'cancel-confirmation', 'blank-disk-comparison'}
+    reasons = {'fixture-error', 'guest-exited', 'probe-timeout', 'text-screen-not-ready',
+        'disk-comparison-failed', 'anaconda-not-found', 'gui-session-bus-missing',
+        'accessibility-unavailable', 'accessibility-query-failed', 'branding-assets-missing',
+        'branding-stylesheet-invalid', 'gui-probe-error', 'gui-probe-no-result',
+        'product-name-mismatch', 'installation-destination-unavailable'}
+    if (set(data) != {'schema', 'firmware', 'case', 'checkpoint', 'reason'}
+            or data['schema'] != 1 or data['firmware'] != firmware
+            or not isinstance(data['case'], str) or data['case'] not in cases
+            or not isinstance(data['checkpoint'], str) or data['checkpoint'] not in checkpoints
+            or not isinstance(data['reason'], str) or data['reason'] not in reasons):
+        raise Rejected('installer-diagnostic-invalid')
+    return dict(schema=1, firmware=firmware, case=data['case'], checkpoint=data['checkpoint'], reason=data['reason'])
+
+
 def cleanup(root, env, run=subprocess.run):
     marker = owned_workspace(root, env)
     found = run(['podman', 'ps', '-a', '--no-trunc', '--filter', f'label={LABEL}={marker["job"]}',
@@ -235,7 +256,19 @@ def qualify(root, env, report):
             report.setdefault('commands', {})[name] = dict(argv=args, timeout_seconds=timeout)
             save_report(root, report)
             print('Qualification stage: ' + name, flush=True)
-            bounded_command(args, Path(private) / (name + '.log'), child_env, timeout)
+            if env.get('GITHUB_ACTIONS') == 'true':
+                print('::notice title=Qualification stage::' + name, flush=True)
+            try:
+                bounded_command(args, Path(private) / (name + '.log'), child_env, timeout)
+            except Rejected:
+                diagnostic = root / 'dist/test-installer-vm/failure.json'
+                if name == 'installer-suite' and diagnostic.exists():
+                    try:
+                        report['installer_failure'] = installer_failure(diagnostic, firmware)
+                    except Exception:
+                        report['installer_diagnostic'] = 'rejected'
+                    save_report(root, report)
+                raise
             if name in ('image-media', 'installer-media'):
                 mode = 'image' if name == 'image-media' else 'installer'
                 artifact = f'riverlb-{mode}.iso'
