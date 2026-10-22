@@ -42,7 +42,8 @@ jobs:
     timeout-minutes: 120
     strategy:
       fail-fast: false
-      max-parallel: 1
+      # Each firmware gets its own isolated VM; expose both approval requests together.
+      max-parallel: 2
       matrix:
         firmware: [bios, uefi]
     env:

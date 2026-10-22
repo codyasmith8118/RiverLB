@@ -170,7 +170,7 @@ class Qualification(unittest.TestCase):
         while True:
             try:
                 state = next(line.split()[1] for line in status.read_text().splitlines() if line.startswith('State:'))
-            except FileNotFoundError:
+            except (FileNotFoundError, ProcessLookupError):
                 break
             if state in ('Z', 'X'):  # Exited; the host may still be reaping it.
                 break

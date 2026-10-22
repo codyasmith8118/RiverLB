@@ -41,7 +41,9 @@ gh workflow run appliance-image.yml --ref release-2.0 -f mode=negative-preflight
 gh workflow run appliance-image.yml --ref release-2.0 -f mode=full
 ```
 
-Approve pending environment deployments in the run's Actions page. Each BIOS or
+Approve pending environment deployments in the run's Actions page. Both firmware
+jobs may run concurrently (maximum two isolated VMs), so review both pending
+deployments together; each retains the same environment protection. Each BIOS or
 UEFI cell uses a separate GitHub-hosted Ubuntu 24.04 VM. Runtime checks require
 writable `/dev/kvm`; software emulation is not substituted if KVM is unavailable.
 Require 40 GiB free disk, 6 GiB available memory and two logical CPUs. Unused
