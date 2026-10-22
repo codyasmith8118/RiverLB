@@ -190,7 +190,9 @@ def installer_failure(path, firmware):
         'branding-stylesheet-invalid', 'gui-probe-error', 'gui-probe-no-result',
         'product-name-mismatch', 'installation-destination-unavailable', 'shell-not-ready',
         'gui-timeout-environment', 'gui-timeout-accessibility-import',
-        'gui-timeout-accessibility-query', 'gui-timeout-product', 'probe-media-not-ready'}
+        'gui-timeout-accessibility-query', 'gui-timeout-product', 'probe-media-not-ready',
+        'probe-command-timeout', 'probe-mountpoint-failed', 'probe-cdrom-missing',
+        'probe-mount-failed', 'probe-content-missing', 'probe-interpreter-missing'}
     if (set(data) != {'schema', 'firmware', 'case', 'checkpoint', 'reason'}
             or data['schema'] != 1 or data['firmware'] != firmware
             or not isinstance(data['case'], str) or data['case'] not in cases
