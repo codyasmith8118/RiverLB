@@ -9,7 +9,7 @@ cd "$project_dir"
 install -d -m 0700 dist/test-installer-vm
 stage_dir=$(mktemp -d)
 trap 'rm -rf -- "$stage_dir"' EXIT
-cp tests/appliance/installer.py tests/appliance/vnc.py "$stage_dir/"
+cp tests/appliance/installer.py tests/appliance/installer_probe.py tests/appliance/vnc.py "$stage_dir/"
 image=$(python3 scripts/build-inputs.py image tools)
 source scripts/qualification-container.sh installer
 podman run --rm "${qualification_args[@]}" --pull=never --network=none --device /dev/kvm --security-opt=no-new-privileges \

@@ -4,15 +4,15 @@ import json
 import os
 from pathlib import Path
 import re
+import secrets
+import shlex
+import zlib
 import shutil
 import subprocess
 import sys
 import time
 from vnc import Console
 
-if os.environ.get('RIVERLB_VM_TEST') != 'disposable-container':
-    raise SystemExit('Use scripts/test-installer.sh')
-os.umask(0o077)
 OUTPUT = Path('/output')
 MEDIA = '/media/riverlb-installer.iso'
 FIRMWARE = os.environ.get('RIVERLB_IMAGE_FIRMWARE', 'bios')
@@ -24,18 +24,51 @@ def command(*args):
     subprocess.run(args, check=True)
 
 
+class InstallerFailure(Exception):
+    pass
+
+
+CURRENT_CASE = 'initialization'
+CHECKPOINT = 'initialization'
+GUI_REASONS = {'anaconda-not-found', 'gui-session-bus-missing', 'accessibility-unavailable',
+    'accessibility-query-failed', 'branding-assets-missing', 'branding-stylesheet-invalid', 'gui-probe-error'}
+
+
+def checkpoint(name):
+    global CHECKPOINT
+    CHECKPOINT = name
+
+
+def probe_command(script, marker, serial_device='/dev/ttyS0'):
+    if not re.fullmatch(r'RIVERLB_PROBE_DONE_[a-f0-9]{16}', marker):
+        raise ValueError('Invalid probe marker')
+    encoded = base64.b64encode(zlib.compress(script.encode())).decode()
+    code = "import base64,zlib;exec(zlib.decompress(base64.b64decode('" + encoded + "')))"
+    sink = shlex.quote(str(serial_device))
+    return 'python3 -c ' + shlex.quote(code) + ' > ' + sink + " 2>&1; printf '\\n" + marker + "\\n' >> " + sink + '\n'
+
+
 def shell(serial, script, return_tty=1):
-    """Export a guest-only probe through this guest's private serial log."""
+    """Wait for completion; never discard a slow probe's late serial response."""
     before = serial.stat().st_size if serial.exists() else 0
+    marker = 'RIVERLB_PROBE_DONE_' + secrets.token_hex(8)
     console = Console(5920)
-    console.chord('ctrl', 'alt', 'f2')
-    time.sleep(1)
-    encoded = base64.b64encode(script.encode()).decode()
-    console.type("python3 -c \"import base64;exec(base64.b64decode('" + encoded + "'))\" > /dev/ttyS0 2>&1\n")
-    time.sleep(3)
-    console.chord('ctrl', 'alt', f'f{return_tty}')
-    console.close()
-    return serial.read_bytes()[before:].decode('utf-8', errors='replace')
+    try:
+        console.chord('ctrl', 'alt', 'f2')
+        time.sleep(1)
+        console.type(probe_command(script, marker))
+        end = time.monotonic() + 45
+        while time.monotonic() < end:
+            output = serial.read_bytes()[before:].decode('utf-8', errors='replace') if serial.exists() else ''
+            if marker in output:
+                return output.split(marker, 1)[0]
+            time.sleep(0.2)
+        raise InstallerFailure('probe-timeout')
+    finally:
+        try:
+            console.chord('ctrl', 'alt', f'f{return_tty}')
+        finally:
+            console.close()
 
 
 def console_text(serial):
@@ -49,64 +82,30 @@ def wait_text(serial, phrase, seconds=180):
         if phrase.lower() in text.lower():
             return text
         time.sleep(5)
-    raise AssertionError(f'Installer did not display {phrase!r}')
+    raise InstallerFailure('text-screen-not-ready')
 
 
-GUI_PROBE = r'''
-import configparser, json, os, pathlib
-found = False
-for entry in pathlib.Path('/proc').iterdir():
-    if not entry.name.isdigit():
-        continue
-    try:
-        args = entry.joinpath('cmdline').read_bytes().split(b'\0')
-        if b'/usr/sbin/anaconda' not in args:
-            continue
-        env = dict(item.split(b'=', 1) for item in entry.joinpath('environ').read_bytes().split(b'\0') if b'=' in item)
-        for key in ('DBUS_SESSION_BUS_ADDRESS', 'DISPLAY', 'WAYLAND_DISPLAY', 'XDG_RUNTIME_DIR',
-                    'PRODBUILDPATH', 'ANACONDA_PRODUCTNAME', 'ANACONDA_PRODUCTVERSION'):
-            if key.encode() in env:
-                os.environ[key] = env[key.encode()].decode()
-        found = True
-        break
-    except (OSError, ValueError):
-        pass
-assert found, 'Anaconda process not found'
-import pyatspi
-names = []
-def visit(item, depth=0):
-    if depth > 12 or len(names) > 1000:
-        return
-    try:
-        if item.name:
-            names.append(item.name)
-        for number in range(item.childCount):
-            visit(item.getChildAtIndex(number), depth + 1)
-    except Exception:
-        pass
-visit(pyatspi.Registry.getDesktop(0))
-from pyanaconda.core.product import get_product_name
-stylesheet = pathlib.Path('/run/install/product/anaconda-gtk.css')
-logo = pathlib.Path('/usr/share/anaconda/pixmaps/riverlb-installer.svg')
-assert stylesheet.is_file() and logo.is_file(), 'RiverLB runtime stylesheet/logo missing'
-assert str(logo) in stylesheet.read_text(), 'Sidebar logo must resolve in product.img'
-print('RIVERLB_GUI_PROBE=' + json.dumps(dict(product=get_product_name(), names=names)))
-'''
+GUI_PROBE = Path(__file__).with_name('installer_probe.py').read_text()
 
 
 def wait_gui(serial, seconds=180):
     end = time.monotonic() + seconds
+    reason = 'gui-probe-no-result'
     while time.monotonic() < end:
         output = shell(serial, GUI_PROBE, return_tty=6)
+        failure = re.search(r'RIVERLB_GUI_FAILURE=([a-z-]+)', output)
+        if failure and failure.group(1) in GUI_REASONS:
+            reason = failure.group(1)
         match = re.search(r'RIVERLB_GUI_PROBE=(\{[^\n]+\})', output)
         if match:
             result = json.loads(match.group(1))
             labels = ' '.join(result['names']).lower()
+            reason = 'product-name-mismatch' if result['product'] != 'RiverLB' else 'installation-destination-unavailable'
             if result['product'] == 'RiverLB' and 'installation destination' in labels:
                 assert 'riverlb' in labels, result
                 return result
         time.sleep(5)
-    raise AssertionError('Branded graphical installation summary was not accessible; inspect screenshots/logs')
+    raise InstallerFailure(reason)
 
 
 def boot_text(console):
@@ -122,6 +121,9 @@ def boot_text(console):
 
 
 def case(name):
+    global CURRENT_CASE
+    CURRENT_CASE = name
+    checkpoint('guest-start')
     disk = OUTPUT / (name + '.qcow2')
     serial = OUTPUT / (name + '.serial.log')
     command('qemu-img', 'create', '-f', 'qcow2', str(disk), '16G')
@@ -140,6 +142,9 @@ def case(name):
     log.close()
     try:
         time.sleep(10)
+        if guest.poll() is not None:
+            raise InstallerFailure('guest-exited')
+        checkpoint('boot-menu')
         console = Console(5920)
         console.screenshot(OUTPUT / (name + '-boot-menu.png'))
         if name == 'graphical':
@@ -149,12 +154,14 @@ def case(name):
         console.close()
         time.sleep(40)
         if name == 'graphical':
+            checkpoint('graphical-summary')
             evidence = wait_gui(serial)
             (OUTPUT / 'graphical-accessibility.json').write_text(json.dumps(evidence, indent=2) + '\n')
             console = Console(5920)
             console.screenshot(OUTPUT / 'graphical-summary.png')
             console.close()
         else:
+            checkpoint('storage-selection')
             text = wait_text(serial, 'Installation Destination')
             (OUTPUT / (name + '-storage-selection.txt')).write_text(text)
             assert 'riverlb' in text.lower(), text
@@ -164,6 +171,7 @@ def case(name):
                 console.type('q\n')
             console.close()
             if name == 'cancel':
+                checkpoint('cancel-confirmation')
                 wait_text(serial, 'Do you really want to quit?')
                 console = Console(5920)
                 console.type('yes\n')
@@ -175,7 +183,11 @@ def case(name):
         if guest.poll() is None:
             guest.terminate()
             guest.wait(timeout=10)
-        command('qemu-img', 'compare', '-f', 'qcow2', '-F', 'raw', str(disk), '/output/blank.raw')
+        checkpoint('blank-disk-comparison')
+        try:
+            command('qemu-img', 'compare', '-f', 'qcow2', '-F', 'raw', str(disk), '/output/blank.raw')
+        except subprocess.CalledProcessError:
+            raise InstallerFailure('disk-comparison-failed') from None
     finally:
         if guest.poll() is None:
             try:
@@ -192,16 +204,30 @@ def case(name):
                 guest.wait(timeout=10)
 
 
-command('qemu-img', 'create', '-f', 'raw', '/output/blank.raw', '16G')
-selected = sys.argv[1:]
-if selected and selected not in (['graphical'], ['cancel'], ['select']):
-    raise SystemExit('Use graphical, cancel, select, or no argument for all cases')
-for name in selected or ['graphical', 'select', 'cancel']:
-    case(name)
-    print(f'Interactive installer {name} case passed', flush=True)
-if not selected:
-    (OUTPUT / 'report.json').write_text(json.dumps(dict(status='passed', firmware=FIRMWARE, tests=[
-        'RiverLB graphical summary and accessible installation destination',
-        'text-console storage selection', 'native text Quit requested before installation',
-        'blank disks unchanged before storage confirmation']), indent=2) + '\n')
-print('Interactive installer startup, storage and untouched-disk checks passed', flush=True)
+def main():
+    if os.environ.get('RIVERLB_VM_TEST') != 'disposable-container':
+        raise SystemExit('Use scripts/test-installer.sh')
+    os.umask(0o077)
+    try:
+        command('qemu-img', 'create', '-f', 'raw', '/output/blank.raw', '16G')
+        selected = sys.argv[1:]
+        if selected and selected not in (['graphical'], ['cancel'], ['select']):
+            raise SystemExit('Use graphical, cancel, select, or no argument for all cases')
+        for name in selected or ['graphical', 'select', 'cancel']:
+            case(name)
+            print(f'Interactive installer {name} case passed', flush=True)
+        if not selected:
+            (OUTPUT / 'report.json').write_text(json.dumps(dict(status='passed', firmware=FIRMWARE, tests=[
+                'RiverLB graphical summary and accessible installation destination',
+                'text-console storage selection', 'native text Quit requested before installation',
+                'blank disks unchanged before storage confirmation']), indent=2) + '\n')
+        print('Interactive installer startup, storage and untouched-disk checks passed', flush=True)
+    except Exception as error:
+        reason = str(error) if isinstance(error, InstallerFailure) else 'fixture-error'
+        (OUTPUT / 'failure.json').write_text(json.dumps(dict(schema=1, firmware=FIRMWARE,
+            case=CURRENT_CASE, checkpoint=CHECKPOINT, reason=reason)) + '\n')
+        raise
+
+
+if __name__ == '__main__':
+    main()

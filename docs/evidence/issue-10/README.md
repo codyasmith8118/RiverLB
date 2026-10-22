@@ -30,3 +30,28 @@ with the exact image identity in the report, without booting a guest. The fixtur
 now requests supported standard VGA. A fresh protected run must verify this fix;
 passing image boot does not establish passing interactive installer coverage.
 Issue #10 remains In Progress.
+
+## Corrected display run: installer qualification still fails
+
+Run [39793312559](https://github.com/codyasmith8118/RiverLB/actions/runs/39793312559)
+tested `071d0b0bb2f2bdb64d89e35009f6172e0546775b` with supported standard VGA.
+Both firmware jobs passed resource probes, disk installation, all eleven boot
+assertions and both ISO structure checks, then failed at `installer-suite`.
+Both completed cleanup. Verified reports retain the four artifact hashes,
+commands, input identity and actual platform metadata:
+
+- [BIOS failure report](full-39793312559/bios/report.json)
+- [UEFI failure report](full-39793312559/uefi/report.json)
+
+These are partial results, not complete guest qualification. The original reports
+do not identify the installer case/checkpoint; a later run must verify the probe
+corrections and supply allowlisted diagnostic codes if it still fails.
+
+Inspection of the pinned installation runtime's `pyanaconda/display.py` shows
+`start_user_systemd()` creates the graphical session bus at `XDG_RUNTIME_DIR/bus`
+and sets its address after process startup. The probe now discovers that actual
+socket instead of depending on the initial `/proc/.../environ` snapshot. Probe
+transport compresses the typed script and waits for an explicit completion marker
+instead of assuming the result is available three seconds after submission.
+Component regressions use synthetic process metadata, a real local Unix socket
+and a delayed local shell response; they are not guest qualification evidence.

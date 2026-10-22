@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -137,6 +138,9 @@ class Qualification(unittest.TestCase):
         report = dict(status='ready',source=self.env['GITHUB_SHA'],firmware='bios',stages={})
         def execute(args, *_):
             if args[-1] == 'scripts/test-installer.sh':
+                folder = self.root / 'dist/test-installer-vm'
+                folder.mkdir()
+                (folder / 'failure.json').write_text(json.dumps(dict(schema=1, firmware='bios', case='graphical', checkpoint='graphical-summary', reason='gui-session-bus-missing')))
                 raise m.Rejected('command-failed')
         with patch.object(m, 'bounded_command', side_effect=execute):
             with self.assertRaisesRegex(m.Rejected, 'command-failed'):
@@ -145,8 +149,64 @@ class Qualification(unittest.TestCase):
         self.assertEqual(saved['stage'], 'installer-suite')
         self.assertEqual(set(saved['artifacts']), {'riverlb-image.iso','riverlb-installer.iso','riverlb.qcow2','riverlb.raw'})
         self.assertEqual(saved['boot']['tests'], sorted(m.BOOT_TESTS))
+        self.assertEqual(saved['installer_failure']['reason'], 'gui-session-bus-missing')
         self.assertNotIn('installer-suite', saved['stages'])
         self.assertNotEqual(saved['status'], 'passed')
+
+    def test_guest_probe_uses_actual_user_bus_not_initial_proc_bus(self):
+        import installer_probe as probe
+        proc = self.root / 'proc'
+        entry = proc / '123'
+        entry.mkdir(parents=True)
+        runtime = self.root / 'runtime'
+        runtime.mkdir()
+        (entry / 'cmdline').write_bytes(b'/usr/bin/python3\0/sbin/anaconda\0')
+        (entry / 'environ').write_bytes(b'DBUS_SESSION_BUS_ADDRESS=unix:path=/wrong\0PASSWORD=do-not-copy\0XDG_RUNTIME_DIR=' + os.fsencode(runtime) + b'\0')
+        with socket.socket(socket.AF_UNIX) as bus:
+            bus.bind(str(runtime / 'bus'))
+            env = probe.discover_environment(proc)
+            self.assertEqual(env['DBUS_SESSION_BUS_ADDRESS'], 'unix:path=' + str(runtime / 'bus'))
+            self.assertNotIn('PASSWORD', env)
+        (runtime / 'bus').unlink()
+        with self.assertRaisesRegex(probe.ProbeFailure, 'gui-session-bus-missing'):
+            probe.discover_environment(proc)
+
+    def test_serial_probe_waits_for_late_completion(self):
+        # Actual local shell transport only; this does not boot or qualify a guest.
+        import installer as fixture
+        serial = self.root / 'serial.log'
+        original_command = fixture.probe_command
+        processes = []
+        class Console:
+            def __init__(self, _port): pass
+            def chord(self, *_keys): pass
+            def close(self): pass
+            def type(self, command):
+                processes.append(subprocess.Popen(['bash', '-c', command]))
+        def command(script, marker):
+            return original_command(script, marker, serial)
+        try:
+            with patch.object(fixture, 'Console', Console), patch.object(fixture, 'probe_command', command):
+                output = fixture.shell(serial, "import time;time.sleep(3.2);print('late-completion')")
+            self.assertIn('late-completion', output)
+            self.assertNotIn('RIVERLB_PROBE_DONE_', output)
+            self.assertEqual(processes[0].wait(timeout=5), 0)
+            with self.assertRaises(ValueError):
+                original_command('print(1)', 'invalid-marker')
+        finally:
+            for process in processes:
+                if process.poll() is None:
+                    process.kill(); process.wait()
+
+    def test_installer_diagnostics_allow_only_known_codes(self):
+        path = self.root / 'failure.json'
+        valid = dict(schema=1, firmware='bios', case='graphical', checkpoint='graphical-summary', reason='gui-session-bus-missing')
+        path.write_text(json.dumps(valid))
+        self.assertEqual(m.installer_failure(path, 'bios'), valid)
+        for extra in ({'password':'do-not-copy'}, {'reason':'do-not-copy'}, {'case':'do-not-copy'}, {'checkpoint':'do-not-copy'}, {'firmware':'uefi'}):
+            path.write_text(json.dumps({**valid, **extra}))
+            with self.assertRaises(m.Rejected):
+                m.installer_failure(path, 'bios')
 
     def test_timeout_kills_owned_process_group_and_bounds_logs(self):
         log = self.root / 'private.log'
