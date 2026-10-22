@@ -34,7 +34,9 @@ def discover_environment(proc=Path('/proc')):
 
 
 def probe():
+    print('RIVERLB_GUI_STAGE=environment', flush=True)
     os.environ.update(discover_environment())
+    print('RIVERLB_GUI_STAGE=accessibility-import', flush=True)
     try:
         import pyatspi
     except ImportError:
@@ -56,10 +58,12 @@ def probe():
                 visit(item.getChildAtIndex(number), depth + 1)
         except Exception:
             pass
+    print('RIVERLB_GUI_STAGE=accessibility-query', flush=True)
     try:
         visit(pyatspi.Registry.getDesktop(0))
     except Exception:
         raise ProbeFailure('accessibility-query-failed') from None
+    print('RIVERLB_GUI_STAGE=product', flush=True)
     from pyanaconda.core.product import get_product_name
     print('RIVERLB_GUI_PROBE=' + json.dumps(dict(product=get_product_name(), names=names)), flush=True)
 

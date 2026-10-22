@@ -188,7 +188,9 @@ def installer_failure(path, firmware):
         'disk-comparison-failed', 'anaconda-not-found', 'gui-session-bus-missing',
         'accessibility-unavailable', 'accessibility-query-failed', 'branding-assets-missing',
         'branding-stylesheet-invalid', 'gui-probe-error', 'gui-probe-no-result',
-        'product-name-mismatch', 'installation-destination-unavailable'}
+        'product-name-mismatch', 'installation-destination-unavailable', 'shell-not-ready',
+        'gui-timeout-environment', 'gui-timeout-accessibility-import',
+        'gui-timeout-accessibility-query', 'gui-timeout-product'}
     if (set(data) != {'schema', 'firmware', 'case', 'checkpoint', 'reason'}
             or data['schema'] != 1 or data['firmware'] != firmware
             or not isinstance(data['case'], str) or data['case'] not in cases
