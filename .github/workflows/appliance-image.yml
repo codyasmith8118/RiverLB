@@ -1,76 +1,92 @@
-name: Appliance disk candidate
+name: Isolated KVM appliance qualification
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Full guest suites or an intentional resource-preflight rejection
+        type: choice
+        options: [full, negative-preflight]
+        default: full
 permissions:
   contents: read
 defaults:
   run:
     shell: bash
 concurrency:
-  group: disk-v2-${{ github.ref }}
+  group: kvm-qualification-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  admission:
+    # No persistent runner, lab credentials or guest execution for PR/fork refs.
+    if: github.repository == 'codyasmith8118/RiverLB' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/release-2.0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      RIVERLB_IMAGE_FIRMWARE: bios
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - run: python3 scripts/qualify-appliance.py admit
   rpm:
+    needs: admission
+    if: inputs.mode == 'full'
     uses: ./.github/workflows/rpm.yml
-  image:
-    needs: rpm
-    # This protected runner must be disposable and never a deployed appliance.
+  qualification:
+    needs: [admission, rpm]
+    if: always() && needs.admission.result == 'success' && (needs.rpm.result == 'success' || (needs.rpm.result == 'skipped' && inputs.mode == 'negative-preflight'))
+    # GitHub provisions a fresh VM for each matrix cell and discards it afterwards.
+    runs-on: ubuntu-24.04
     environment: appliance-build
-    runs-on: [self-hosted, linux, x64, riverlb-kvm]
     timeout-minutes: 120
     strategy:
       fail-fast: false
       max-parallel: 1
       matrix:
-        include:
-          - firmware: bios
-            image_dir: dist/image
-            test_dir: dist/test-vm
-          - firmware: uefi
-            image_dir: dist/image-uefi
-            test_dir: dist/test-vm-uefi
+        firmware: [bios, uefi]
     env:
       RIVERLB_IMAGE_FIRMWARE: ${{ matrix.firmware }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Check dedicated builder prerequisites
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Recheck admission before preparing this disposable VM
+        run: python3 scripts/qualify-appliance.py admit
+      - name: Install host container runtime and free unused runner SDK space
         run: |
-          test -r /dev/kvm && test -w /dev/kvm
-          command -v podman
-          command -v packer
-          test ! -e '${{ matrix.image_dir }}'
-          test ! -e '${{ matrix.test_dir }}'
+          sudo apt-get update
+          sudo apt-get install -y podman
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          if [[ -c /dev/kvm ]]; then
+            sudo chgrp "$(id -gn)" /dev/kvm
+            sudo chmod 0660 /dev/kvm
+          fi
+      - name: Admit resources and initialize an owned empty output directory
+        if: inputs.mode == 'full'
+        run: python3 scripts/qualify-appliance.py preflight
+      - name: Exercise an actual insufficient-disk rejection without starting a guest
+        if: inputs.mode == 'negative-preflight'
+        run: python3 scripts/qualify-appliance.py preflight --negative
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: inputs.mode == 'full'
         with:
           name: rpm-${{ github.run_id }}
           path: dist/rpm
-      - run: scripts/fetch-base-iso.py
-      - name: Assemble and inspect automatic installation media
-        run: |
-          iso=$(python3 -c 'import json; print("dist/base/" + json.load(open("appliance/base-media.json"))["filename"])')
-          checksum=$(python3 -c 'import json; print(json.load(open("appliance/base-media.json"))["sha256"])')
-          scripts/build-iso.sh "$iso" "$checksum" image
-          scripts/test-iso.sh image
-      - run: scripts/build-image.sh
-      - run: scripts/test-image.sh
-      - name: Test RiverLB graphical installer and text-console storage safety
-        if: matrix.firmware == 'bios'
-        run: |
-          iso=$(python3 -c 'import json; print("dist/base/" + json.load(open("appliance/base-media.json"))["filename"])')
-          checksum=$(python3 -c 'import json; print(json.load(open("appliance/base-media.json"))["sha256"])')
-          scripts/build-iso.sh "$iso" "$checksum" installer
-          scripts/test-iso.sh installer
-          scripts/test-installer.sh
-      - name: Upload unconfigured candidates and credential-free test report
+      - name: Run pinned BIOS or UEFI build, boot and interactive installer suites
+        if: inputs.mode == 'full'
+        run: python3 scripts/qualify-appliance.py run
+      - name: Stop only owned containers and remove private job data
+        if: always()
+        run: python3 scripts/qualify-appliance.py cleanup
+      - name: Retain only allowlisted credential-free JSON and its checksum
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: disk-${{ matrix.firmware }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: qualification-${{ matrix.firmware }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            ${{ matrix.image_dir }}/riverlb.qcow2
-            ${{ matrix.image_dir }}/riverlb.raw
-            ${{ matrix.image_dir }}/efivars.fd
-            ${{ matrix.image_dir }}/SHA256SUMS
-            ${{ matrix.test_dir }}/report.json
-            dist/test-installer-vm/report.json
+            dist/qualification-evidence/report.json
+            dist/qualification-evidence/SHA256SUMS
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30

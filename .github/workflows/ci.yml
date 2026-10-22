@@ -40,6 +40,7 @@ jobs:
           python3 tests/appliance/build_workflow.py
           python3 tests/appliance/build_inputs.py
           python3 tests/appliance/compare_builds.py
+          python3 tests/appliance/qualification.py
           python3 tests/appliance/service_hardening.py
           python3 tests/updates_helper.py
           cargo clippy --locked --all-targets -- -D warnings

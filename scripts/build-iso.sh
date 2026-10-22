@@ -26,7 +26,8 @@ if [[ ${RIVERLB_LOCKED_TOOLS:-0} != 1 ]]; then
     cp scripts/build-iso.sh "$tool_stage/scripts/"
     cp appliance/base-media.json "$tool_stage/appliance/"
     cp -a appliance/kickstart appliance/tools appliance/branding "$tool_stage/appliance/"
-    podman run --rm --pull=never --network=none -e RIVERLB_LOCKED_TOOLS=1 --security-opt=no-new-privileges \
+    source scripts/qualification-container.sh iso
+    podman run --rm "${qualification_args[@]}" --pull=never --network=none -e RIVERLB_LOCKED_TOOLS=1 --security-opt=no-new-privileges \
         -v "$tool_stage:/workspace:ro,Z" -v "$rpm_dir:/workspace/dist/rpm:ro,z" \
         -v "$iso_output_dir:/workspace/dist/iso:z" -v "$tool_stage/tmp:/tmp:Z" \
         -v "$iso:/input/base.iso:ro,z" -w /workspace \

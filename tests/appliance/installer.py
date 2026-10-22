@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -14,6 +15,9 @@ if os.environ.get('RIVERLB_VM_TEST') != 'disposable-container':
 os.umask(0o077)
 OUTPUT = Path('/output')
 MEDIA = '/media/riverlb-installer.iso'
+FIRMWARE = os.environ.get('RIVERLB_IMAGE_FIRMWARE', 'bios')
+if FIRMWARE not in ('bios', 'uefi'):
+    raise SystemExit('Invalid installer firmware')
 
 
 def command(*args):
@@ -122,11 +126,17 @@ def case(name):
     serial = OUTPUT / (name + '.serial.log')
     command('qemu-img', 'create', '-f', 'qcow2', str(disk), '16G')
     log = (OUTPUT / (name + '.qemu.log')).open('w')
+    firmware_args = []
+    if FIRMWARE == 'uefi':
+        nvram = OUTPUT / (name + '.efivars.fd')
+        shutil.copyfile('/usr/share/edk2/ovmf/OVMF_VARS.fd', nvram)
+        firmware_args = ['-drive', 'if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/edk2/ovmf/OVMF_CODE.fd',
+                         '-drive', f'if=pflash,format=raw,unit=1,file={nvram}']
     guest = subprocess.Popen(['/usr/libexec/qemu-kvm', '-machine', 'accel=kvm', '-cpu', 'host',
         '-m', '4096', '-smp', '2', '-display', 'none', '-vga', 'virtio', '-vnc', '127.0.0.1:20',
         '-drive', f'file={disk},format=qcow2,if=virtio', '-cdrom', MEDIA,
         '-boot', 'd', '-serial', f'file:{serial}', '-netdev', 'user,id=net0',
-        '-device', 'virtio-net-pci,netdev=net0'], stdout=log, stderr=log)
+        '-device', 'virtio-net-pci,netdev=net0'] + firmware_args, stdout=log, stderr=log)
     log.close()
     try:
         time.sleep(10)
@@ -190,7 +200,7 @@ for name in selected or ['graphical', 'select', 'cancel']:
     case(name)
     print(f'Interactive installer {name} case passed', flush=True)
 if not selected:
-    (OUTPUT / 'report.json').write_text(json.dumps(dict(status='passed', firmware='bios', tests=[
+    (OUTPUT / 'report.json').write_text(json.dumps(dict(status='passed', firmware=FIRMWARE, tests=[
         'RiverLB graphical summary and accessible installation destination',
         'text-console storage selection', 'native text Quit requested before installation',
         'blank disks unchanged before storage confirmation']), indent=2) + '\n')

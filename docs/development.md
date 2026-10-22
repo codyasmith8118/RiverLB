@@ -123,15 +123,15 @@ and qualified AlmaLinux RPMs. Tag names must match the Cargo package version.
 RPM qualification is a reusable workflow shared by release, ISO and disk builds.
 
 ISO and disk workflows are manual. ISO builds offer installer, image or both
-media types and verify the pinned base ISO checksum. Disk builds additionally
-require the protected `appliance-build` environment and a disposable self-hosted
-runner labeled `riverlb-kvm`, with writable KVM, Podman and Packer. BIOS and UEFI
-qualification run sequentially. Uploads contain unconfigured disks and reports;
-VM test overlays and private runtime state are excluded.
+media types and verify the pinned base ISO checksum. The isolated disk workflow
+accepts only `release-2.0`, requires approval through `appliance-build`, and uses
+fresh hosted VMs with writable KVM. BIOS and UEFI jobs each run boot and
+interactive installer suites. See the [qualification runbook](isolated-qualification.md)
+for environment protection, resource limits, negative tests and recovery.
 
-Artifacts expire after 7–14 days. These workflows produce candidates; publishing
-or signing a production release is a separate operation. Existing release tags
-and published assets are unaffected by workflow changes.
+Qualification retains sanitized JSON evidence for 30 days. Other artifacts
+expire after 7–14 days. These workflows produce candidates; publishing or signing
+a production release is a separate operation.
 
 Security scans run on pushes, pull requests, manual dispatch and daily schedules.
 Run `python3 scripts/check-dependencies.py` and `bash scripts/check-secrets.sh`
