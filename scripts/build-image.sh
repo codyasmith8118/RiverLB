@@ -28,7 +28,8 @@ if [[ ${RIVERLB_LOCKED_TOOLS:-0} != 1 ]]; then
     cp -a appliance/packer "$stage_dir/appliance/"
     device_args=()
     if [[ "$accelerator" == kvm ]]; then device_args=(--device /dev/kvm); fi
-    podman run --rm --pull=never --network=none -e RIVERLB_LOCKED_TOOLS=1 "${device_args[@]}" --security-opt=no-new-privileges \
+    source scripts/qualification-container.sh build
+    podman run --rm "${qualification_args[@]}" --pull=never --network=none -e RIVERLB_LOCKED_TOOLS=1 "${device_args[@]}" --security-opt=no-new-privileges \
         -v "$stage_dir:/workspace:ro,Z" -v "$project_dir/dist:/workspace/dist:z" \
         -v "$inputs/tools/packer:/usr/local/bin/packer:ro,z" \
         -v "$inputs/packer-plugins:/plugins:ro,z" -e PACKER_PLUGIN_PATH=/plugins \

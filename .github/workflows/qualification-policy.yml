@@ -1,0 +1,29 @@
+name: Qualification safety policy
+on:
+  push:
+    branches: ['**']
+    paths: ['scripts/qualif*', 'scripts/build-image.sh', 'scripts/test-image.sh', 'scripts/test-installer.sh', 'tests/appliance/qualification*', '.github/workflows/appliance-image.yml', '.github/workflows/qualification-policy.yml']
+  pull_request:
+    paths: ['scripts/qualif*', 'scripts/build-image.sh', 'scripts/test-image.sh', 'scripts/test-installer.sh', 'tests/appliance/qualification*', '.github/workflows/appliance-image.yml', '.github/workflows/qualification-policy.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  safety:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Exercise admission, ownership, resource rejection and interrupted processes
+        run: python3 tests/appliance/qualification.py
+      - name: Record hosted virtualization availability without creating a guest
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          print(json.dumps(dict(kvm_device=Path('/dev/kvm').is_char_device(),
+                                kvm_access=os.access('/dev/kvm', os.R_OK | os.W_OK),
+                                cpus=os.cpu_count())))
+          PY

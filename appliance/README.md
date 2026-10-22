@@ -211,14 +211,13 @@ The manual `Appliance ISO candidate` workflow repeats package tests, downloads
 the pinned base media, builds both ISO variants and runs structural tests. It
 uploads unsigned CI artifacts only; it does not deploy or publish a release.
 
-The manual `Appliance disk candidate` workflow runs on a dedicated disposable
-self-hosted runner labeled `riverlb-kvm`, with Podman, verified Packer and
-read/write KVM access. Configure the `appliance-build` environment with trusted
-ref restrictions and runner isolation before enabling it. It repeats package,
-ISO, installation and boot tests in a BIOS/UEFI matrix, with interactive
-installer checks in the BIOS job, then uploads unconfigured disks and test
-reports. It excludes credential-bearing overlays. Neither workflow signs or
-publishes releases.
+The manual `Isolated KVM appliance qualification` workflow uses a fresh hosted
+VM for each BIOS/UEFI cell. Both cells run package, ISO, disk boot and interactive
+installer tests. Only `release-2.0` is admitted, through the protected
+`appliance-build` environment. It uploads sanitized JSON evidence only, retaining
+no disks, overlays, screenshots or console logs. Configure protection and follow
+the [qualification runbook](../docs/isolated-qualification.md) before dispatching.
+Neither workflow signs or publishes releases.
 
 For post-installation configuration, use the
 [web configuration guide](../docs/web-configuration.md) and
