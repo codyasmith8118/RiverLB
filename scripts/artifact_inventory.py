@@ -6,6 +6,7 @@ from pathlib import Path
 import stat
 import subprocess
 import tarfile
+import tempfile
 from software_inventory import component, relative, sha256
 from package_inventory import validate_inventory
 
@@ -24,6 +25,8 @@ def rpm_payload(path, retain=None):
     """Read newc CPIO as a stream; never create paths supplied by an archive."""
     process = subprocess.Popen(['rpm2cpio', str(path)], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     files, kept = {}, {}
+    hardlinks = {}
+    spool = tempfile.TemporaryFile() if retain else None
     try:
         total = 0
         while True:
@@ -47,6 +50,8 @@ def rpm_payload(path, retain=None):
                 raise ValueError('Oversized RPM payload')
             h = hashlib.sha256()
             keep = bool(retain and retain(name))
+            linked = stat.S_ISREG(mode) and fields[4] > 1
+            offset = spool.tell() if spool and linked else None
             data = bytearray()
             remaining = size
             while remaining:
@@ -54,6 +59,8 @@ def rpm_payload(path, retain=None):
                 h.update(block)
                 if keep:
                     data.extend(block)
+                if spool and linked:
+                    spool.write(block)
                 remaining -= len(block)
             exact(process.stdout, -size % 4)
             if stat.S_ISDIR(mode):
@@ -62,6 +69,15 @@ def rpm_payload(path, retain=None):
                 raise ValueError('Duplicate RPM payload path')
             files[name] = {'sha256': h.hexdigest(), 'size': size, 'mode': format(stat.S_IMODE(mode), '04o'),
                            'type': 'file' if stat.S_ISREG(mode) else 'symlink' if stat.S_ISLNK(mode) else 'special'}
+            if linked:
+                group = hardlinks.setdefault((fields[7], fields[8], fields[0]), {'paths': [], 'content': None, 'kept': []})
+                group['paths'].append(name)
+                if keep:
+                    group['kept'].append(name)
+                if size:
+                    if group['content'] and group['content'][:2] != (size, h.hexdigest()):
+                        raise ValueError('Conflicting RPM hardlink payloads')
+                    group['content'] = (size, h.hexdigest(), offset)
             if keep:
                 if not stat.S_ISREG(mode):
                     raise ValueError('Retained payload member must be a regular file')
@@ -70,10 +86,25 @@ def rpm_payload(path, retain=None):
             raise ValueError('Unexpected data after CPIO trailer')
         if process.wait(timeout=30):
             raise ValueError('RPM payload decoding failed')
+        # newc stores hardlink contents on one member, often the last alias.
+        # Resolve every pathname to that content instead of hashing empty aliases.
+        for group in hardlinks.values():
+            size, digest, offset = group['content'] or (0, hashlib.sha256(b'').hexdigest(), None)
+            for name in group['paths']:
+                files[name].update(size=size, sha256=digest)
+            if group['kept']:
+                data = b''
+                if size:
+                    spool.seek(offset)
+                    data = exact(spool, size)
+                for name in group['kept']:
+                    kept[name] = data
     finally:
         process.stdout.close()
         if process.poll() is None:
             process.kill(); process.wait(timeout=5)
+        if spool:
+            spool.close()
     return files, kept
 
 

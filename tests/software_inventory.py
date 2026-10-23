@@ -10,6 +10,7 @@ import io
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -21,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 import software_inventory as inv
 import software_provenance as prov
-from artifact_inventory import verify_application_archive, verify_embedded_packages, os_catalog
+from artifact_inventory import rpm_payload, verify_application_archive, verify_embedded_packages, os_catalog
 from package_inventory import FIELDS, parse_rpm_query, validate_inventory
 spec = importlib.util.spec_from_file_location('application_packager', ROOT / 'scripts/package-application.py')
 packager = importlib.util.module_from_spec(spec); spec.loader.exec_module(packager)
@@ -30,6 +31,28 @@ qualification = importlib.util.module_from_spec(spec); spec.loader.exec_module(q
 
 
 class InventoryTests(unittest.TestCase):
+    def test_rpm_cpio_hardlinks_resolve_actual_content_and_retained_alias(self):
+        def member(name, data, inode=7):
+            name = name.encode() + b'\0'
+            fields = [inode, 0o100644, 0, 0, 2, 0, len(data), 0, 1, 0, 0, len(name), 0]
+            header = b'070701' + ''.join(f'{v:08x}' for v in fields).encode()
+            return header + name + b'\0' * (-(110 + len(name)) % 4) + data + b'\0' * (-len(data) % 4)
+        path = self.root / 'payload.cpio'
+        original_popen = subprocess.Popen
+        def decode(*args, **kwargs):
+            return original_popen(['cat', str(path)], **kwargs)
+        payload = b'original linked bytes'
+        path.write_bytes(member('./first', b'') + member('./last', payload) + member('TRAILER!!!', b'', 99))
+        with patch('artifact_inventory.subprocess.Popen', side_effect=decode):
+            files, kept = rpm_payload('synthetic.rpm', lambda name: name == 'first')
+        for entry in files.values():
+            self.assertEqual(entry['sha256'], hashlib.sha256(payload).hexdigest())
+            self.assertEqual(entry['size'], len(payload))
+        self.assertEqual(kept, {'first': payload})
+        path.write_bytes(member('./first', b'conflict') + member('./last', payload) + member('TRAILER!!!', b'', 99))
+        with patch('artifact_inventory.subprocess.Popen', side_effect=decode), self.assertRaisesRegex(ValueError, 'Conflicting RPM hardlink'):
+            rpm_payload('synthetic.rpm')
+
     def test_ubuntu_legacy_schema_resolver_is_offline(self):
         from types import SimpleNamespace
         with patch('inspect.signature', return_value=SimpleNamespace(parameters={})):
