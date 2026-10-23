@@ -239,10 +239,15 @@ class Inventory:
         return refs
 
     def document(self, root_component, properties):
-        return {'bomFormat': 'CycloneDX', 'specVersion': '1.6', 'version': 1,
+        import uuid
+        document = {'bomFormat': 'CycloneDX', 'specVersion': '1.6', 'version': 1,
                 'metadata': {'component': root_component, 'properties': [{'name': k, 'value': str(v)} for k, v in sorted(properties.items())]},
                 'components': [self.components[k] for k in sorted(self.components) if k != root_component['bom-ref']],
                 'dependencies': [{'ref': k, 'dependsOn': sorted(v)} for k, v in sorted(self.dependencies.items())]}
+        # GitHub's SBOM attestor requires a serial number even though CycloneDX
+        # makes it optional. Derive it from content to retain byte reproducibility.
+        document['serialNumber'] = uuid.uuid5(uuid.NAMESPACE_URL, canonical(document).decode()).urn
+        return document
 
     def write(self, output, document):
         output.mkdir(parents=True, exist_ok=True)

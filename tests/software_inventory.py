@@ -123,6 +123,7 @@ class InventoryTests(unittest.TestCase):
         self.assertTrue(any(c['name']=='vendored-tool' for c in inventory.components.values()))
         self.assertTrue(any(c['name']=='foo' for c in inventory.components.values()))
         prov.validate_schema(ROOT,document)
+        self.assertRegex(document['serialNumber'], r'^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')
         self.assertEqual(set(inventory.license_records),set(inventory.components))
         self.assertTrue(all(c['notices'] for c in inventory.license_records.values()))
 
