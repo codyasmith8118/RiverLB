@@ -1,5 +1,44 @@
 # Issue #10 qualification evidence
 
+## Current result: full BIOS and UEFI qualification passed
+
+[Run 39880100867](https://github.com/codyasmith8118/RiverLB/actions/runs/39880100867)
+tested source `7215510e3b44dfb4d2f858f56dcc42b7adbeed25` on `release-2.0`
+after explicit `appliance-build` review. RPM qualification and both firmware jobs
+passed. The downloaded artifacts contained exactly `report.json` and `SHA256SUMS`;
+each checksum, source/run/attempt identity, exact stage/assertion lists, locked
+inputs, tools identity and artifact hash inventory was verified before retention.
+
+| Firmware | Build/test stages | Boot assertions | Installer assertions | Cleanup | Report |
+|---|---|---|---|---|---|
+| BIOS | 9 passed | 11 passed | 4 passed | Passed | [JSON](full-39880100867/bios/report.json) |
+| UEFI | 9 passed | 11 passed | 4 passed | Passed | [JSON](full-39880100867/uefi/report.json) |
+
+Both used hosted image `20261012.334.1`, kernel `6.17.0-1022-azure`, the same
+verified RPM manifest and pinned build inputs. Reports preserve the exact
+commands/deadlines, host resources and four artifact SHA256 identities. Verify
+copies with `sha256sum -c SHA256SUMS` inside each firmware directory. Original
+Actions artifacts are `qualification-<firmware>-39880100867-1` (30-day retention);
+these copies preserve the sanitized evidence beyond expiration.
+
+Together with the earlier [negative admission run](#historical-runs-and-fixture-corrections),
+actual resource-control probes and the 27 qualification regressions in
+[PR #83](https://github.com/codyasmith8118/RiverLB/pull/83), this supplies issue #10's
+workflow evidence. Regression checks cover untrusted-ref denial, process-group
+deadlines/SIGTERM, report privacy and owned cleanup; the real resource probes
+exercise OOM limits and preserve a differently labeled container. A hard GitHub
+cancellation can still prevent final cleanup/reporting; hosted-runner disposal
+is the final boundary, as the [runbook](../../isolated-qualification.md) explains.
+
+This run qualifies the listed checks for this exact source and artifacts. It does
+not establish completed graphical installations, existing-disk upgrades, Secure
+Boot, HA/provider qualification, extended load testing, protected release signing,
+or production readiness. Later code changes need their own qualification.
+No VM disks, private logs, screenshots, sockets, credentials or signing keys are
+retained here. Main is unchanged; the broader 2.0 release gates remain separate.
+
+## Historical runs and fixture corrections
+
 Initial negative-run source: `cc3acee8fe0c4d6fbe65a8a271dbf4ed4cfc76a3` on `release-2.0`.
 Implementation: [PR #76](https://github.com/codyasmith8118/RiverLB/pull/76).
 

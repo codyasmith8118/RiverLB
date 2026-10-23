@@ -1,0 +1,146 @@
+{
+  "artifacts": {
+    "riverlb-image.iso": "d967b6c8a884ff86bbd4001848921a1958b9a1dfce9c5c237fef5201e0c1c576",
+    "riverlb-installer.iso": "4704ee3bd53ee5d14a6e3fa87688e3a96229e056f681a940c7f6cb9b81c869b1",
+    "riverlb.qcow2": "15fb9e04a3a7cbbac576e8feb9cedf5bfcd0c384230e37e4b3a12bf955ad9e07",
+    "riverlb.raw": "a63ceecc2cf74c16752fe23626994beb1ed52019960131f23024034b36cc375a"
+  },
+  "boot": {
+    "firmware": "uefi",
+    "status": "passed",
+    "tests": [
+      "SELinux enforcing",
+      "SSH disabled",
+      "clean shutdown",
+      "console recovery login",
+      "console setup",
+      "independent clone certificates and machine IDs",
+      "persisted traffic statistics",
+      "private database permissions",
+      "real firewalld VIP TCP forwarding",
+      "reboot configuration/account/certificate persistence",
+      "verified HTTPS login"
+    ]
+  },
+  "cleanup": "passed",
+  "commands": {
+    "base-media": {
+      "argv": [
+        "python3",
+        "scripts/fetch-base-iso.py"
+      ],
+      "timeout_seconds": 900
+    },
+    "boot-suite": {
+      "argv": [
+        "bash",
+        "scripts/test-image.sh"
+      ],
+      "timeout_seconds": 1800
+    },
+    "disk-build": {
+      "argv": [
+        "bash",
+        "scripts/build-image.sh"
+      ],
+      "timeout_seconds": 5400
+    },
+    "image-media": {
+      "argv": [
+        "bash",
+        "scripts/build-iso.sh",
+        "/home/runner/work/RiverLB/RiverLB/dist/base/AlmaLinux-10.2-x86_64-minimal.iso",
+        "1b532f534231da0d1cd0ccae622bea6cd588d8a0d7b259f1f131501a6eed41a4",
+        "image"
+      ],
+      "timeout_seconds": 900
+    },
+    "image-structure": {
+      "argv": [
+        "bash",
+        "scripts/test-iso.sh",
+        "image"
+      ],
+      "timeout_seconds": 300
+    },
+    "installer-media": {
+      "argv": [
+        "bash",
+        "scripts/build-iso.sh",
+        "/home/runner/work/RiverLB/RiverLB/dist/base/AlmaLinux-10.2-x86_64-minimal.iso",
+        "1b532f534231da0d1cd0ccae622bea6cd588d8a0d7b259f1f131501a6eed41a4",
+        "installer"
+      ],
+      "timeout_seconds": 900
+    },
+    "installer-structure": {
+      "argv": [
+        "bash",
+        "scripts/test-iso.sh",
+        "installer"
+      ],
+      "timeout_seconds": 300
+    },
+    "installer-suite": {
+      "argv": [
+        "bash",
+        "scripts/test-installer.sh"
+      ],
+      "timeout_seconds": 1800
+    },
+    "resource-controls": {
+      "argv": [
+        "python3",
+        "tests/appliance/qualification_resources.py"
+      ],
+      "timeout_seconds": 900
+    }
+  },
+  "finished_at_utc": "2026-10-23T03:39:21Z",
+  "firmware": "uefi",
+  "inputs": {
+    "lock_sha256": "dae1adf6aa4d1c78a469b80f3cebfcbf8f093fb864bfb84a742dae7c8bba2a71",
+    "rpm_manifest_sha256": "fb45b59bf113e9eb1bcede74aab0cc6affdf338fc3e1a4b5292adc254df48de3",
+    "snapshot_sha256": "7b61b31de8c9e5c29a0c159567bfa3f13306cdd4c934c2276ed78e2e5bc7ff6c",
+    "tools_image": "sha256:c14a1c383313a2e10db31abdf68d6c899e0c75316953908159084c42de983e94"
+  },
+  "installer": {
+    "firmware": "uefi",
+    "status": "passed",
+    "tests": [
+      "RiverLB graphical summary and accessible installation destination",
+      "blank disks unchanged before storage confirmation",
+      "native text Quit requested before installation",
+      "text-console storage selection"
+    ]
+  },
+  "platform": {
+    "kernel": "6.17.0-1022-azure",
+    "runner_image": "20261012.334.1"
+  },
+  "resources": {
+    "available_memory_bytes": 15766810624,
+    "free_disk_bytes": 109981958144,
+    "logical_cpus": 4,
+    "required_disk_bytes": 42949672960,
+    "required_logical_cpus": 2,
+    "required_memory_bytes": 6442450944
+  },
+  "run_attempt": "1",
+  "run_id": "39880100867",
+  "schema": 1,
+  "source": "7215510e3b44dfb4d2f858f56dcc42b7adbeed25",
+  "stage": "complete",
+  "stages": {
+    "base-media": "passed",
+    "boot-suite": "passed",
+    "disk-build": "passed",
+    "image-media": "passed",
+    "image-structure": "passed",
+    "installer-media": "passed",
+    "installer-structure": "passed",
+    "installer-suite": "passed",
+    "resource-controls": "passed"
+  },
+  "status": "passed"
+}

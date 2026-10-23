@@ -5,6 +5,13 @@ qualification workflow; successful policy tests alone do not qualify an applianc
 A release still needs successful real BIOS and UEFI guest reports for its exact
 source, inputs and artifact hashes, plus the broader release readiness gates.
 
+The implementation was exercised by passing full BIOS/UEFI run
+[39880100867](https://github.com/codyasmith8118/RiverLB/actions/runs/39880100867)
+at source `7215510e3b44dfb4d2f858f56dcc42b7adbeed25`. Verified reports, assertion
+counts, negative-run evidence and limits are retained in the
+[issue #10 evidence record](evidence/issue-10/README.md). This records that source;
+it does not substitute for qualification of later release candidates.
+
 ## Admission and environment protection
 
 `Isolated KVM appliance qualification` accepts manual dispatch only from this
