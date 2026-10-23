@@ -1,64 +1,48 @@
 #!/usr/bin/env bash
-# Build an unsigned application candidate. This script does not install or publish it.
+# Build an unsigned application candidate with reconstructible SBOM and notices.
 set -euo pipefail
 project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$project_dir"
-version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')
-commit=$(git rev-parse HEAD)
-source_epoch=${SOURCE_DATE_EPOCH:-$(git show -s --format=%ct HEAD)}
 platform=$(rustc -vV | sed -n 's/^host: //p')
-if [[ "$platform" != *linux* ]]; then
-    echo "This candidate pipeline requires a Linux build host." >&2
-    exit 1
-fi
-cargo build --release --locked
+[[ "$platform" == x86_64-unknown-linux-gnu ]] || { echo 'The retained dependency inventory targets Linux x86_64 GNU.' >&2; exit 1; }
+inputs=${RIVERLB_BUILD_INPUTS_DIR:-}
+if [[ -z "$inputs" ]]; then inputs=$(python3 scripts/build-inputs.py prepare); fi
+inputs=$(realpath -- "$inputs")
 stage_dir=$(mktemp -d)
 candidate_dir=""
 trap 'rm -rf -- "$stage_dir"; if [[ -n "$candidate_dir" ]]; then rm -rf -- "$candidate_dir"; fi' EXIT
-bundle_name="riverlb-${version}-${platform}-${commit:0:12}"
-install -d "$stage_dir/$bundle_name/deploy/ha" dist
-candidate_dir=$(mktemp -d "$project_dir/dist/.candidate.XXXXXX")
-install -m 0755 "${CARGO_TARGET_DIR:-target}/release/riverlb" "$stage_dir/$bundle_name/riverlb"
-install -m 0644 LICENSE "$stage_dir/$bundle_name/"
-cat > "$stage_dir/$bundle_name/README.md" <<'README'
-# RiverLB application candidate
-
-This unsigned development archive contains the application binary and HA helpers.
-It is not an installer ISO, RPM or signed offline update bundle. Its Linux ABI
-matches the build host; test it on the intended operating system before use.
-
-Run `./riverlb --help` for commands. A fresh standalone instance needs a TOML
-configuration, an administrator created with `./riverlb admin --database PATH`,
-and `./riverlb serve --config PATH --database PATH`. There is no default password.
-Stop the daemon before local database commands. Use HTTPS for remote management.
-
-HA requires Pacemaker/Corosync, operator-configured fencing and peer trust in
-addition to these helper files. Do not deploy HA by copying helpers alone.
-
-The source repository's docs/README.md indexes configuration and deployment guides.
-manifest.json records build identity and the binary checksum. SHA256SUMS detects
-corruption; it does not authenticate the publisher. This archive is not a
-production-qualified release.
-README
-for file in riverlb-authority riverlb-cluster riverlb-traffic; do
-    install -m 0755 "deploy/ha/$file" "$stage_dir/$bundle_name/deploy/ha/$file"
-done
-install -m 0644 deploy/ha/riverlb-ha.service "$stage_dir/$bundle_name/deploy/ha/"
-python3 - "$stage_dir/$bundle_name/manifest.json" "$version" "$commit" "$platform" <<'PY'
-import hashlib, json, subprocess, sys
+export CARGO_HOME="$stage_dir/cargo-home"
+mkdir -p "$CARGO_HOME"
+python3 - "$CARGO_HOME/config.toml" "$inputs/cargo-vendor" <<'PY'
+import json,sys
 from pathlib import Path
-path, version, commit, platform = sys.argv[1:]
-Path(path).write_text(json.dumps(dict(format_version=1, version=version,
-    commit=commit, platform=platform, signed=False, purpose="build-candidate",
-    dirty=bool(subprocess.check_output(['git', 'status', '--porcelain'])),
-    binary_sha256=hashlib.sha256(Path(path).with_name('riverlb').read_bytes()).hexdigest(),
-    cargo_lock_sha256=hashlib.sha256(Path('Cargo.lock').read_bytes()).hexdigest()), indent=2) + "\n")
+Path(sys.argv[1]).write_text('[source.crates-io]\nreplace-with = "retained"\n[source.retained]\ndirectory = '+json.dumps(sys.argv[2])+'\n[net]\noffline = true\n')
 PY
-(cd "$stage_dir/$bundle_name"; find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
-tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \
-    -C "$stage_dir" -cf - "$bundle_name" | gzip -n > "$candidate_dir/$bundle_name.tar.gz"
-(cd "$candidate_dir"; sha256sum "$bundle_name.tar.gz" > "$bundle_name.tar.gz.sha256")
-# Do not truncate a previous candidate if compression or checksum creation fails.
-mv -- "$candidate_dir/$bundle_name.tar.gz" "dist/$bundle_name.tar.gz"
-mv -- "$candidate_dir/$bundle_name.tar.gz.sha256" "dist/$bundle_name.tar.gz.sha256"
-echo "Unsigned candidate: dist/$bundle_name.tar.gz"
+cargo build --release --offline --locked
+cargo metadata --offline --locked --format-version 1 --filter-platform "$platform" > "$stage_dir/cargo-metadata.json"
+rustc -vV > "$stage_dir/compiler.txt"
+python3 - "$stage_dir/build-manifest.json" "$stage_dir/compiler.txt" <<'PY'
+import hashlib,json,os,subprocess,sys,tomllib
+from pathlib import Path
+version=tomllib.loads(Path('Cargo.toml').read_text())['package']['version']
+compiler=Path(sys.argv[2]).read_text()
+manifest=dict(format_version=2,version=version,commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+ dirty=bool(subprocess.check_output(['git','status','--porcelain'])),
+ source_date_epoch=int(os.environ.get('SOURCE_DATE_EPOCH') or subprocess.check_output(['git','show','-s','--format=%ct','HEAD'],text=True)),
+ cargo_lock_sha256=hashlib.sha256(Path('Cargo.lock').read_bytes()).hexdigest(),
+ build_inputs=json.loads(Path('packaging/build-inputs.lock.json').read_text()),rust=compiler.split()[1],
+ builder_image='github-hosted:ubuntu-24.04@'+os.environ.get('ImageVersion','unknown') if os.environ.get('GITHUB_ACTIONS')=='true' else 'local-linux-compiler')
+Path(sys.argv[1]).write_text(json.dumps(manifest,sort_keys=True,indent=2)+'\n')
+PY
+binary="${CARGO_TARGET_DIR:-target}/release/riverlb"
+python3 scripts/software-inventory.py source --inputs "$inputs" --manifest "$stage_dir/build-manifest.json" \
+    --binary "$binary" --metadata "$stage_dir/cargo-metadata.json" --output "$stage_dir/software"
+python3 scripts/software-inventory.py verify-source --inputs "$inputs" --manifest "$stage_dir/build-manifest.json" \
+    --binary "$binary" --metadata "$stage_dir/cargo-metadata.json" --output "$stage_dir/software"
+install -d dist
+candidate_dir=$(mktemp -d "$project_dir/dist/.candidate.XXXXXX")
+python3 scripts/package-application.py --root "$project_dir" --binary "$binary" \
+    --software "$stage_dir/software" --manifest "$stage_dir/build-manifest.json" \
+    --compiler "$stage_dir/compiler.txt" --output "$candidate_dir"
+for file in "$candidate_dir"/*; do mv -- "$file" dist/; done
+echo 'Unsigned application candidate with SBOM, sources and notices: dist/riverlb-*.tar.gz'

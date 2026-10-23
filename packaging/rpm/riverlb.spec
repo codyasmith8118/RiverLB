@@ -141,6 +141,8 @@ fi
 
 %files
 %license LICENSE
+%license software/notices.tar.gz software/licenses.json software/runtime-notices.tar.gz
+%doc software/sbom.cdx.json software/runtime-packages.lock.json
 %doc README.md build-manifest.json
 %{_bindir}/riverlb
 %{_unitdir}/riverlb.service

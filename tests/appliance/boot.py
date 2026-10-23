@@ -17,6 +17,7 @@ import subprocess
 import threading
 import time
 from vnc import Console
+from package_inventory import RPM_QUERY_FORMAT, parse_rpm_query
 
 if os.environ.get('RIVERLB_VM_TEST') != 'disposable-container':
     raise SystemExit('Use scripts/test-image.sh; do not run against production disks')
@@ -132,10 +133,11 @@ class Guest:
         time.sleep(2)
         console.type(ROOT_PASSWORD + '\n')
         time.sleep(2)
-        code = """import http.server,json,pathlib,subprocess
+        code = f"""import http.server,json,pathlib,subprocess
 p=pathlib.Path('/var/lib/riverlb')
 def out(args):return subprocess.run(args,text=True,stdout=subprocess.PIPE).stdout.strip()
 data=dict(machine_id=pathlib.Path('/etc/machine-id').read_text().strip(),selinux=out(['getenforce']),ssh_enabled=out(['systemctl','is-enabled','sshd']),root_state=out(['passwd','-S','root']).split()[1],database_mode=p.joinpath('riverlb.db').stat().st_mode & 511,setup_completed=p.joinpath('.firstboot.complete').exists(),firmware='uefi' if pathlib.Path('/sys/firmware/efi').exists() else 'bios')
+data['rpm_inventory']=out(['rpm','-qa','--qf',{RPM_QUERY_FORMAT!r}])
 class H(http.server.BaseHTTPRequestHandler):
  def do_GET(self):
   self.send_response(200);self.end_headers();self.wfile.write(json.dumps(data).encode())
@@ -159,6 +161,12 @@ server=http.server.HTTPServer(('10.0.2.15',18083),H);server.handle_request();ser
         assert data['root_state'] == 'P' and data['setup_completed'], data
         assert data['database_mode'] == 0o600, data
         assert data['firmware'] == FIRMWARE, data
+        inventory = parse_rpm_query(data.pop('rpm_inventory'), FIRMWARE)
+        inventory_path = OUTPUT / 'installed-rpms.json'
+        if inventory_path.exists():
+            assert json.loads(inventory_path.read_text()) == inventory, 'Clone package inventories differ'
+        else:
+            inventory_path.write_text(json.dumps(inventory, sort_keys=True, indent=2) + '\n')
         self.screenshot('console-recovery')
         console = Console(self.vnc)
         console.type('firewall-cmd --remove-port=18083/tcp >/dev/null\n')

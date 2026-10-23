@@ -33,7 +33,7 @@ jobs:
           if os.environ['RELEASE_REF'].startswith('refs/tags/'):
               assert os.environ['RELEASE_NAME'] == 'v' + version, 'Tag must match Cargo.toml version'
           CHECK
-      - run: sudo apt-get update && sudo apt-get install -y libclang-dev
+      - run: sudo apt-get update && sudo apt-get install -y libclang-dev podman
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: 1.92.0

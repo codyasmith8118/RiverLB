@@ -1,0 +1,1235 @@
+{
+  "crates": [
+    {
+      "commit": "b6f9585a26a5ff2064134143aa10c813d2795546",
+      "crate_sha256": "fcdeefa800110050103e2459a2f8dbdbd560ad046e30f1f87e24ce19c2cb8bde",
+      "name": "aristo",
+      "notice_kind": "upstream-license-files",
+      "notices": [
+        {
+          "path": "files/aretta-ai/aristo/b6f9585a26a5ff2064134143aa10c813d2795546/LICENSE",
+          "sha256": "e581d9bf9d912c35c1c4c975edd5bb696ef232e0e193fdcd518257b9dff41e55",
+          "url": "https://raw.githubusercontent.com/aretta-ai/aristo/b6f9585a26a5ff2064134143aa10c813d2795546/LICENSE"
+        }
+      ],
+      "repository": "https://github.com/aretta-ai/aristo",
+      "version": "0.4.1"
+    },
+    {
+      "commit": "b6f9585a26a5ff2064134143aa10c813d2795546",
+      "crate_sha256": "d64a66d21a80182b35b1741997a6d2456911f54b7eb1918aa4e2382fc205268d",
+      "name": "aristo-macros",
+      "notice_kind": "upstream-license-files",
+      "notices": [
+        {
+          "path": "files/aretta-ai/aristo/b6f9585a26a5ff2064134143aa10c813d2795546/LICENSE",
+          "sha256": "e581d9bf9d912c35c1c4c975edd5bb696ef232e0e193fdcd518257b9dff41e55",
+          "url": "https://raw.githubusercontent.com/aretta-ai/aristo/b6f9585a26a5ff2064134143aa10c813d2795546/LICENSE"
+        }
+      ],
+      "repository": "https://github.com/aretta-ai/aristo",
+      "version": "0.4.1"
+    },
+    {
+      "commit": "a20e5f7319c896737ad0f2557037817b91ad854f",
+      "crate_sha256": "7b18050c2cd6fe86c3a76584ef5e0baf286d038cda203eb6223df2cc413565f7",
+      "name": "asn1-rs-impl",
+      "notice_kind": "upstream-license-files",
+      "notices": [
+        {
+          "path": "files/rusticata/asn1-rs/a20e5f7319c896737ad0f2557037817b91ad854f/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+          "url": "https://raw.githubusercontent.com/rusticata/asn1-rs/a20e5f7319c896737ad0f2557037817b91ad854f/LICENSE-APACHE"
+        },
+        {
+          "path": "files/rusticata/asn1-rs/a20e5f7319c896737ad0f2557037817b91ad854f/LICENSE-MIT",
+          "sha256": "a5c61b93b6ee1d104af9920cf020ff3c7efe818e31fe562c72261847a728f513",
+          "url": "https://raw.githubusercontent.com/rusticata/asn1-rs/a20e5f7319c896737ad0f2557037817b91ad854f/LICENSE-MIT"
+        }
+      ],
+      "repository": "https://github.com/rusticata/asn1-rs.git",
+      "version": "0.2.0"
+    },
+    {
+      "commit": "254a861f7cc71bfe455e86f0e1d86e3c83c33390",
+      "crate_sha256": "3a47af21622d091a8f0fb295b88bc886ac74efcc613efc19f5d0b21de5c89e47",
+      "name": "crc32c",
+      "notice_kind": "upstream-grant-and-linked-license-text",
+      "notices": [
+        {
+          "path": "files/zowens/crc32c/254a861f7cc71bfe455e86f0e1d86e3c83c33390/README.md",
+          "sha256": "cdacc34974a954ea9ddb5da1a2ad19bcefaead7dfa9df6fd9421671ea5d19300",
+          "url": "https://raw.githubusercontent.com/zowens/crc32c/254a861f7cc71bfe455e86f0e1d86e3c83c33390/README.md"
+        },
+        {
+          "path": "files/zowens/crc32c/254a861f7cc71bfe455e86f0e1d86e3c83c33390/Cargo.toml",
+          "sha256": "99342c77e539bf3d549262dadd7d7ed646ce309b6dabde67a5a35b7c0faaca31",
+          "url": "https://raw.githubusercontent.com/zowens/crc32c/254a861f7cc71bfe455e86f0e1d86e3c83c33390/Cargo.toml"
+        },
+        {
+          "path": "files/zowens/crc32c/254a861f7cc71bfe455e86f0e1d86e3c83c33390/LICENSE-APACHE-2.0.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "repository": "https://github.com/zowens/crc32c",
+      "version": "0.6.8"
+    },
+    {
+      "commit": "b7e93c2d444a5c63e94e14f6809c8dc27785c1c7",
+      "crate_sha256": "c86bd0361bcbde39b13475e6e36cb24c329964aa2611be285289d1e4b751c1a0",
+      "name": "genawaiter",
+      "notice_kind": "upstream-declarations-no-license-file",
+      "notices": [
+        {
+          "path": "files/whatisaphone/genawaiter/b7e93c2d444a5c63e94e14f6809c8dc27785c1c7/README.md",
+          "sha256": "43274e561bc7de579fbb3f9792607d768f2ed1172f621c474e808b572c2a1bca",
+          "url": "https://raw.githubusercontent.com/whatisaphone/genawaiter/b7e93c2d444a5c63e94e14f6809c8dc27785c1c7/README.md"
+        },
+        {
+          "path": "files/whatisaphone/genawaiter/b7e93c2d444a5c63e94e14f6809c8dc27785c1c7/Cargo.toml",
+          "sha256": "976e626e7931f71616d71a9affc97b297a1d55171e7c33bc5028b41c1726a6e4",
+          "url": "https://raw.githubusercontent.com/whatisaphone/genawaiter/b7e93c2d444a5c63e94e14f6809c8dc27785c1c7/Cargo.toml"
+        }
+      ],
+      "repository": "https://github.com/whatisaphone/genawaiter",
+      "version": "0.99.1"
+    },
+    {
+      "commit": "f48046a9f66fbd2e535d5614fa7fe0d0b1a6a046",
+      "crate_sha256": "0b32dfe1fdfc0bbde1f22a5da25355514b5e450c33a6af6770884c8750aedfbc",
+      "name": "genawaiter-macro",
+      "notice_kind": "upstream-declarations-no-license-file",
+      "notices": [
+        {
+          "path": "files/whatisaphone/genawaiter/f48046a9f66fbd2e535d5614fa7fe0d0b1a6a046/README.md",
+          "sha256": "49224d2d7434614d6dc3b155afaea3b9e5bc19425c254101dc96164fb5340ff2",
+          "url": "https://raw.githubusercontent.com/whatisaphone/genawaiter/f48046a9f66fbd2e535d5614fa7fe0d0b1a6a046/README.md"
+        },
+        {
+          "path": "files/whatisaphone/genawaiter/f48046a9f66fbd2e535d5614fa7fe0d0b1a6a046/Cargo.toml",
+          "sha256": "976e626e7931f71616d71a9affc97b297a1d55171e7c33bc5028b41c1726a6e4",
+          "url": "https://raw.githubusercontent.com/whatisaphone/genawaiter/f48046a9f66fbd2e535d5614fa7fe0d0b1a6a046/Cargo.toml"
+        }
+      ],
+      "repository": "https://github.com/whatisaphone/genawaiter",
+      "version": "0.99.1"
+    },
+    {
+      "commit": "fb975e9d592d94fe4624908ebfae3a71c984d3ff",
+      "crate_sha256": "e3b7bb0ecf2e447b1f20ee94ee79ef6eed1e9d4b3c36ce1903b9dea3bf205523",
+      "name": "pack1",
+      "notice_kind": "upstream-declarations-no-license-file",
+      "notices": [
+        {
+          "path": "files/Lokathor/pack1/fb975e9d592d94fe4624908ebfae3a71c984d3ff/README.md",
+          "sha256": "c07f6e1f7c42bd313ae4f381495a4722bd11bcfde544049b3b37f49d7efea28b",
+          "url": "https://raw.githubusercontent.com/Lokathor/pack1/fb975e9d592d94fe4624908ebfae3a71c984d3ff/README.md"
+        },
+        {
+          "path": "files/Lokathor/pack1/fb975e9d592d94fe4624908ebfae3a71c984d3ff/Cargo.toml",
+          "sha256": "b6e9eae213907cbd6b06be7c7393e18b122c2a454143aaffea0e88def1aa93f9",
+          "url": "https://raw.githubusercontent.com/Lokathor/pack1/fb975e9d592d94fe4624908ebfae3a71c984d3ff/Cargo.toml"
+        }
+      ],
+      "repository": "https://github.com/Lokathor/pack1",
+      "version": "1.1.0"
+    },
+    {
+      "commit": "fb7cbdda3d187e4875cef71f2d16c1b739bff38f",
+      "crate_sha256": "f4fb3bc3cdce07a7d7d4caa4c54f8aa967f6be41690482b54b24100a2253fa70",
+      "name": "simsimd",
+      "notice_kind": "upstream-license-files",
+      "notices": [
+        {
+          "path": "files/ashvardanian/SimSIMD/fb7cbdda3d187e4875cef71f2d16c1b739bff38f/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/ashvardanian/SimSIMD/fb7cbdda3d187e4875cef71f2d16c1b739bff38f/LICENSE"
+        }
+      ],
+      "repository": "https://github.com/ashvardanian/SimSIMD",
+      "version": "6.5.16"
+    },
+    {
+      "commit": "8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a",
+      "crate_sha256": "7de8cbeace6385bf3fcb346d4aace8d9ba0de5cffe5e5a0ed210beebd671c208",
+      "name": "turso",
+      "notice_kind": "upstream-license-files",
+      "notices": [
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md",
+          "sha256": "b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md",
+          "sha256": "efbb757e38448cca646247fd07a4201735533acad9aa1e92184821c02fff9e94",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md",
+          "sha256": "a74afe5af3d2be4212df425cf7152e098f66eb02f3fb808a6effb747df7122f4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md",
+          "sha256": "f1bf34973df4ab4a756700b3edb42ac344377a2d23c5c2137007a735b5b61a78",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md",
+          "sha256": "e862bb5b904fb5513c3e14288d7a25a12eb0ecc7847a0a965d310e9a955e7cb9",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md",
+          "sha256": "5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md",
+          "sha256": "27ba0fdfa70b6adf9521f3a1b865cb9347261c018243fa074bab5ff5e54dd188",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md",
+          "sha256": "122686c559146c3946e4ebd3f828a3e6d87ed41b6664772899ff0264b6f28475",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md",
+          "sha256": "c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md",
+          "sha256": "7ed4b96bdab9fc581e04229c810adef21d1b91af6cce7a02762365406c2d86e3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md",
+          "sha256": "69d42a32f6597af73843e0a4ffb3f3c11cafddf1df85986748c74296450a45ca",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md",
+          "sha256": "aef4aa957b4403aa2a332872a6d2216c5258700c99816e575ee3adca93f23ce6",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md",
+          "sha256": "6ac8711fb340c62ce0a4ecd463342d3fa0e8e70de697c863a2e1c0c53006003c",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md",
+          "sha256": "3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md"
+        }
+      ],
+      "repository": "https://github.com/tursodatabase/turso",
+      "version": "0.8.1"
+    },
+    {
+      "commit": "8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a",
+      "crate_sha256": "58e5f09aaead5dfc87c5a22a2b3e95fb85e2d666e27e5f4a2474c42198af20ec",
+      "name": "turso_core",
+      "notice_kind": "upstream-license-files",
+      "notices": [
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md",
+          "sha256": "b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md",
+          "sha256": "efbb757e38448cca646247fd07a4201735533acad9aa1e92184821c02fff9e94",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md",
+          "sha256": "a74afe5af3d2be4212df425cf7152e098f66eb02f3fb808a6effb747df7122f4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md",
+          "sha256": "f1bf34973df4ab4a756700b3edb42ac344377a2d23c5c2137007a735b5b61a78",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md",
+          "sha256": "e862bb5b904fb5513c3e14288d7a25a12eb0ecc7847a0a965d310e9a955e7cb9",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md",
+          "sha256": "5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md",
+          "sha256": "27ba0fdfa70b6adf9521f3a1b865cb9347261c018243fa074bab5ff5e54dd188",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md",
+          "sha256": "122686c559146c3946e4ebd3f828a3e6d87ed41b6664772899ff0264b6f28475",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md",
+          "sha256": "c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md",
+          "sha256": "7ed4b96bdab9fc581e04229c810adef21d1b91af6cce7a02762365406c2d86e3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md",
+          "sha256": "69d42a32f6597af73843e0a4ffb3f3c11cafddf1df85986748c74296450a45ca",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md",
+          "sha256": "aef4aa957b4403aa2a332872a6d2216c5258700c99816e575ee3adca93f23ce6",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md",
+          "sha256": "6ac8711fb340c62ce0a4ecd463342d3fa0e8e70de697c863a2e1c0c53006003c",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md",
+          "sha256": "3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md"
+        }
+      ],
+      "repository": "https://github.com/tursodatabase/turso",
+      "version": "0.8.1"
+    },
+    {
+      "commit": "8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a",
+      "crate_sha256": "3902472c63d19191d5982d28542595d1babef787a8482175422ecf7f28100261",
+      "name": "turso_ext",
+      "notice_kind": "upstream-license-files",
+      "notices": [
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md",
+          "sha256": "b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md",
+          "sha256": "efbb757e38448cca646247fd07a4201735533acad9aa1e92184821c02fff9e94",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md",
+          "sha256": "a74afe5af3d2be4212df425cf7152e098f66eb02f3fb808a6effb747df7122f4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md",
+          "sha256": "f1bf34973df4ab4a756700b3edb42ac344377a2d23c5c2137007a735b5b61a78",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md",
+          "sha256": "e862bb5b904fb5513c3e14288d7a25a12eb0ecc7847a0a965d310e9a955e7cb9",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md",
+          "sha256": "5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md",
+          "sha256": "27ba0fdfa70b6adf9521f3a1b865cb9347261c018243fa074bab5ff5e54dd188",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md",
+          "sha256": "122686c559146c3946e4ebd3f828a3e6d87ed41b6664772899ff0264b6f28475",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md",
+          "sha256": "c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md",
+          "sha256": "7ed4b96bdab9fc581e04229c810adef21d1b91af6cce7a02762365406c2d86e3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md",
+          "sha256": "69d42a32f6597af73843e0a4ffb3f3c11cafddf1df85986748c74296450a45ca",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md",
+          "sha256": "aef4aa957b4403aa2a332872a6d2216c5258700c99816e575ee3adca93f23ce6",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md",
+          "sha256": "6ac8711fb340c62ce0a4ecd463342d3fa0e8e70de697c863a2e1c0c53006003c",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md",
+          "sha256": "3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md"
+        }
+      ],
+      "repository": "https://github.com/tursodatabase/turso",
+      "version": "0.8.1"
+    },
+    {
+      "commit": "8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a",
+      "crate_sha256": "63bd5f0f7186707a8b4cf54bbaddff9056c218823befab15508ef6e7502c2340",
+      "name": "turso_macros",
+      "notice_kind": "upstream-license-files",
+      "notices": [
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md",
+          "sha256": "b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md",
+          "sha256": "efbb757e38448cca646247fd07a4201735533acad9aa1e92184821c02fff9e94",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md",
+          "sha256": "a74afe5af3d2be4212df425cf7152e098f66eb02f3fb808a6effb747df7122f4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md",
+          "sha256": "f1bf34973df4ab4a756700b3edb42ac344377a2d23c5c2137007a735b5b61a78",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md",
+          "sha256": "e862bb5b904fb5513c3e14288d7a25a12eb0ecc7847a0a965d310e9a955e7cb9",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md",
+          "sha256": "5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md",
+          "sha256": "27ba0fdfa70b6adf9521f3a1b865cb9347261c018243fa074bab5ff5e54dd188",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md",
+          "sha256": "122686c559146c3946e4ebd3f828a3e6d87ed41b6664772899ff0264b6f28475",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md",
+          "sha256": "c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md",
+          "sha256": "7ed4b96bdab9fc581e04229c810adef21d1b91af6cce7a02762365406c2d86e3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md",
+          "sha256": "69d42a32f6597af73843e0a4ffb3f3c11cafddf1df85986748c74296450a45ca",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md",
+          "sha256": "aef4aa957b4403aa2a332872a6d2216c5258700c99816e575ee3adca93f23ce6",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md",
+          "sha256": "6ac8711fb340c62ce0a4ecd463342d3fa0e8e70de697c863a2e1c0c53006003c",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md",
+          "sha256": "3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md"
+        }
+      ],
+      "repository": "https://github.com/tursodatabase/turso",
+      "version": "0.8.1"
+    },
+    {
+      "commit": "8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a",
+      "crate_sha256": "25b6d3428f16fff69a13bf7f966628d9fc8e0d097fec6cd84ce1af3d5a9be6b1",
+      "name": "turso_parser",
+      "notice_kind": "upstream-license-files",
+      "notices": [
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md",
+          "sha256": "b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md",
+          "sha256": "efbb757e38448cca646247fd07a4201735533acad9aa1e92184821c02fff9e94",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md",
+          "sha256": "a74afe5af3d2be4212df425cf7152e098f66eb02f3fb808a6effb747df7122f4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md",
+          "sha256": "f1bf34973df4ab4a756700b3edb42ac344377a2d23c5c2137007a735b5b61a78",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md",
+          "sha256": "e862bb5b904fb5513c3e14288d7a25a12eb0ecc7847a0a965d310e9a955e7cb9",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md",
+          "sha256": "5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md",
+          "sha256": "27ba0fdfa70b6adf9521f3a1b865cb9347261c018243fa074bab5ff5e54dd188",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md",
+          "sha256": "122686c559146c3946e4ebd3f828a3e6d87ed41b6664772899ff0264b6f28475",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md",
+          "sha256": "c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md",
+          "sha256": "7ed4b96bdab9fc581e04229c810adef21d1b91af6cce7a02762365406c2d86e3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md",
+          "sha256": "69d42a32f6597af73843e0a4ffb3f3c11cafddf1df85986748c74296450a45ca",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md",
+          "sha256": "aef4aa957b4403aa2a332872a6d2216c5258700c99816e575ee3adca93f23ce6",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md",
+          "sha256": "6ac8711fb340c62ce0a4ecd463342d3fa0e8e70de697c863a2e1c0c53006003c",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md",
+          "sha256": "3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md"
+        }
+      ],
+      "repository": "https://github.com/tursodatabase/turso",
+      "version": "0.8.1"
+    },
+    {
+      "commit": "8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a",
+      "crate_sha256": "c2f96fb1bf669ebd868caf17d865cfa7dc94ad5b2e840402bb28525be09767fc",
+      "name": "turso_sdk_kit",
+      "notice_kind": "upstream-license-files",
+      "notices": [
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md",
+          "sha256": "b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md",
+          "sha256": "efbb757e38448cca646247fd07a4201735533acad9aa1e92184821c02fff9e94",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md",
+          "sha256": "a74afe5af3d2be4212df425cf7152e098f66eb02f3fb808a6effb747df7122f4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md",
+          "sha256": "f1bf34973df4ab4a756700b3edb42ac344377a2d23c5c2137007a735b5b61a78",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md",
+          "sha256": "e862bb5b904fb5513c3e14288d7a25a12eb0ecc7847a0a965d310e9a955e7cb9",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md",
+          "sha256": "5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md",
+          "sha256": "27ba0fdfa70b6adf9521f3a1b865cb9347261c018243fa074bab5ff5e54dd188",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md",
+          "sha256": "122686c559146c3946e4ebd3f828a3e6d87ed41b6664772899ff0264b6f28475",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md",
+          "sha256": "c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md",
+          "sha256": "7ed4b96bdab9fc581e04229c810adef21d1b91af6cce7a02762365406c2d86e3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md",
+          "sha256": "69d42a32f6597af73843e0a4ffb3f3c11cafddf1df85986748c74296450a45ca",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md",
+          "sha256": "aef4aa957b4403aa2a332872a6d2216c5258700c99816e575ee3adca93f23ce6",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md",
+          "sha256": "6ac8711fb340c62ce0a4ecd463342d3fa0e8e70de697c863a2e1c0c53006003c",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md",
+          "sha256": "3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md"
+        }
+      ],
+      "repository": "https://github.com/tursodatabase/turso",
+      "version": "0.8.1"
+    },
+    {
+      "commit": "8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a",
+      "crate_sha256": "592f57f212b0ce58c876ab760ef84b219719ee2ade738b53f180db87c0232432",
+      "name": "turso_sdk_kit_macros",
+      "notice_kind": "upstream-license-files",
+      "notices": [
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md",
+          "sha256": "b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md",
+          "sha256": "efbb757e38448cca646247fd07a4201735533acad9aa1e92184821c02fff9e94",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md",
+          "sha256": "a74afe5af3d2be4212df425cf7152e098f66eb02f3fb808a6effb747df7122f4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md",
+          "sha256": "f1bf34973df4ab4a756700b3edb42ac344377a2d23c5c2137007a735b5b61a78",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md",
+          "sha256": "e862bb5b904fb5513c3e14288d7a25a12eb0ecc7847a0a965d310e9a955e7cb9",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md",
+          "sha256": "5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md",
+          "sha256": "27ba0fdfa70b6adf9521f3a1b865cb9347261c018243fa074bab5ff5e54dd188",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md",
+          "sha256": "122686c559146c3946e4ebd3f828a3e6d87ed41b6664772899ff0264b6f28475",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md",
+          "sha256": "c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md",
+          "sha256": "7ed4b96bdab9fc581e04229c810adef21d1b91af6cce7a02762365406c2d86e3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md",
+          "sha256": "69d42a32f6597af73843e0a4ffb3f3c11cafddf1df85986748c74296450a45ca",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md",
+          "sha256": "aef4aa957b4403aa2a332872a6d2216c5258700c99816e575ee3adca93f23ce6",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md",
+          "sha256": "6ac8711fb340c62ce0a4ecd463342d3fa0e8e70de697c863a2e1c0c53006003c",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md",
+          "sha256": "3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md"
+        }
+      ],
+      "repository": "https://github.com/tursodatabase/turso",
+      "version": "0.8.1"
+    },
+    {
+      "commit": "8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a",
+      "crate_sha256": "8ef57fe72ac7905ad0cfe1cb3f1f24ee1d671176c57a5151709ba9bbf4e1f050",
+      "name": "turso_sync_engine",
+      "notice_kind": "upstream-license-files",
+      "notices": [
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md",
+          "sha256": "b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md",
+          "sha256": "efbb757e38448cca646247fd07a4201735533acad9aa1e92184821c02fff9e94",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md",
+          "sha256": "a74afe5af3d2be4212df425cf7152e098f66eb02f3fb808a6effb747df7122f4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md",
+          "sha256": "f1bf34973df4ab4a756700b3edb42ac344377a2d23c5c2137007a735b5b61a78",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md",
+          "sha256": "e862bb5b904fb5513c3e14288d7a25a12eb0ecc7847a0a965d310e9a955e7cb9",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md",
+          "sha256": "5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md",
+          "sha256": "27ba0fdfa70b6adf9521f3a1b865cb9347261c018243fa074bab5ff5e54dd188",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md",
+          "sha256": "122686c559146c3946e4ebd3f828a3e6d87ed41b6664772899ff0264b6f28475",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md",
+          "sha256": "c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md",
+          "sha256": "7ed4b96bdab9fc581e04229c810adef21d1b91af6cce7a02762365406c2d86e3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md",
+          "sha256": "69d42a32f6597af73843e0a4ffb3f3c11cafddf1df85986748c74296450a45ca",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md",
+          "sha256": "aef4aa957b4403aa2a332872a6d2216c5258700c99816e575ee3adca93f23ce6",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md",
+          "sha256": "6ac8711fb340c62ce0a4ecd463342d3fa0e8e70de697c863a2e1c0c53006003c",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md",
+          "sha256": "3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md"
+        }
+      ],
+      "repository": "https://github.com/tursodatabase/turso",
+      "version": "0.8.1"
+    },
+    {
+      "commit": "8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a",
+      "crate_sha256": "b83c90ebfc04dc00d1c98cf030510b0d132ec819c355b9ed64d6b767f13db686",
+      "name": "turso_sync_sdk_kit",
+      "notice_kind": "upstream-license-files",
+      "notices": [
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md",
+          "sha256": "b646f9ee8bcaf87e8de75153b9df7a2861c7ac445c87e741768b3c2bccf47bc5",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/LICENSE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md",
+          "sha256": "efbb757e38448cca646247fd07a4201735533acad9aa1e92184821c02fff9e94",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/NOTICE.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/assertj-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/errorprone-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md",
+          "sha256": "a74afe5af3d2be4212df425cf7152e098f66eb02f3fb808a6effb747df7122f4",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/logback-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md",
+          "sha256": "f1bf34973df4ab4a756700b3edb42ac344377a2d23c5c2137007a735b5b61a78",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/java/spotless-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md",
+          "sha256": "e862bb5b904fb5513c3e14288d7a25a12eb0ecc7847a0a965d310e9a955e7cb9",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/bindings/python/sqlalchemy-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md",
+          "sha256": "5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/crossbeam-skiplist-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/libm-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md",
+          "sha256": "27ba0fdfa70b6adf9521f3a1b865cb9347261c018243fa074bab5ff5e54dd188",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/pastey-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md",
+          "sha256": "122686c559146c3946e4ebd3f828a3e6d87ed41b6664772899ff0264b6f28475",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/serde_json5-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md",
+          "sha256": "c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-apache.license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md",
+          "sha256": "7ed4b96bdab9fc581e04229c810adef21d1b91af6cce7a02762365406c2d86e3",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/core/windows-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md",
+          "sha256": "69d42a32f6597af73843e0a4ffb3f3c11cafddf1df85986748c74296450a45ca",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/extensions/ipnetwork-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md",
+          "sha256": "aef4aa957b4403aa2a332872a6d2216c5258700c99816e575ee3adca93f23ce6",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/pprof-apache-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md",
+          "sha256": "6ac8711fb340c62ce0a4ecd463342d3fa0e8e70de697c863a2e1c0c53006003c",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/perf/spin-mit-license.md"
+        },
+        {
+          "path": "files/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md",
+          "sha256": "3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+          "url": "https://raw.githubusercontent.com/tursodatabase/turso/8549c16595d2faf1bdd6ee24aee0be8bfabb3d4a/licenses/postgres-license.md"
+        }
+      ],
+      "repository": "https://github.com/tursodatabase/turso",
+      "version": "0.8.1"
+    }
+  ],
+  "schema": 1
+}

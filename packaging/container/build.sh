@@ -62,6 +62,32 @@ rpm -qa | sort > /output/build-packages.txt
 rustc -vV > /output/compiler.txt
 cp /source/build-manifest.json /output/build-manifest.json
 cp /source/build-inputs.json /output/build-inputs.json
+cargo metadata --offline --locked --format-version 1 --filter-platform x86_64-unknown-linux-gnu > /build/cargo-metadata.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+m = json.loads(Path('/build/cargo-metadata.json').read_text())
+# Stable package IDs remove private staging paths from the exported build graph.
+ids = {p['id']: p['name'] + '@' + p['version'] for p in m['packages']}
+graph = dict(packages=[dict(id=ids[p['id']], name=p['name'], version=p['version']) for p in m['packages']],
+             resolve=dict(root=ids[m['resolve']['root']], nodes=[dict(id=ids[n['id']],
+                 deps=[dict(pkg=ids[d['pkg']]) for d in n['deps']]) for n in m['resolve']['nodes']]))
+Path('/output/cargo-graph.json').write_text(json.dumps(graph, sort_keys=True, indent=2) + '\n')
+PY
+python3 scripts/software-inventory.py source --root /build --inputs /inputs \
+    --manifest /source/build-manifest.json --binary target/release/riverlb \
+    --metadata /build/cargo-metadata.json --agent /build/riverlb-payload/fence_pve \
+    --output /build/riverlb-payload/software
+python3 scripts/software-inventory.py verify-source --root /build --inputs /inputs \
+    --manifest /source/build-manifest.json --binary target/release/riverlb \
+    --metadata /output/cargo-graph.json --agent /build/riverlb-payload/fence_pve \
+    --output /build/riverlb-payload/software
+install -m 0644 packaging/third-party/runtime-notices.tar.gz packaging/third-party/runtime-packages.lock.json \
+    /build/riverlb-payload/software/
+cp -a /build/riverlb-payload/software /output/software
+python3 scripts/package-application.py --root /build --binary target/release/riverlb \
+    --software /output/software --manifest /output/build-manifest.json \
+    --compiler /output/compiler.txt --output /output
 install -m 0644 packaging/update/update-trust.json /output/update-trust.json
 tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner \
     -C /build -cf - riverlb-payload | gzip -n > /build/rpmbuild/SOURCES/riverlb-payload.tar.gz
@@ -71,4 +97,4 @@ rpmbuild -bb --define '_topdir /build/rpmbuild' --define '_buildhost riverlb-bui
 cp /build/rpmbuild/RPMS/x86_64/*.rpm /output/
 # Retained signed closure: never consult current DNF repositories during a build.
 cp -a /inputs/rpm-repository /output/ha-dependencies
-(cd /output; { sha256sum ./*.rpm build-manifest.json build-inputs.json build-packages.txt compiler.txt update-trust.json; find ha-dependencies -type f -print0 | sort -z | xargs -0 sha256sum; } > SHA256SUMS)
+(cd /output; { sha256sum ./*.rpm ./*.tar.gz ./*.tar.gz.sha256 build-manifest.json build-inputs.json build-packages.txt compiler.txt cargo-graph.json update-trust.json; find ha-dependencies software -type f -print0 | sort -z | xargs -0 sha256sum; } > SHA256SUMS)

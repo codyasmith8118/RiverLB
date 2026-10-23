@@ -106,3 +106,5 @@ Start with [development and tests](docs/development.md) and
 and release packages.
 
 For sensitive reports, follow the [security policy](SECURITY.md).
+For component licenses, corresponding sources and artifact verification, see
+[software inventories and provenance](docs/software-supply-chain.md).

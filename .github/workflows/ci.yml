@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get install -y libclang-dev
+        run: sudo apt-get update && sudo apt-get install -y libclang-dev python3-jsonschema
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: 1.92.0
@@ -33,6 +33,7 @@ jobs:
           python3 scripts/check-docs.py
           python3 tests/check_docs.py
           python3 tests/build_release.py
+          /usr/bin/python3 tests/software_inventory.py
           python3 tests/appliance/branding.py
           python3 tests/appliance/installed_branding.py
           python3 tests/appliance/network_defaults.py

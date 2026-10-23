@@ -15,6 +15,7 @@ install -d -m 0700 "$output_dir"
 stage_dir=$(mktemp -d)
 trap 'rm -rf -- "$stage_dir"' EXIT
 cp tests/appliance/boot.py tests/appliance/vnc.py "$stage_dir/"
+cp scripts/package_inventory.py "$stage_dir/"
 image=$(python3 scripts/build-inputs.py image tools)
 source scripts/qualification-container.sh boot
 podman run --rm "${qualification_args[@]}" --pull=never --network=none --device /dev/kvm --security-opt=no-new-privileges \

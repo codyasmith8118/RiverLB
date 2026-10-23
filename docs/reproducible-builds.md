@@ -38,6 +38,13 @@ closure, wheels, Cargo vendor sources, and tool provenance. Both are covered by
 output `SHA256SUMS`. Preserve these beside release artifacts; the manifest is
 also installed in the main RPM.
 
+The same build emits an application archive, `cargo-graph.json` and `software/`
+containing a CycloneDX inventory, license/source index and preserved notices.
+These outputs are included in the byte comparison. Protected full qualification
+also compares actual RPM and ISO payloads and installed package metadata before
+signing the aggregate inventory and provenance; see
+[software inventories and provenance](software-supply-chain.md).
+
 Packer 1.16.1 and QEMU plugin 1.1.4 are retained with vendor-signed checksum lists.
 Their signing key fingerprint is pinned in `packaging/toolchain.lock.json`.
 The QEMU executable and OVMF firmware come from the locked tools image. No host
