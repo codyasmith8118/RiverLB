@@ -7,8 +7,10 @@ import re
 import secrets
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
+import threading
 import time
 from vnc import Console
 
@@ -41,6 +43,47 @@ def checkpoint(name):
 PROBE_ROOT = Path('/run/riverlb-probe')
 PROBE_LABEL = 'riverlb_probe'
 TEXT_PROBE = "import pathlib; print(pathlib.Path('/dev/vcs1').read_bytes().decode('ascii', errors='replace'))"
+
+
+class SerialChannel:
+    """Private QEMU UART socket, independent of the currently displayed VT."""
+    def __init__(self, path):
+        self.ready = False
+        self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.socket.settimeout(10)
+        try:
+            self.socket.connect(str(path))
+        except BaseException:
+            self.socket.close()
+            raise
+        # QEMU logs UART output to the private serial file. Drain its socket too,
+        # otherwise a full send buffer can stall guest output and command replies.
+        self.reader = threading.Thread(target=self.drain, daemon=True)
+        self.reader.start()
+
+    def drain(self):
+        while True:
+            try:
+                if not self.socket.recv(65536):
+                    return
+            except socket.timeout:
+                continue
+            except OSError:
+                return
+
+    def chord(self, *_keys):
+        pass
+
+    def type(self, command):
+        self.socket.sendall(command.encode('ascii'))
+
+    def close(self):
+        try:
+            self.socket.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        self.socket.close()
+        self.reader.join(timeout=2)
 
 
 def write_probe(script, folder):
@@ -122,30 +165,37 @@ def probe_status(console, serial, command, operation, seconds):
         raise InstallerFailure(operation + '-timeout') from None
 
 
-def shell(serial, script, return_tty=1, ready_seconds=180, media_seconds=20):
+def shell(serial, script, return_tty=1, ready_seconds=180, media_seconds=20, channel=None):
     """Wait for completion; never discard a slow probe's late serial response."""
     console = Console(5920)
+    transport = channel if channel is not None else console
     try:
         # Require an executed challenge response, not a literal marker that a
         # console might echo while the installer is still starting.
         end = time.monotonic() + ready_seconds
-        while True:
+        while channel is None or not channel.ready:
             console.chord('ctrl', 'alt', 'f2')
             time.sleep(1)
+            if channel is not None:
+                # Only this short handoff uses keyboard input. The executed
+                # challenge below must return through UART before any probe.
+                console.type('exec </dev/ttyS0 >/dev/ttyS0 2>&1\n')
             try:
-                if shell_status(console, serial, 'true', min(5, max(0.1, end - time.monotonic())))[0] == 0:
+                if shell_status(transport, serial, 'true', min(5, max(0.1, end - time.monotonic())))[0] == 0:
+                    if channel is not None:
+                        channel.ready = True
                     break
             except InstallerFailure as error:
                 if str(error) != 'probe-command-timeout':
                     raise
             if time.monotonic() >= end:
                 raise InstallerFailure('shell-not-ready')
-        ensure_probe_media(console, serial, media_seconds)
+        ensure_probe_media(transport, serial, media_seconds)
         program = probe_program(script)
         path = program.removeprefix('python3 ')
-        if probe_status(console, serial, 'test -r ' + path, 'probe-script', media_seconds)[0] != 0:
+        if probe_status(transport, serial, 'test -r ' + path, 'probe-script', media_seconds)[0] != 0:
             raise InstallerFailure('probe-content-missing')
-        status, output = probe_status(console, serial, program, 'probe-execution', 45)
+        status, output = probe_status(transport, serial, program, 'probe-execution', 45)
         if status == 127:
             raise InstallerFailure('probe-interpreter-missing')
         return output
@@ -156,14 +206,14 @@ def shell(serial, script, return_tty=1, ready_seconds=180, media_seconds=20):
             console.close()
 
 
-def console_text(serial):
-    return shell(serial, TEXT_PROBE)
+def console_text(serial, channel=None):
+    return shell(serial, TEXT_PROBE, channel=channel)
 
 
-def wait_text(serial, phrase, seconds=180):
+def wait_text(serial, phrase, seconds=180, channel=None):
     end = time.monotonic() + seconds
     while time.monotonic() < end:
-        text = console_text(serial)
+        text = console_text(serial, channel)
         if phrase.lower() in text.lower():
             return text
         time.sleep(5)
@@ -173,11 +223,11 @@ def wait_text(serial, phrase, seconds=180):
 GUI_PROBE = Path(__file__).with_name('installer_probe.py').read_text()
 
 
-def wait_gui(serial, seconds=180):
+def wait_gui(serial, seconds=180, channel=None):
     end = time.monotonic() + seconds
     reason = 'gui-probe-no-result'
     while time.monotonic() < end:
-        output = shell(serial, GUI_PROBE, return_tty=6)
+        output = shell(serial, GUI_PROBE, return_tty=6, channel=channel)
         stages = re.findall(r'RIVERLB_GUI_STAGE=([a-z-]+)', output)
         if stages and stages[-1] in ('environment', 'accessibility-import', 'accessibility-query', 'product'):
             reason = 'gui-timeout-' + stages[-1]
@@ -216,6 +266,8 @@ def case(name):
     checkpoint('guest-start')
     disk = OUTPUT / (name + '.qcow2')
     serial = OUTPUT / (name + '.serial.log')
+    channel_path = OUTPUT / (name + '.serial.sock')
+    channel = None
     command('qemu-img', 'create', '-f', 'qcow2', str(disk), '16G')
     log = (OUTPUT / (name + '.qemu.log')).open('w')
     firmware_args = []
@@ -228,7 +280,8 @@ def case(name):
         '-m', '4096', '-smp', '2', '-display', 'none', '-vga', 'std', '-vnc', '127.0.0.1:20',
         '-drive', f'file={disk},format=qcow2,if=virtio', '-cdrom', MEDIA,
         '-drive', f'file={OUTPUT}/probe.iso,if=ide,index=3,media=cdrom,readonly=on,format=raw',
-        '-boot', 'd', '-serial', f'file:{serial}', '-netdev', 'user,id=net0',
+        '-boot', 'd', '-chardev', f'socket,id=probe,path={channel_path},server=on,wait=off,logfile={serial}',
+        '-serial', 'chardev:probe', '-netdev', 'user,id=net0',
         '-device', 'virtio-net-pci,netdev=net0'] + firmware_args, stdout=log, stderr=log)
     log.close()
     try:
@@ -244,16 +297,17 @@ def case(name):
             boot_text(console)
         console.close()
         time.sleep(40)
+        channel = SerialChannel(channel_path)
         if name == 'graphical':
             checkpoint('graphical-summary')
-            evidence = wait_gui(serial)
+            evidence = wait_gui(serial, channel=channel)
             (OUTPUT / 'graphical-accessibility.json').write_text(json.dumps(evidence, indent=2) + '\n')
             console = Console(5920)
             console.screenshot(OUTPUT / 'graphical-summary.png')
             console.close()
         else:
             checkpoint('storage-selection')
-            text = wait_text(serial, 'Installation Destination')
+            text = wait_text(serial, 'Installation Destination', channel=channel)
             (OUTPUT / (name + '-storage-selection.txt')).write_text(text)
             assert 'riverlb' in text.lower(), text
             console = Console(5920)
@@ -263,7 +317,7 @@ def case(name):
             console.close()
             if name == 'cancel':
                 checkpoint('cancel-confirmation')
-                wait_text(serial, 'Do you really want to quit?')
+                wait_text(serial, 'Do you really want to quit?', channel=channel)
                 console = Console(5920)
                 console.type('yes\n')
                 console.close()
@@ -280,6 +334,8 @@ def case(name):
         except subprocess.CalledProcessError:
             raise InstallerFailure('disk-comparison-failed') from None
     finally:
+        if channel is not None:
+            channel.close()
         if guest.poll() is None:
             try:
                 console = Console(5920)

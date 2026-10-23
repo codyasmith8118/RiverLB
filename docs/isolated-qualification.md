@@ -124,8 +124,12 @@ separate short command and exit-status reply for each step. All fixture media an
 guest data are removed during owned cleanup.
 
 Guest probe execution has a 30-second Python termination alarm and the host waits
-for its reply. Every command reselects the shell VT because graphical startup
-can change the active VT after an earlier readiness response. Text-mode boot
+for its reply. A short keyboard command hands the shell's input/output to
+`/dev/ttyS0`; an executed reply over its private QEMU Unix socket must verify that
+handoff. Subsequent commands use UART, independent of the displayed VT. The
+socket is drained to prevent guest-output backpressure; the private QEMU serial
+log supplies replies. The connection is reused within one case, closed before
+guest teardown and never published. Text-mode boot
 submits the kernel, initrd and boot commands as a single GRUB command list so
 input is not sent while GRUB loads the initrd. Public failure codes distinguish
 shell readiness, operation-specific command-response timeouts, missing CD devices, mountpoint/mount failures, missing probe content and

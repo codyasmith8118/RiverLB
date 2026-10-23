@@ -1,0 +1,143 @@
+{
+  "artifacts": {
+    "riverlb-image.iso": "16099d8dee04558b22a89be3c095897a1061a2b7ddedef27e20be3680cad986b",
+    "riverlb-installer.iso": "7aceb5c4bd54b1879ab0f2fc5468a0200e730fdecfc2764d1c6e5f813d1479c2",
+    "riverlb.qcow2": "d2add33334c665a1949b285c5241719b0a26c70bc54cf86309aea9f4e5fe0272",
+    "riverlb.raw": "3c83d73ceca991bbf315f252ae838fb67f53490a4e7a02996fc8f660b6db8853"
+  },
+  "boot": {
+    "firmware": "bios",
+    "status": "passed",
+    "tests": [
+      "SELinux enforcing",
+      "SSH disabled",
+      "clean shutdown",
+      "console recovery login",
+      "console setup",
+      "independent clone certificates and machine IDs",
+      "persisted traffic statistics",
+      "private database permissions",
+      "real firewalld VIP TCP forwarding",
+      "reboot configuration/account/certificate persistence",
+      "verified HTTPS login"
+    ]
+  },
+  "cleanup": "passed",
+  "commands": {
+    "base-media": {
+      "argv": [
+        "python3",
+        "scripts/fetch-base-iso.py"
+      ],
+      "timeout_seconds": 900
+    },
+    "boot-suite": {
+      "argv": [
+        "bash",
+        "scripts/test-image.sh"
+      ],
+      "timeout_seconds": 1800
+    },
+    "disk-build": {
+      "argv": [
+        "bash",
+        "scripts/build-image.sh"
+      ],
+      "timeout_seconds": 5400
+    },
+    "image-media": {
+      "argv": [
+        "bash",
+        "scripts/build-iso.sh",
+        "/home/runner/work/RiverLB/RiverLB/dist/base/AlmaLinux-10.2-x86_64-minimal.iso",
+        "1b532f534231da0d1cd0ccae622bea6cd588d8a0d7b259f1f131501a6eed41a4",
+        "image"
+      ],
+      "timeout_seconds": 900
+    },
+    "image-structure": {
+      "argv": [
+        "bash",
+        "scripts/test-iso.sh",
+        "image"
+      ],
+      "timeout_seconds": 300
+    },
+    "installer-media": {
+      "argv": [
+        "bash",
+        "scripts/build-iso.sh",
+        "/home/runner/work/RiverLB/RiverLB/dist/base/AlmaLinux-10.2-x86_64-minimal.iso",
+        "1b532f534231da0d1cd0ccae622bea6cd588d8a0d7b259f1f131501a6eed41a4",
+        "installer"
+      ],
+      "timeout_seconds": 900
+    },
+    "installer-structure": {
+      "argv": [
+        "bash",
+        "scripts/test-iso.sh",
+        "installer"
+      ],
+      "timeout_seconds": 300
+    },
+    "installer-suite": {
+      "argv": [
+        "bash",
+        "scripts/test-installer.sh"
+      ],
+      "timeout_seconds": 1800
+    },
+    "resource-controls": {
+      "argv": [
+        "python3",
+        "tests/appliance/qualification_resources.py"
+      ],
+      "timeout_seconds": 900
+    }
+  },
+  "finished_at_utc": "2026-10-23T00:24:02Z",
+  "firmware": "bios",
+  "inputs": {
+    "lock_sha256": "dae1adf6aa4d1c78a469b80f3cebfcbf8f093fb864bfb84a742dae7c8bba2a71",
+    "rpm_manifest_sha256": "ce773a61d50b32b84af0b517d8d5abd564cb65d3f1dd72d2e665ca8fa7ee4b24",
+    "snapshot_sha256": "7b61b31de8c9e5c29a0c159567bfa3f13306cdd4c934c2276ed78e2e5bc7ff6c",
+    "tools_image": "sha256:c14a1c383313a2e10db31abdf68d6c899e0c75316953908159084c42de983e94"
+  },
+  "installer_failure": {
+    "case": "graphical",
+    "checkpoint": "graphical-summary",
+    "firmware": "bios",
+    "reason": "probe-mountpoint-timeout",
+    "schema": 1
+  },
+  "platform": {
+    "kernel": "6.17.0-1022-azure",
+    "runner_image": "20261012.334.1"
+  },
+  "reason": "command-failed",
+  "resources": {
+    "available_memory_bytes": 15750746112,
+    "free_disk_bytes": 109982105600,
+    "logical_cpus": 4,
+    "required_disk_bytes": 42949672960,
+    "required_logical_cpus": 2,
+    "required_memory_bytes": 6442450944
+  },
+  "run_attempt": "1",
+  "run_id": "39873797031",
+  "schema": 1,
+  "source": "9ab1f1c8c5935e9bca9740e8cd001cfe6414fba8",
+  "stage": "installer-suite",
+  "stages": {
+    "base-media": "passed",
+    "boot-suite": "passed",
+    "disk-build": "passed",
+    "image-media": "passed",
+    "image-structure": "passed",
+    "installer-media": "passed",
+    "installer-structure": "passed",
+    "resource-controls": "passed"
+  },
+  "status": "failed"
+}

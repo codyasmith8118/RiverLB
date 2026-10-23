@@ -327,6 +327,117 @@ class Qualification(unittest.TestCase):
         for _ in range(2):
             self.assertEqual(fixture.shell_status(console, serial, 'true', seconds=0.1)[0], 0)
 
+    def test_serial_handoff_runs_real_shell_probes_without_display_input(self):
+        import installer as fixture
+        import pty
+        import select
+        import threading
+        serial = self.root / 'uart.log'
+        media = self.root / 'media'
+        media.mkdir()
+        (media / 'ready').write_text('fixture')
+        script = "print('serial-probe-output')"
+        fixture.write_probe(script, media)
+        display_in, display_out = pty.openpty()
+        uart_in, uart_out = pty.openpty()
+        uart = os.ttyname(uart_out)
+        stopped = threading.Event()
+        typed = []
+        def collect():
+            with serial.open('ab', buffering=0) as stream:
+                while not stopped.is_set():
+                    if select.select([uart_in], [], [], 0.1)[0]:
+                        stream.write(os.read(uart_in, 65536))
+        reader = threading.Thread(target=collect)
+        process = subprocess.Popen(['bash', '--noprofile', '--norc', '-i'],
+                                   stdin=display_out, stdout=display_out, stderr=display_out,
+                                   start_new_session=True)
+        reader.start()
+        class Console:
+            def __init__(self, _port): pass
+            def chord(self, *_keys): pass
+            def close(self): pass
+            def type(self, command):
+                typed.append(command)
+                os.write(display_in, command.replace('/dev/ttyS0', uart).encode())
+        class Channel:
+            ready = False
+            def chord(self, *_keys): pass
+            def type(self, command):
+                os.write(uart_in, command.replace('/dev/ttyS0', uart).encode())
+        channel = Channel()
+        try:
+            with patch.object(fixture, 'Console', Console), patch.object(fixture, 'PROBE_ROOT', media):
+                first = fixture.shell(serial, script, channel=channel)
+                # Keyboard input no longer controls the probe shell after handoff.
+                os.write(display_in, b'echo display-only-input\n')
+                second = fixture.shell(serial, script, channel=channel)
+            self.assertIn('serial-probe-output', first)
+            self.assertIn('serial-probe-output', second)
+            self.assertNotIn('display-only-input', serial.read_text())
+            self.assertEqual(typed, ['exec </dev/ttyS0 >/dev/ttyS0 2>&1\n'])
+            self.assertTrue(channel.ready)
+        finally:
+            m.stop_process(process)
+            stopped.set(); reader.join(timeout=2)
+            for descriptor in (display_in, display_out, uart_in, uart_out):
+                os.close(descriptor)
+
+    def test_serial_handoff_rejects_echoes_and_never_starts_probe(self):
+        import installer as fixture
+        serial = self.root / 'handoff-echo.log'
+        keyboard = []
+        commands = []
+        class Console:
+            def __init__(self, _port): pass
+            def chord(self, *_keys): pass
+            def close(self): pass
+            def type(self, command): keyboard.append(command)
+        class Channel:
+            ready = False
+            def chord(self, *_keys): pass
+            def type(self, command):
+                commands.append(command)
+                serial.write_text(command)
+        channel = Channel()
+        with patch.object(fixture, 'Console', Console):
+            with self.assertRaisesRegex(fixture.InstallerFailure, '^shell-not-ready$'):
+                fixture.shell(serial, 'must-not-execute', ready_seconds=0.1, channel=channel)
+        self.assertFalse(channel.ready)
+        self.assertEqual(keyboard, ['exec </dev/ttyS0 >/dev/ttyS0 2>&1\n'])
+        self.assertTrue(commands)
+        self.assertTrue(all(command.startswith('true > ') for command in commands))
+
+    def test_serial_socket_drains_output_and_closes_reader(self):
+        import installer as fixture
+        import threading
+        path = self.root / 'uart.sock'
+        received = []
+        errors = []
+        with socket.socket(socket.AF_UNIX) as server:
+            server.bind(str(path)); server.listen(1); server.settimeout(5)
+            def serve():
+                try:
+                    connection, _ = server.accept()
+                    with connection:
+                        connection.settimeout(5)
+                        connection.sendall(b'x' * 2000000)
+                        received.append(connection.recv(1024))
+                except Exception as error:
+                    errors.append(error)
+            writer = threading.Thread(target=serve)
+            writer.start()
+            channel = fixture.SerialChannel(path)
+            try:
+                channel.type('true\n')
+                writer.join(timeout=6)
+                self.assertFalse(writer.is_alive())
+                self.assertFalse(errors)
+                self.assertEqual(received, [b'true\n'])
+            finally:
+                channel.close(); writer.join(timeout=6)
+            self.assertFalse(channel.reader.is_alive())
+
     def test_probe_source_is_read_from_media_not_typed(self):
         import installer as fixture
         marker = 'riverlb_probe_done_' + 'a'*16
