@@ -5,6 +5,10 @@ useDefault = true
 # Public RFC 6455 sample WebSocket nonce, used in handshake regression fixtures.
 # Match only this known sample value, never suppress an entire test file.
 [allowlist]
-description = "RFC 6455 public example nonce"
+description = "RFC 6455 public nonce and exact retained AlmaLinux public-key checksum"
 regexTarget = "match"
-regexes = ['''dGhlIHNhbXBsZSBub25jZQ==''']
+regexes = [
+  '''dGhlIHNhbXBsZSBub25jZQ==''',
+  # SHA-256 of the public OS signing key, never a credential or private key.
+  '''rpm_key_sha256": "de57c3c0a2dcde88ff5b894e74335f55a0ec074815f36d472270d937c16f077b"''',
+]

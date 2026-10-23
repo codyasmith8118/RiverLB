@@ -30,6 +30,17 @@ qualification = importlib.util.module_from_spec(spec); spec.loader.exec_module(q
 
 
 class InventoryTests(unittest.TestCase):
+    def test_ubuntu_legacy_schema_resolver_is_offline(self):
+        from types import SimpleNamespace
+        with patch('inspect.signature', return_value=SimpleNamespace(parameters={})):
+            # Exercise the older Ubuntu system-jsonschema API as well.
+            minimal = {'bomFormat': 'CycloneDX', 'specVersion': '1.6', 'version': 1,
+                       'components': [{'type': 'library', 'name': 'fixture',
+                                       'licenses': [{'license': {'id': 'MIT'}}]}]}
+            prov.validate_schema(ROOT, minimal)
+            with self.assertRaises(Exception):
+                prov.validate_schema(ROOT, {**minimal, 'bomFormat': 'invalid'})
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

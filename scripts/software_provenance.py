@@ -122,17 +122,28 @@ def prepare(root, evidence, report_path, source, firmware):
 
 def validate_schema(root, sbom):
     import jsonschema
-    from referencing import Registry, Resource
+    import inspect
     folder = Path(root) / 'packaging/schemas'
     origins = load(folder / 'SOURCES.json')
-    resources = []
+    schemas = {}
     for name in ('bom-1.6.schema.json', 'spdx.schema.json'):
         if sha256(folder / name) != origins[name]['sha256']:
             raise ValueError('SBOM schema bytes changed')
         value = load(folder / name)
-        resources.append((value['$id'], Resource.from_contents(value)))
-    registry = Registry().with_resources(resources)
-    validator = jsonschema.Draft7Validator(load(folder / 'bom-1.6.schema.json'), registry=registry)
+        schemas[value['$id']] = value
+    schema = load(folder / 'bom-1.6.schema.json')
+    if 'registry' in inspect.signature(jsonschema.Draft7Validator).parameters:
+        from referencing import Registry, Resource
+        registry = Registry().with_resources((uri, Resource.from_contents(value)) for uri, value in schemas.items())
+        validator = jsonschema.Draft7Validator(schema, registry=registry)
+    else:
+        # Ubuntu 24.04 ships jsonschema 4.10, before the referencing API.
+        # Its local resolver must also fail closed instead of fetching schemas.
+        def reject_remote(uri):
+            raise ValueError('Schema reference absent from retained registry: ' + uri)
+        resolver = jsonschema.RefResolver(schema['$id'], schema, store=schemas,
+                                         handlers={'http': reject_remote, 'https': reject_remote})
+        validator = jsonschema.Draft7Validator(schema, resolver=resolver)
     validator.validate(sbom)
 
 
