@@ -33,7 +33,9 @@ while IFS= read -r -d '' example; do
     cp -- "$example" "$stage_dir/$example"
 done < <(git ls-files -z -- 'examples/*.toml')
 install -d "$stage_dir/scripts"
-install -m 0755 scripts/audit-appliance-security.py "$stage_dir/scripts/"
+for helper in audit-appliance-security.py software-inventory.py software_inventory.py package-application.py; do
+    install -m 0755 "scripts/$helper" "$stage_dir/scripts/"
+done
 find "$stage_dir" -type d -name __pycache__ -prune -exec rm -rf -- {} +
 commit=$(git rev-parse HEAD)
 source_epoch=$(git show -s --format=%ct HEAD)

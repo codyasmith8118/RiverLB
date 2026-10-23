@@ -253,7 +253,8 @@ def qualify(root, env, report):
         ('boot-suite', ['bash', 'scripts/test-image.sh'], 1800),
         ('installer-media', ['bash', 'scripts/build-iso.sh', 'BASE', 'HASH', 'installer'], 900),
         ('installer-structure', ['bash', 'scripts/test-iso.sh', 'installer'], 300),
-        ('installer-suite', ['bash', 'scripts/test-installer.sh'], 1800)]
+        ('installer-suite', ['bash', 'scripts/test-installer.sh'], 1800),
+        ('software-inventory', ['bash', 'scripts/build-software-inventory.sh'], 1800)]
     with tempfile.TemporaryDirectory(prefix='riverlb-qualification-private-') as private:
         child_env['TMPDIR'] = private
         base = json.loads((root / 'appliance/base-media.json').read_text())
@@ -289,6 +290,9 @@ def qualify(root, env, report):
                 report['boot'] = fixture_report(root / 'dist' / boot / 'report.json', firmware, BOOT_TESTS)
             elif name == 'installer-suite':
                 report['installer'] = fixture_report(root / 'dist/test-installer-vm/report.json', firmware, INSTALLER_TESTS)
+            elif name == 'software-inventory':
+                software = root / 'dist' / EVIDENCE / 'software'
+                report['software'] = {p: sha256(software / p) for p in ('sbom.cdx.json', 'licenses.json', 'notices.tar.gz', 'payloads.json.gz', 'inventory-identity.json')}
             report['stages'][name] = 'passed'
             save_report(root, report)
     report.update(status='passed', stage='complete')

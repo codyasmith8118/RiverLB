@@ -141,3 +141,5 @@ Linux x86_64, curl and sha256sum. The release workflow requires these security
 checks in addition to full CI. See the [source publication gate](release-readiness.md#source-publication-gate).
 
 See [retained inputs and reproducible builds](reproducible-builds.md) for appliance dependency snapshots and clean-build comparisons.
+See [software inventories and provenance](software-supply-chain.md) for the
+offline inventory checks, notice capture process and protected signing workflow.

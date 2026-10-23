@@ -1,0 +1,509 @@
+{
+  "packages": {
+    "autocommand==2.2.2": {
+      "name": "autocommand",
+      "origins": [
+        {
+          "metadata_path": "setuptools/_vendor/autocommand-2.2.2.dist-info/METADATA",
+          "wheel": "setuptools-84.0.0-py3-none-any.whl",
+          "wheel_sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670"
+        }
+      ],
+      "source_sha256": "878de9423c5596491167225c2a455043c3130fb5b7286ac83443d45e74955f34",
+      "source_size": 22894,
+      "source_url": "https://files.pythonhosted.org/packages/5b/18/774bddb96bc0dc0a2b8ac2d2a0e686639744378883da0fc3b96a54192d7a/autocommand-2.2.2.tar.gz",
+      "version": "2.2.2"
+    },
+    "backports-tarfile==1.2.0": {
+      "name": "backports.tarfile",
+      "origins": [
+        {
+          "metadata_path": "setuptools/_vendor/backports.tarfile-1.2.0.dist-info/METADATA",
+          "wheel": "setuptools-84.0.0-py3-none-any.whl",
+          "wheel_sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670"
+        }
+      ],
+      "source_sha256": "d75e02c268746e1b8144c278978b6e98e85de6ad16f8e4b0844a154557eca991",
+      "source_size": 86406,
+      "source_url": "https://files.pythonhosted.org/packages/86/72/cd9b395f25e290e633655a100af28cb253e4393396264a98bd5f5951d50f/backports_tarfile-1.2.0.tar.gz",
+      "version": "1.2.0"
+    },
+    "certifi==2026.7.22": {
+      "name": "certifi",
+      "origins": [
+        {
+          "metadata_path": "certifi-2026.7.22.dist-info/METADATA",
+          "wheel": "certifi-2026.7.22-py3-none-any.whl",
+          "wheel_sha256": "62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775"
+        }
+      ],
+      "source_sha256": "741e2c3b351ddf169a738da9f2c048608ff7f2c5cc02f1ebc6b118bb090d5d55",
+      "source_size": 138112,
+      "source_url": "https://files.pythonhosted.org/packages/a3/c2/24167ea9858356b47a87a50d39908bfdb72ceeefe0041586e704e5376b3a/certifi-2026.7.22.tar.gz",
+      "version": "2026.7.22"
+    },
+    "charset-normalizer==3.5.2": {
+      "name": "charset-normalizer",
+      "origins": [
+        {
+          "metadata_path": "charset_normalizer-3.5.2.dist-info/METADATA",
+          "wheel": "charset_normalizer-3.5.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "wheel_sha256": "3d31298449090ab8d47b7b1b2a555ff73cac7ed438a08b7ac160980c7ebed649"
+        }
+      ],
+      "source_sha256": "39de2a259fc954455c57274dc94c79d5842774e1247a016aff30bc0efed0f4ef",
+      "source_size": 172659,
+      "source_url": "https://files.pythonhosted.org/packages/33/1c/f41d4e74c28ab327ff3acd36053f7ea506c55872d7a90b0fa71aa3ab0c89/charset_normalizer-3.5.2.tar.gz",
+      "version": "3.5.2"
+    },
+    "idna==3.20": {
+      "name": "idna",
+      "origins": [
+        {
+          "metadata_path": "idna-3.20.dist-info/METADATA",
+          "wheel": "idna-3.20-py3-none-any.whl",
+          "wheel_sha256": "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c"
+        }
+      ],
+      "source_sha256": "a7db850025b95ded1eae8a46181a1a6c56c92c96f0e2b005d9ff8dc0210cab44",
+      "source_size": 216463,
+      "source_url": "https://files.pythonhosted.org/packages/f5/08/8eea9d4b8302028f3abb2c0813953f7aec26d33b7a8960ed760e65ff29fa/idna-3.20.tar.gz",
+      "version": "3.20"
+    },
+    "importlib-metadata==8.7.1": {
+      "name": "importlib_metadata",
+      "origins": [
+        {
+          "metadata_path": "setuptools/_vendor/importlib_metadata-8.7.1.dist-info/METADATA",
+          "wheel": "setuptools-84.0.0-py3-none-any.whl",
+          "wheel_sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670"
+        }
+      ],
+      "source_sha256": "49fef1ae6440c182052f407c8d34a68f72efc36db9ca90dc0113398f2fdde8bb",
+      "source_size": 57107,
+      "source_url": "https://files.pythonhosted.org/packages/f3/49/3b30cad09e7771a4982d9975a8cbf64f00d4a1ececb53297f1d9a7be1b10/importlib_metadata-8.7.1.tar.gz",
+      "version": "8.7.1"
+    },
+    "iso8601==2.1.0": {
+      "name": "iso8601",
+      "origins": [
+        {
+          "metadata_path": "iso8601-2.1.0.dist-info/METADATA",
+          "wheel": "iso8601-2.1.0-py3-none-any.whl",
+          "wheel_sha256": "aac4145c4dcb66ad8b648a02830f5e2ff6c24af20f4f482689be402db2429242"
+        }
+      ],
+      "source_sha256": "6b1d3829ee8921c4301998c909f7829fa9ed3cbdac0d3b16af2d743aed1ba8df",
+      "source_size": 6522,
+      "source_url": "https://files.pythonhosted.org/packages/b9/f3/ef59cee614d5e0accf6fd0cbba025b93b272e626ca89fb70a3e9187c5d15/iso8601-2.1.0.tar.gz",
+      "version": "2.1.0"
+    },
+    "jaraco-context==6.1.0": {
+      "name": "jaraco.context",
+      "origins": [
+        {
+          "metadata_path": "setuptools/_vendor/jaraco_context-6.1.0.dist-info/METADATA",
+          "wheel": "setuptools-84.0.0-py3-none-any.whl",
+          "wheel_sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670"
+        }
+      ],
+      "source_sha256": "129a341b0a85a7db7879e22acd66902fda67882db771754574338898b2d5d86f",
+      "source_size": 15850,
+      "source_url": "https://files.pythonhosted.org/packages/cb/9c/a788f5bb29c61e456b8ee52ce76dbdd32fd72cd73dd67bc95f42c7a8d13c/jaraco_context-6.1.0.tar.gz",
+      "version": "6.1.0"
+    },
+    "jaraco-functools==4.4.0": {
+      "name": "jaraco.functools",
+      "origins": [
+        {
+          "metadata_path": "setuptools/_vendor/jaraco_functools-4.4.0.dist-info/METADATA",
+          "wheel": "setuptools-84.0.0-py3-none-any.whl",
+          "wheel_sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670"
+        }
+      ],
+      "source_sha256": "da21933b0417b89515562656547a77b4931f98176eb173644c0d35032a33d6bb",
+      "source_size": 19943,
+      "source_url": "https://files.pythonhosted.org/packages/0f/27/056e0638a86749374d6f57d0b0db39f29509cce9313cf91bdc0ac4d91084/jaraco_functools-4.4.0.tar.gz",
+      "version": "4.4.0"
+    },
+    "jaraco-text==4.0.0": {
+      "name": "jaraco.text",
+      "origins": [
+        {
+          "metadata_path": "setuptools/_vendor/jaraco.text-4.0.0.dist-info/METADATA",
+          "wheel": "setuptools-84.0.0-py3-none-any.whl",
+          "wheel_sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670"
+        }
+      ],
+      "source_sha256": "5b71fecea69ab6f939d4c906c04fee1eda76500d1641117df6ec45b865f10db0",
+      "source_size": 17009,
+      "source_url": "https://files.pythonhosted.org/packages/4f/00/1b4dbbc5c6dcb87a4278cc229b2b560484bf231bba7922686c5139e5f934/jaraco_text-4.0.0.tar.gz",
+      "version": "4.0.0"
+    },
+    "keystoneauth1==5.18.1": {
+      "name": "keystoneauth1",
+      "origins": [
+        {
+          "metadata_path": "keystoneauth1-5.18.1.dist-info/METADATA",
+          "wheel": "keystoneauth1-5.18.1-py3-none-any.whl",
+          "wheel_sha256": "2440f1f29e4aaaaf771893e8da7c098ca27548210dc13e964b53fd2aaaedd6b0"
+        }
+      ],
+      "source_sha256": "8970f9d103f335c39151366d70c001d1bb99b00d73845f03d47825e8dc35ff78",
+      "source_size": 319181,
+      "source_url": "https://files.pythonhosted.org/packages/04/af/268e14554c6bd4a2614872fb2b8431e466ce01415a9783b260ce7fb7ae5c/keystoneauth1-5.18.1.tar.gz",
+      "version": "5.18.1"
+    },
+    "more-itertools==10.8.0": {
+      "name": "more-itertools",
+      "origins": [
+        {
+          "metadata_path": "setuptools/_vendor/more_itertools-10.8.0.dist-info/METADATA",
+          "wheel": "setuptools-84.0.0-py3-none-any.whl",
+          "wheel_sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670"
+        }
+      ],
+      "source_sha256": "f638ddf8a1a0d134181275fb5d58b086ead7c6a72429ad725c67503f13ba30bd",
+      "source_size": 137431,
+      "source_url": "https://files.pythonhosted.org/packages/ea/5d/38b681d3fce7a266dd9ab73c66959406d565b3e85f21d5e66e1181d93721/more_itertools-10.8.0.tar.gz",
+      "version": "10.8.0"
+    },
+    "msgpack==1.2.3": {
+      "name": "msgpack",
+      "origins": [
+        {
+          "metadata_path": "msgpack-1.2.3.dist-info/METADATA",
+          "wheel": "msgpack-1.2.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "wheel_sha256": "ede33b2892ceb976283e009ad12fa1834cfdf1f9c43ee9c97849fc588d00a618"
+        }
+      ],
+      "source_sha256": "32edb81a2b5eb7cd7c9d941b2bfbbb082fd2cd09e0e725930316af6b708db186",
+      "source_size": 196517,
+      "source_url": "https://files.pythonhosted.org/packages/0a/e7/bb605a7bab2d8425a64b3fa762b39dc1bf1c7e3f11ba6fb5413d6db0ff8c/msgpack-1.2.3.tar.gz",
+      "version": "1.2.3"
+    },
+    "netaddr==1.3.0": {
+      "name": "netaddr",
+      "origins": [
+        {
+          "metadata_path": "netaddr-1.3.0.dist-info/METADATA",
+          "wheel": "netaddr-1.3.0-py3-none-any.whl",
+          "wheel_sha256": "c2c6a8ebe5554ce33b7d5b3a306b71bbb373e000bbbf2350dd5213cc56e3dbbe"
+        }
+      ],
+      "source_sha256": "5c3c3d9895b551b763779ba7db7a03487dc1f8e3b385af819af341ae9ef6e48a",
+      "source_size": 2260504,
+      "source_url": "https://files.pythonhosted.org/packages/54/90/188b2a69654f27b221fba92fda7217778208532c962509e959a9cee5229d/netaddr-1.3.0.tar.gz",
+      "version": "1.3.0"
+    },
+    "os-service-types==1.9.0": {
+      "name": "os-service-types",
+      "origins": [
+        {
+          "metadata_path": "os_service_types-1.9.0.dist-info/METADATA",
+          "wheel": "os_service_types-1.9.0-py3-none-any.whl",
+          "wheel_sha256": "f268545c896434177bf55c43f7d5129e65210d5d456df3f00a1c9832a71c3a4b"
+        }
+      ],
+      "source_sha256": "1f2e5fb71d1f6f4ff31d8992674f2368465bc2f25cd94018015c3ddbfc5c617f",
+      "source_size": 28087,
+      "source_url": "https://files.pythonhosted.org/packages/86/ae/fe7ac23155ae0b4b9779e06e9c5bb4070f2315dc4ca886a88fa3230d344b/os_service_types-1.9.0.tar.gz",
+      "version": "1.9.0"
+    },
+    "oslo-i18n==6.9.0": {
+      "name": "oslo.i18n",
+      "origins": [
+        {
+          "metadata_path": "oslo_i18n-6.9.0.dist-info/METADATA",
+          "wheel": "oslo_i18n-6.9.0-py3-none-any.whl",
+          "wheel_sha256": "354b6cd3ba1acf1f04231f690028fd5b58bd8b7cda7bd9859126bb97152c717b"
+        }
+      ],
+      "source_sha256": "574bcf21873b185068bcec951de1ec093158ffdff05a8055fd18ddcb69f69e65",
+      "source_size": 50369,
+      "source_url": "https://files.pythonhosted.org/packages/5e/69/72b03bb4d33f51a157c02d5297227bae48b9c359103856942b8774b608df/oslo_i18n-6.9.0.tar.gz",
+      "version": "6.9.0"
+    },
+    "oslo-serialization==5.11.0": {
+      "name": "oslo.serialization",
+      "origins": [
+        {
+          "metadata_path": "oslo_serialization-5.11.0.dist-info/METADATA",
+          "wheel": "oslo_serialization-5.11.0-py3-none-any.whl",
+          "wheel_sha256": "34d47104d94296488fad23f280ad09b7000102636b3e6f4f120517678ba1b64f"
+        }
+      ],
+      "source_sha256": "8326e85a80856c1068007423fcf6fe29dd2fe57a32f5d87fff0120b555b4b67c",
+      "source_size": 37298,
+      "source_url": "https://files.pythonhosted.org/packages/af/f5/2611fb291898fa5f3b41c68e916cb060305cb718a043fdbff25026491fc4/oslo_serialization-5.11.0.tar.gz",
+      "version": "5.11.0"
+    },
+    "oslo-utils==10.2.0": {
+      "name": "oslo.utils",
+      "origins": [
+        {
+          "metadata_path": "oslo_utils-10.2.0.dist-info/METADATA",
+          "wheel": "oslo_utils-10.2.0-py3-none-any.whl",
+          "wheel_sha256": "f33abd2f3c638c00f8736dfdff83a34f433bdb71e3b448d4380809a329917919"
+        }
+      ],
+      "source_sha256": "ba839dea2c1eb415e3ee151c4cc688f52e283f59bc1f77cc86772190a8b34259",
+      "source_size": 159551,
+      "source_url": "https://files.pythonhosted.org/packages/47/fd/7915fc0e2c959bcb3dbbe608deeeefe4264d03ba89a4fd75d74524326652/oslo_utils-10.2.0.tar.gz",
+      "version": "10.2.0"
+    },
+    "packaging==26.0": {
+      "name": "packaging",
+      "origins": [
+        {
+          "metadata_path": "setuptools/_vendor/packaging-26.0.dist-info/METADATA",
+          "wheel": "setuptools-84.0.0-py3-none-any.whl",
+          "wheel_sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670"
+        }
+      ],
+      "source_sha256": "00243ae351a257117b6a241061796684b084ed1c516a08c48a3f7e147a9d80b4",
+      "source_size": 143416,
+      "source_url": "https://files.pythonhosted.org/packages/65/ee/299d360cdc32edc7d2cf530f3accf79c4fca01e96ffc950d8a52213bd8e4/packaging-26.0.tar.gz",
+      "version": "26.0"
+    },
+    "packaging==26.3": {
+      "name": "packaging",
+      "origins": [
+        {
+          "metadata_path": "packaging-26.3.dist-info/METADATA",
+          "wheel": "packaging-26.3-py3-none-any.whl",
+          "wheel_sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+        }
+      ],
+      "source_sha256": "94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79",
+      "source_size": 313412,
+      "source_url": "https://files.pythonhosted.org/packages/7d/fa/3944b40b07da9ce895c0e6303a5ab7d53da063554f534556b134a54d6093/packaging-26.3.tar.gz",
+      "version": "26.3"
+    },
+    "pbr==7.1.3": {
+      "name": "pbr",
+      "origins": [
+        {
+          "metadata_path": "pbr-7.1.3.dist-info/METADATA",
+          "wheel": "pbr-7.1.3-py2.py3-none-any.whl",
+          "wheel_sha256": "6583e878a1d97cb135fdc509811f31b9235905cde8d4dacd3dbadf9efc45d745"
+        }
+      ],
+      "source_sha256": "9a4a85b84e906337708009af0b5f5cdabeeb72d4dc213c9e97974da54fd9acc5",
+      "source_size": 140100,
+      "source_url": "https://files.pythonhosted.org/packages/6b/8d/ce438c28c7958e33184e8ac851ea2225b47a41e5e9e708fa3bddba631135/pbr-7.1.3.tar.gz",
+      "version": "7.1.3"
+    },
+    "platformdirs==4.4.0": {
+      "name": "platformdirs",
+      "origins": [
+        {
+          "metadata_path": "setuptools/_vendor/platformdirs-4.4.0.dist-info/METADATA",
+          "wheel": "setuptools-84.0.0-py3-none-any.whl",
+          "wheel_sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670"
+        }
+      ],
+      "source_sha256": "ca753cf4d81dc309bc67b0ea38fd15dc97bc30ce419a7f58d13eb3bf14c4febf",
+      "source_size": 21634,
+      "source_url": "https://files.pythonhosted.org/packages/23/e8/21db9c9987b0e728855bd57bff6984f67952bea55d6f75e055c46b5383e8/platformdirs-4.4.0.tar.gz",
+      "version": "4.4.0"
+    },
+    "prettytable==3.18.0": {
+      "name": "prettytable",
+      "origins": [
+        {
+          "metadata_path": "prettytable-3.18.0.dist-info/METADATA",
+          "wheel": "prettytable-3.18.0-py3-none-any.whl",
+          "wheel_sha256": "b3346e0e6f79180833aebaac088ae926340586cf6d7d991b9eb125b65f72313a"
+        }
+      ],
+      "source_sha256": "439217116152244369caf3d9f1caf2f9fe29b03bd79e88d2928c8e718c95d680",
+      "source_size": 76373,
+      "source_url": "https://files.pythonhosted.org/packages/81/74/ba08d81e668ccfe8658d7520a307e63c19862c08eb4ccb26f356c5239a7a/prettytable-3.18.0.tar.gz",
+      "version": "3.18.0"
+    },
+    "psutil==7.2.2": {
+      "name": "psutil",
+      "origins": [
+        {
+          "metadata_path": "psutil-7.2.2.dist-info/METADATA",
+          "wheel": "psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl",
+          "wheel_sha256": "076a2d2f923fd4821644f5ba89f059523da90dc9014e85f8e45a5774ca5bc6f9"
+        }
+      ],
+      "source_sha256": "0746f5f8d406af344fd547f1c8daa5f5c33dbc293bb8d6a16d80b4bb88f59372",
+      "source_size": 493740,
+      "source_url": "https://files.pythonhosted.org/packages/aa/c6/d1ddf4abb55e93cebc4f2ed8b5d6dbad109ecb8d63748dd2b20ab5e57ebe/psutil-7.2.2.tar.gz",
+      "version": "7.2.2"
+    },
+    "pyparsing==3.3.3": {
+      "name": "pyparsing",
+      "origins": [
+        {
+          "metadata_path": "pyparsing-3.3.3.dist-info/METADATA",
+          "wheel": "pyparsing-3.3.3-py3-none-any.whl",
+          "wheel_sha256": "ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4"
+        }
+      ],
+      "source_sha256": "928ae7e20211f3b6f3915a72f06a0cfd29ab9d24279dd6346b6b1a7146397d36",
+      "source_size": 1050487,
+      "source_url": "https://files.pythonhosted.org/packages/e4/11/b213bebff182584360cb8d17c72c1677fec5c5c228de439e63bcf8ab1c8f/pyparsing-3.3.3.tar.gz",
+      "version": "3.3.3"
+    },
+    "python-novaclient==18.13.1": {
+      "name": "python-novaclient",
+      "origins": [
+        {
+          "metadata_path": "python_novaclient-18.13.1.dist-info/METADATA",
+          "wheel": "python_novaclient-18.13.1-py3-none-any.whl",
+          "wheel_sha256": "805706f9d38119d0881a8b2dcb4762b4c4bd1079231ac12abb1cbde7cc3676d4"
+        }
+      ],
+      "source_sha256": "a9fe15f894ffb6b309ea5c282bd2c4bba929918c62736e6733a82ed915edd883",
+      "source_size": 341229,
+      "source_url": "https://files.pythonhosted.org/packages/66/bc/df55eede807bf39c2fddf5ccd2700bcbc64b6e294caec05aa73a8d0ad175/python_novaclient-18.13.1.tar.gz",
+      "version": "18.13.1"
+    },
+    "pyyaml==6.0.3": {
+      "name": "PyYAML",
+      "origins": [
+        {
+          "metadata_path": "pyyaml-6.0.3.dist-info/METADATA",
+          "wheel": "pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "wheel_sha256": "ba1cc08a7ccde2d2ec775841541641e4548226580ab850948cbfda66a1befcdc"
+        }
+      ],
+      "source_sha256": "d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f",
+      "source_size": 130960,
+      "source_url": "https://files.pythonhosted.org/packages/05/8e/961c0007c59b8dd7729d542c61a4d537767a59645b82a0b521206e1e25c2/pyyaml-6.0.3.tar.gz",
+      "version": "6.0.3"
+    },
+    "requests==2.34.2": {
+      "name": "requests",
+      "origins": [
+        {
+          "metadata_path": "requests-2.34.2.dist-info/METADATA",
+          "wheel": "requests-2.34.2-py3-none-any.whl",
+          "wheel_sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0"
+        }
+      ],
+      "source_sha256": "f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed",
+      "source_size": 142856,
+      "source_url": "https://files.pythonhosted.org/packages/ac/c3/e2a2b89f2d3e2179abd6d00ebd70bff6273f37fb3e0cc209f48b39d00cbf/requests-2.34.2.tar.gz",
+      "version": "2.34.2"
+    },
+    "setuptools==84.0.0": {
+      "name": "setuptools",
+      "origins": [
+        {
+          "metadata_path": "setuptools-84.0.0.dist-info/METADATA",
+          "wheel": "setuptools-84.0.0-py3-none-any.whl",
+          "wheel_sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670"
+        }
+      ],
+      "source_sha256": "f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73",
+      "source_size": 1168449,
+      "source_url": "https://files.pythonhosted.org/packages/6d/44/f5da03a8ef95d369145c5bb53050e7877c9f3d312e128605fd9504829143/setuptools-84.0.0.tar.gz",
+      "version": "84.0.0"
+    },
+    "stevedore==5.9.1": {
+      "name": "stevedore",
+      "origins": [
+        {
+          "metadata_path": "stevedore-5.9.1.dist-info/METADATA",
+          "wheel": "stevedore-5.9.1-py3-none-any.whl",
+          "wheel_sha256": "5c8ff3a9f336cc1a06ac0f597bc79d11a2f950bfd32e290ca56b5a301fafafbf"
+        }
+      ],
+      "source_sha256": "e97a2667923efda926e8713fde6a73616df68210a3cbc6f02b48967b676fd8bf",
+      "source_size": 518111,
+      "source_url": "https://files.pythonhosted.org/packages/db/a1/3b8ed9c1fc3aa6eebb57732d924ddaa0500ecc3b638d0454816320994383/stevedore-5.9.1.tar.gz",
+      "version": "5.9.1"
+    },
+    "tomli==2.4.0": {
+      "name": "tomli",
+      "origins": [
+        {
+          "metadata_path": "setuptools/_vendor/tomli-2.4.0.dist-info/METADATA",
+          "wheel": "setuptools-84.0.0-py3-none-any.whl",
+          "wheel_sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670"
+        }
+      ],
+      "source_sha256": "aa89c3f6c277dd275d8e243ad24f3b5e701491a860d5121f2cdd399fbb31fc9c",
+      "source_size": 17477,
+      "source_url": "https://files.pythonhosted.org/packages/82/30/31573e9457673ab10aa432461bee537ce6cef177667deca369efb79df071/tomli-2.4.0.tar.gz",
+      "version": "2.4.0"
+    },
+    "typing-extensions==4.16.0": {
+      "name": "typing_extensions",
+      "origins": [
+        {
+          "metadata_path": "typing_extensions-4.16.0.dist-info/METADATA",
+          "wheel": "typing_extensions-4.16.0-py3-none-any.whl",
+          "wheel_sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
+        }
+      ],
+      "source_sha256": "dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5",
+      "source_size": 113555,
+      "source_url": "https://files.pythonhosted.org/packages/f6/cc/6253133b5bb138fc3306cebfbda2c520f545d36b5be2c7255cc528bb45d6/typing_extensions-4.16.0.tar.gz",
+      "version": "4.16.0"
+    },
+    "urllib3==2.8.0": {
+      "name": "urllib3",
+      "origins": [
+        {
+          "metadata_path": "urllib3-2.8.0.dist-info/METADATA",
+          "wheel": "urllib3-2.8.0-py3-none-any.whl",
+          "wheel_sha256": "0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3"
+        }
+      ],
+      "source_sha256": "63bf2ead4c879426ebf22ef2a781eeb4aa3b4ae798a0435506f8687fd5bb9b63",
+      "source_size": 458972,
+      "source_url": "https://files.pythonhosted.org/packages/e3/05/b17359e1cefb4f909b5e40b1b90a496d987258916dbbf88e842c729f510e/urllib3-2.8.0.tar.gz",
+      "version": "2.8.0"
+    },
+    "wcwidth==0.9.2": {
+      "name": "wcwidth",
+      "origins": [
+        {
+          "metadata_path": "wcwidth-0.9.2.dist-info/METADATA",
+          "wheel": "wcwidth-0.9.2-cp310-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+          "wheel_sha256": "751bef0ab404b6a1dc028b56b4b85d46486be1c55833f80da533e42dc691f389"
+        }
+      ],
+      "source_sha256": "ae0ef90b90f6af38b54f1fe6d58662ec33b3cb4b8391958a62416d654231727b",
+      "source_size": 955039,
+      "source_url": "https://files.pythonhosted.org/packages/f0/b4/7830542634bb2d3e62aa3b586a72d5b3b6c91c3168929e7000ef3fed041d/wcwidth-0.9.2.tar.gz",
+      "version": "0.9.2"
+    },
+    "wheel==0.46.3": {
+      "name": "wheel",
+      "origins": [
+        {
+          "metadata_path": "setuptools/_vendor/wheel-0.46.3.dist-info/METADATA",
+          "wheel": "setuptools-84.0.0-py3-none-any.whl",
+          "wheel_sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670"
+        }
+      ],
+      "source_sha256": "e3e79874b07d776c40bd6033f8ddf76a7dad46a7b8aa1b2787a83083519a1803",
+      "source_size": 60605,
+      "source_url": "https://files.pythonhosted.org/packages/89/24/a2eb353a6edac9a0303977c4cb048134959dd2a51b48a269dfc9dde00c8a/wheel-0.46.3.tar.gz",
+      "version": "0.46.3"
+    },
+    "zipp==3.23.0": {
+      "name": "zipp",
+      "origins": [
+        {
+          "metadata_path": "setuptools/_vendor/zipp-3.23.0.dist-info/METADATA",
+          "wheel": "setuptools-84.0.0-py3-none-any.whl",
+          "wheel_sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670"
+        }
+      ],
+      "source_sha256": "a07157588a12518c9d4034df3fbbee09c814741a33ff63c05fa29d26a2404166",
+      "source_size": 25547,
+      "source_url": "https://files.pythonhosted.org/packages/e3/02/0f2892c661036d50ede074e376733dca2ae7c6eb617489437771209d4180/zipp-3.23.0.tar.gz",
+      "version": "3.23.0"
+    }
+  },
+  "schema": 1
+}

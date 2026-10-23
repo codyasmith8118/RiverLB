@@ -39,6 +39,10 @@ jobs:
     # GitHub provisions a fresh VM for each matrix cell and discards it afterwards.
     runs-on: ubuntu-24.04
     environment: appliance-build
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -58,7 +62,7 @@ jobs:
       - name: Install host container runtime and free unused runner SDK space
         run: |
           sudo apt-get update
-          sudo apt-get install -y podman
+          sudo apt-get install -y podman python3-jsonschema
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
           if [[ -c /dev/kvm ]]; then
             sudo chgrp "$(id -gn)" /dev/kvm
@@ -81,6 +85,67 @@ jobs:
       - name: Stop only owned containers and remove private job data
         if: always()
         run: python3 scripts/qualify-appliance.py cleanup
+      - name: Bind inventories to successful qualification and actual artifact digests
+        if: inputs.mode == 'full' && success()
+        run: |
+          /usr/bin/python3 scripts/prepare-build-provenance.py \
+            --evidence dist/qualification-evidence/software \
+            --report dist/qualification-evidence/report.json \
+            --source "$GITHUB_SHA" --firmware "$RIVERLB_IMAGE_FIRMWARE"
+      - name: Sign SLSA build provenance with protected GitHub OIDC identity
+        if: inputs.mode == 'full' && success()
+        id: provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-checksums: dist/qualification-evidence/software/subjects.sha256
+          predicate-type: https://slsa.dev/provenance/v1
+          predicate-path: dist/qualification-evidence/software/provenance.json
+      - name: Sign the complete CycloneDX inventory for the same subjects
+        if: inputs.mode == 'full' && success()
+        id: sbom
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-checksums: dist/qualification-evidence/software/subjects.sha256
+          sbom-path: dist/qualification-evidence/software/sbom.cdx.json
+      - name: Retain bundles and verify signature, workflow, source and inventory binding
+        if: inputs.mode == 'full' && success()
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+          SBOM_BUNDLE: ${{ steps.sbom.outputs.bundle-path }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          output=dist/qualification-evidence/software
+          install -m 0644 -- "$PROVENANCE_BUNDLE" "$output/provenance.sigstore.json"
+          install -m 0644 -- "$SBOM_BUNDLE" "$output/sbom.sigstore.json"
+          /usr/bin/python3 scripts/verify-build-provenance.py \
+            --artifact "$output/sbom.cdx.json" --bundle "$output/provenance.sigstore.json" \
+            --predicate "$output/provenance.json" --source "$GITHUB_SHA" \
+            --firmware "$RIVERLB_IMAGE_FIRMWARE" --sbom "$output/sbom.cdx.json" \
+            --sbom-bundle "$output/sbom.sigstore.json" > "$output/verification.json"
+      - name: Retain only public inventories, notices and verified signing evidence
+        if: always() && inputs.mode == 'full'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: software-${{ matrix.firmware }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            dist/qualification-evidence/software/sbom.cdx.json
+            dist/qualification-evidence/software/licenses.json
+            dist/qualification-evidence/software/notices.tar.gz
+            dist/qualification-evidence/software/payloads.json.gz
+            dist/qualification-evidence/software/compiler.txt
+            dist/qualification-evidence/software/build-manifest.json
+            dist/qualification-evidence/software/build-inputs.json
+            dist/qualification-evidence/software/cargo-graph.json
+            dist/qualification-evidence/software/runtime-packages.lock.json
+            dist/qualification-evidence/software/inventory-identity.json
+            dist/qualification-evidence/software/qualification.json
+            dist/qualification-evidence/software/provenance.json
+            dist/qualification-evidence/software/subjects.sha256
+            dist/qualification-evidence/software/provenance.sigstore.json
+            dist/qualification-evidence/software/sbom.sigstore.json
+            dist/qualification-evidence/software/verification.json
+          if-no-files-found: ignore
+          retention-days: 30
       - name: Retain only allowlisted credential-free JSON and its checksum
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

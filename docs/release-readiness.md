@@ -33,6 +33,12 @@ artifacts still require the broader qualification and signing gates above.
 
 ## Source publication gate
 
+Issue #11 adds [software inventories and signed provenance](software-supply-chain.md)
+to the protected qualification workflow. Its fixture checks and source inventories
+do not close the release gate: both firmware jobs must pass the new aggregate
+inventory stage and verify their signed bundles for the intended source. Keep
+the issue open until that evidence is retained and published.
+
 Source publication is experimental and separate from appliance qualification.
 Before changing repository visibility:
 
