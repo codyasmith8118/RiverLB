@@ -95,6 +95,23 @@ rpmbuild -bb --define '_topdir /build/rpmbuild' --define '_buildhost riverlb-bui
     --define 'use_source_date_epoch_as_buildtime 1' --define 'clamp_mtime_to_source_date_epoch 1' --define "riverlb_version $version" \
     --define "riverlb_release $RIVERLB_RPM_RELEASE" packaging/rpm/riverlb.spec
 cp /build/rpmbuild/RPMS/x86_64/*.rpm /output/
+python3 - <<'PY'
+import hashlib, subprocess
+from pathlib import Path
+expected = {'/usr/lib/riverlb/base/riverlb': Path('target/release/riverlb'),
+            '/usr/sbin/fence_pve': Path('/build/riverlb-payload/fence_pve')}
+found = {}
+for package in Path('/output').glob('*.rpm'):
+    rows = subprocess.check_output(['rpm', '-qp', '--qf', '[%{FILENAMES}\\t%{FILEDIGESTS}\\n]', str(package)], text=True)
+    for row in rows.splitlines():
+        name, digest = row.split('\t')
+        if name in expected:
+            if name in found:
+                raise SystemExit('Duplicate inventoried executable in RPMs')
+            found[name] = digest
+assert found == {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in expected.items()}, 'RPM processing changed an inventoried executable'
+print('Verified RPM executable digests match the embedded source inventory')
+PY
 # Retained signed closure: never consult current DNF repositories during a build.
 cp -a /inputs/rpm-repository /output/ha-dependencies
 (cd /output; { sha256sum ./*.rpm ./*.tar.gz ./*.tar.gz.sha256 build-manifest.json build-inputs.json build-packages.txt compiler.txt cargo-graph.json update-trust.json; find ha-dependencies software -type f -print0 | sort -z | xargs -0 sha256sum; } > SHA256SUMS)
