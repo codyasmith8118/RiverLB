@@ -23,6 +23,14 @@ These changes do not by themselves qualify a production image. The management da
 
 A release must rebuild the RPM and ISO from the final commit and pass full CI, supported BIOS/UEFI VM boots, graphical installation and recovery, network/firewall/SELinux tests, application update interruption/rollback, and HA fencing/failover tests on the intended platforms. Retained OS/build inputs and clean offline rebuild comparisons are implemented on the 2.0 development branch under #9; see [reproducible builds](reproducible-builds.md). Capacity and extended load testing, dependency/license inventory, protected signing/promotion and signing-key ownership remain release qualification work. Keep the evidence with the artifact manifest; do not label a converted image or unsigned candidate a qualified release.
 
+Isolated KVM qualification under issue #10 passed both BIOS and UEFI build,
+boot and interactive installer suites in run
+[39880100867](https://github.com/codyasmith8118/RiverLB/actions/runs/39880100867)
+for source `7215510e3b44dfb4d2f858f56dcc42b7adbeed25`. The
+[retained evidence](evidence/issue-10/README.md) records the exact checks and limits.
+This completes the runner/workflow evidence for that source; final release
+artifacts still require the broader qualification and signing gates above.
+
 ## Source publication gate
 
 Source publication is experimental and separate from appliance qualification.
