@@ -145,3 +145,29 @@ command (Anaconda graphical startup explicitly activates VT6), and emits distinc
 ready/mountpoint/device/mount/content/script/execution timeout codes. The UEFI
 report above does not prove a focus switch caused its timeout. Fresh protected
 BIOS/UEFI qualification is still required.
+
+## UEFI fully passes; BIOS loses a fixture-preparation reply
+
+Run [39873797031](https://github.com/codyasmith8118/RiverLB/actions/runs/39873797031)
+tested `9ab1f1c8c5935e9bca9740e8cd001cfe6414fba8`. Both downloaded reports
+were checked against their SHA256SUMS and source identity.
+
+- [UEFI passing report](full-39873797031/uefi/report.json): all nine stages, all
+  eleven boot assertions, all four installer assertions, and cleanup passed.
+  The exact assertion lists, four artifact hashes and locked inputs were verified.
+- [BIOS failure report](full-39873797031/bios/report.json): eight preceding stages,
+  all eleven boot assertions and cleanup passed. Installer qualification failed
+  at `graphical` / `graphical-summary` / `probe-mountpoint-timeout`. The `mkdir -p`
+  operation did not return its status after shell readiness and the initial
+  media-content check. This does not establish whether input delivery, guest
+  execution or reply delivery failed.
+
+The fixture now hands its probe shell's input/output to a private QEMU UART
+socket, using display keyboard input only for the short initial handoff. An
+executed nonce/status reply over UART is required before any probe. Subsequent
+probe commands do not depend on the displayed VT. UART socket output is drained
+to prevent backpressure; QEMU's private serial log remains the response source.
+The socket, logs, overlays and guest output are removed by normal owned-workspace
+cleanup. Existing deadlines, read-only media and installer assertions remain.
+Fresh protected qualification must verify this change on both firmware types;
+UEFI's pass above does not qualify a later source. Issue #10 remains In Progress.
