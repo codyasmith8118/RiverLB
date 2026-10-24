@@ -149,12 +149,22 @@ metric = 500
                 assert api()["revision"]==1
                 # Remove the route and update a self IP through the API.
                 config["network"]["routes"]=[]
+                # A network change discards inherited member health. Require
+                # two fresh probes so this test exercises asynchronous readiness
+                # instead of racing the first probe after the successful PUT.
+                config["health_rise"]=2
                 config["network"]["self_ips"][0]["address"]="192.0.2.11/24"
                 config["virtual_servers"][0]["listen"]=f"192.0.2.13:{proxy}"
                 api("PUT",dict(revision=1,config=config))
                 assert not any(r["dst"]=="198.51.100.0/24" for r in ip("route","show"))
+                def backend_ready():
+                    with urllib.request.urlopen(f"http://127.0.0.1:{admin}/api/v1/status",timeout=1) as response:
+                        return json.load(response)["virtual_servers"][0]["members"][0]["healthy"]
+                wait_until(backend_ready)
                 with socket.create_connection(("192.0.2.13",proxy),timeout=2) as client:
-                    client.sendall(b"new"); assert client.recv(100)==b"new"
+                    client.sendall(b"new")
+                    observed=client.recv(100)
+                    assert observed==b"new",repr(observed)
                 assert "192.0.2.11" in sources
                 assert not any(a["local"]=="192.0.2.12" for i in ip("address","show","dev","rlb100") for a in i["addr_info"])
                 process.send_signal(signal.SIGTERM)
