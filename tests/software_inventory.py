@@ -31,6 +31,33 @@ qualification = importlib.util.module_from_spec(spec); spec.loader.exec_module(q
 
 
 class InventoryTests(unittest.TestCase):
+    def test_rpm_root_directory_and_literal_systemd_hex_escape(self):
+        def member(name, data=b'', mode=0o100644):
+            name = name.encode() + b'\0'
+            fields = [7, mode, 0, 0, 1, 0, len(data), 0, 1, 0, 0, len(name), 0]
+            header = b'070701' + ''.join(f'{v:08x}' for v in fields).encode()
+            return header + name + b'\0' * (-(110 + len(name)) % 4) + data + b'\0' * (-len(data) % 4)
+        path = self.root / 'paths.cpio'
+        original_popen = subprocess.Popen
+        def decode(*args, **kwargs):
+            return original_popen(['cat', str(path)], **kwargs)
+        name = r'usr/lib/systemd/system/system-systemd\x2dcryptsetup.slice'
+        payload = b'original systemd unit'
+        trailer = member('TRAILER!!!')
+        path.write_bytes(member('./', mode=0o040755) + member('./' + name, payload) + trailer)
+        with patch('artifact_inventory.subprocess.Popen', side_effect=decode):
+            files, kept = rpm_payload('synthetic.rpm', lambda n: n == name)
+        self.assertEqual(set(files), {name})
+        self.assertEqual(kept, {name: payload})
+        self.assertEqual(files[name]['sha256'], hashlib.sha256(payload).hexdigest())
+        for bad_name, data, mode in [('../escape', b'', 0o100644), ('usr/../../escape', b'', 0o100644),
+                                     (r'usr\escape', b'', 0o100644), ('./', b'file', 0o100644),
+                                     ('.', b'', 0o100644), ('./', b'root data', 0o040755)]:
+            with self.subTest(path=bad_name, mode=mode):
+                path.write_bytes(member(bad_name, data, mode) + trailer)
+                with patch('artifact_inventory.subprocess.Popen', side_effect=decode), self.assertRaises(ValueError):
+                    rpm_payload('synthetic.rpm')
+
     def test_rpm_cpio_hardlinks_resolve_actual_content_and_retained_alias(self):
         def member(name, data, inode=7):
             name = name.encode() + b'\0'
