@@ -3,6 +3,7 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import re
 import stat
 import subprocess
 import tarfile
@@ -44,7 +45,17 @@ def rpm_payload(path, retain=None):
             exact(process.stdout, -(110 + name_size) % 4)
             if name == 'TRAILER!!!':
                 break
-            relative(name)
+            # filesystem.rpm legitimately owns the archive root ("./"). It is
+            # metadata, not a payload file; never accept root-named file contents.
+            if name in ('', '.'):
+                if stat.S_ISDIR(mode) and size == 0:
+                    continue
+                raise ValueError('Invalid RPM root directory entry')
+            # systemd unit names contain literal POSIX backslashes such as
+            # system-systemd\x2dcryptsetup.slice. Preserve those exact bytes in
+            # the inventory; validate only the documented hex-escape spelling.
+            # All other backslashes and traversal/noncanonical paths still fail.
+            relative(re.sub(r'\\x[0-9a-fA-F]{2}', '_', name))
             total += size
             if total > 8 * 1024 ** 3:
                 raise ValueError('Oversized RPM payload')
