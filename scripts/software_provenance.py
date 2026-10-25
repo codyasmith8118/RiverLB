@@ -3,6 +3,7 @@ import base64
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -10,7 +11,12 @@ from software_inventory import canonical, sha256
 
 REPOSITORY = 'codyasmith8118/RiverLB'
 WORKFLOW = REPOSITORY + '/.github/workflows/appliance-image.yml'
-BUILD_TYPE = 'https://github.com/' + REPOSITORY + '/buildtypes/appliance/v1'
+BUILD_TYPE = 'https://actions.github.io/buildtypes/workflow/v1'
+SOURCE_REF = 'refs/heads/release-2.0'
+WORKFLOW_PARAMETERS = {'workflow': {'repository': 'https://github.com/' + REPOSITORY,
+                                    'ref': SOURCE_REF, 'path': '.github/workflows/appliance-image.yml'}}
+GITHUB_PARAMETERS = {'event_name': 'workflow_dispatch', 'repository_id': '1405680757',
+                     'repository_owner_id': '181609671', 'runner_environment': 'github-hosted'}
 PREDICATE_TYPE = 'https://slsa.dev/provenance/v1'
 STAGES = {'resource-controls', 'base-media', 'image-media', 'image-structure', 'disk-build',
           'boot-suite', 'installer-media', 'installer-structure', 'installer-suite', 'software-inventory'}
@@ -100,15 +106,25 @@ def prepare(root, evidence, report_path, source, firmware):
     subjects = dict(artifacts)
     subjects.update({name: sha256(evidence / name) for name in FILES | {'inventory-identity.json', 'qualification.json'}})
     (evidence / 'subjects.sha256').write_text(''.join(d + '  ' + n + '\n' for n, d in sorted(subjects.items())))
+    expected_context = {'GITHUB_' + key.upper(): value for key, value in GITHUB_PARAMETERS.items()
+                        if key != 'runner_environment'}
+    expected_context.update(RUNNER_ENVIRONMENT=GITHUB_PARAMETERS['runner_environment'],
+                            GITHUB_REPOSITORY=REPOSITORY, GITHUB_REF=SOURCE_REF, GITHUB_SHA=source,
+                            GITHUB_WORKFLOW_REF=WORKFLOW + '@' + SOURCE_REF,
+                            GITHUB_RUN_ID=report['run_id'], GITHUB_RUN_ATTEMPT=report['run_attempt'])
+    if any(os.environ.get(key) != value for key, value in expected_context.items()):
+        raise ValueError('Signing workflow context differs from qualified source/run')
     invocation = f'https://github.com/{REPOSITORY}/actions/runs/{report["run_id"]}/attempts/{report["run_attempt"]}'
     predicate = {'buildDefinition': {'buildType': BUILD_TYPE,
-        'externalParameters': {'repository': 'https://github.com/' + REPOSITORY, 'commit': source, 'firmware': firmware,
-                               'subjects': subjects},
-        'internalParameters': {'compiler': compiler, 'platform': report['platform'], 'resources': report['resources'],
+        'externalParameters': WORKFLOW_PARAMETERS,
+        'internalParameters': {'github': GITHUB_PARAMETERS,
+                               'riverlb': {'repository': 'https://github.com/' + REPOSITORY, 'commit': source,
+                                           'firmware': firmware, 'subjects': subjects},
+                               'compiler': compiler, 'platform': report['platform'], 'resources': report['resources'],
                                'commands': report['commands'], 'builderImage': lock['images']['builder']['id'],
                                'toolsImage': lock['images']['tools']['id']},
         'resolvedDependencies': [
-            {'uri': 'git+https://github.com/' + REPOSITORY, 'digest': {'gitCommit': source}},
+            {'uri': 'git+https://github.com/' + REPOSITORY + '@' + SOURCE_REF, 'digest': {'gitCommit': source}},
             {'uri': lock['url'], 'digest': {'sha256': lock['sha256']}},
             {'uri': 'Cargo.lock', 'digest': {'sha256': manifest['cargo_lock_sha256']}},
             {'uri': 'runtime-packages.lock.json', 'digest': {'sha256': identity['files']['runtime-packages.lock.json']}}]},
@@ -163,7 +179,14 @@ def check_statement(value, predicate, artifact, source, firmware, subject_name=N
     if (value.get('predicateType') != PREDICATE_TYPE or value.get('predicate') != predicate
             or predicate['buildDefinition']['buildType'] != BUILD_TYPE):
         raise ValueError('Wrong/altered provenance predicate')
-    parameters = predicate['buildDefinition']['externalParameters']
+    definition = predicate['buildDefinition']
+    if (definition['externalParameters'] != WORKFLOW_PARAMETERS
+            or definition['internalParameters']['github'] != GITHUB_PARAMETERS
+            or {'uri': 'git+https://github.com/' + REPOSITORY + '@' + SOURCE_REF,
+                'digest': {'gitCommit': source}} not in definition['resolvedDependencies']
+            or predicate['runDetails']['builder']['id'] != 'https://github.com/' + WORKFLOW + '@' + SOURCE_REF):
+        raise ValueError('Wrong signing workflow/source identity')
+    parameters = definition['internalParameters']['riverlb']
     if parameters['commit'] != source or parameters['firmware'] != firmware or parameters['repository'] != 'https://github.com/' + REPOSITORY:
         raise ValueError('Wrong source/platform')
     subjects = {}
