@@ -27,7 +27,7 @@ Start with [your first pool and virtual server](web-configuration.md). Use the
 
 ## Operate and recover
 
-- [Day-to-day operations and API](operations.md).
+- [Day-to-day operations and API](operations.md), [HTTPS management CLI](management-cli.md).
 - [Statistics and latency](traffic-statistics.md), [Prometheus](monitoring.md).
 - [System health, alerts, encrypted backups and audit](appliance-operations.md).
 - [Configuration confirmation and recovery](configuration-recovery.md).

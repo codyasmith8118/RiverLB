@@ -1,0 +1,34 @@
+{
+  "binary": {
+    "path": "target/debug/riverlb",
+    "profile": "dev",
+    "sha256": "955f6b26ae7670bb9fade832380bf71d368f2b4a4f5a0e703ab6c08e6c696122",
+    "version": "riverlb 1.0.1"
+  },
+  "browser": {
+    "jsdom": "30.1.3",
+    "node_image": "sha256:ecf6aca355bb97426fb9e9b3616c9d92dbae14b96f4851d1b47d2d6fe51c1a0d",
+    "package_lock_sha256": "bd340424d608f76cbf92bc8f40e8ecdf3d8e5d9f9e572612ceb885c06c9ccd9b"
+  },
+  "compiler": "rustc 1.92.0 (ded5c06cf 2025-12-08) (Red Hat 1.92.0-2.el10_2.alma.1)",
+  "management_cli_output": "PASS management CLI: 13 object lifecycles, HTTPS CA/SAN, API parity, revisions, diff/validate/apply/history/rollback, explicit confirm/revert and interrupted recovery, scopes/RBAC, MFA/single-use recovery, durable idle expiry and credential-free output/help/completion",
+  "platform": {
+    "architecture": "x86_64",
+    "kernel": "6.12.0-211.61.1.el10_2.x86_64",
+    "system": "Linux"
+  },
+  "results": {
+    "clippy": "passed",
+    "configuration_api": "passed",
+    "docs": "passed",
+    "management_cli": "passed",
+    "portal_fixtures": "passed",
+    "rust_tests": {
+      "failed": 0,
+      "passed": 99
+    },
+    "rustfmt": "passed"
+  },
+  "schema": 1,
+  "source": "20c83b8c1f3c3ae168cc4568961cacf3e64e5d1a"
+}

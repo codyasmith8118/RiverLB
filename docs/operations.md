@@ -112,14 +112,16 @@ scoped bearer token; do not put credentials in URLs. Most JSON requests have a
 2 MiB limit, with separate limits for login and large artifact endpoints. See
 [authentication and API security](security-and-database.md#authentication-and-api).
 
-The status CLI supports HTTP loopback management only:
+For remote automation, use the [verified HTTPS management CLI](management-cli.md)
+for configuration CRUD, diff/apply, confirmation, rollback and status. The older
+status command supports HTTP loopback management only:
 
 ```bash
 ./target/debug/riverlb status --address 127.0.0.1:18090 --session-stdin
 ```
 
-Provide a signed-in session token on stdin. For HTTPS or remote management, use
-the authenticated portal/API with certificate verification.
+Provide a signed-in session token on stdin. Use `riverlb manage` for HTTPS or
+remote management.
 
 ## Further operations
 

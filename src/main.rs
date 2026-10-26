@@ -16,6 +16,7 @@ mod http_proxy;
 mod interfaces;
 mod local_control;
 mod management;
+mod management_cli;
 mod monitor;
 mod nat;
 mod network;
@@ -44,6 +45,8 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Manage live configuration and status over verified HTTPS.
+    Manage(management_cli::Options),
     /// Verify a signed offline bundle against root-owned publisher trust. Does not install.
     UpdateVerify {
         #[arg(long)]
@@ -183,14 +186,23 @@ async fn main() -> Result<()> {
     unsafe {
         libc::umask(0o077);
     }
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "riverlb=info".into()),
-        )
-        .init();
+    let command = Cli::parse().command;
+    if !matches!(&command, Command::Manage(_)) {
+        tracing_subscriber::fmt()
+            .with_env_filter(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| "riverlb=info".into()),
+            )
+            .init();
+    }
     // Database WAL files and generated secrets inherit private permissions.
-    match Cli::parse().command {
+    match command {
+        Command::Manage(options) => {
+            let code = management_cli::run(options).await;
+            if code != 0 {
+                std::process::exit(code);
+            }
+        }
         Command::UpdateVerify {
             bundle,
             trust,
