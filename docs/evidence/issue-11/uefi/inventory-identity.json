@@ -1,0 +1,28 @@
+{
+  "artifacts": {
+    "riverlb-1.0.1-1.el10.x86_64.rpm": "72f9b8bfe20c93731d5075b6585e2b0ccb6d9469c60d541d1cf1d7af48a8a31f",
+    "riverlb-1.0.1-x86_64-unknown-linux-gnu-168691870ab2.tar.gz": "22ded71ba7c84a056d609ea29ca60f909783108b50db359c5b59e7593169a5d9",
+    "riverlb-appliance-1.0.1-1.el10.x86_64.rpm": "b29aa15a9ed08a82814027dbbd42a26073be6061a63c1ddbb3cb991205fb9e8a",
+    "riverlb-ha-1.0.1-1.el10.x86_64.rpm": "b3bc383714bf7430f1146ebe94f09fc6c5e8b2bb53d92ba66d89b53deb9b5b39",
+    "riverlb-image.iso": "83b9e3490da399d12888d7ad5947ae8935abc3f29fdc4a77fc23481c68a417ec",
+    "riverlb-installer.iso": "ca11d03c336d0dd5f8c934e48ece8da1af46e206e1bde3f3a5c7fce99c5b2a3f",
+    "riverlb.qcow2": "c1c30ed8a4a54968f8c31a948528dacd956f0eae4b5418f2eb4f74b265465c0d",
+    "riverlb.raw": "8d4d9d78932406c326ab98f289706b3869a45beea21f79926758b61301c75665"
+  },
+  "components": 1744,
+  "files": {
+    "build-inputs.json": "02d5837f77b1dd347c0f530af306452ad96c0164d79ecfe29d1d0c892e1a9a76",
+    "build-manifest.json": "5ffa5ab3c6ab71535c2b6fcff0124f349da393517f6d34fe68b6bb22d90358e1",
+    "cargo-graph.json": "72b9494f86db4f4e0a4b74e714c5eb1d673dd43385e14ec1f9292626c0700751",
+    "compiler.txt": "2a4ee25c6e49f9cd10ad0e32a92f8c8dbec38eafd151429aae2a167105f21ce4",
+    "licenses.json": "432dd1b56c2b796e7025a91ab94636b849b8afb7e6e60b7be0d674585cb9fda3",
+    "notices.tar.gz": "a2fa4fea3be9756d0d857f01b100e2686ab9540c79973dd7ffed22adc65a508b",
+    "payloads.json.gz": "7a92f6a508fae900a19553bfd36e9469736ab703b23bc8636c7166001d6ec31a",
+    "runtime-packages.lock.json": "19889aa17315065173a420796f9598c26e08fda61e163ee45dca398c60231fc3",
+    "sbom.cdx.json": "223f1709d1604f685c0e732642a52eb6165ec6cae50b0c47ae39cf26de4a1979"
+  },
+  "firmware": "uefi",
+  "installed_packages": 553,
+  "schema": 1,
+  "source": "168691870ab27e6bc13604992650b745458c3311"
+}

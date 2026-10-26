@@ -4,7 +4,10 @@ Issue [#11](https://github.com/codyasmith8118/RiverLB/issues/11) adds inventory
 and signing gates to `release-2.0`. Implementation and fixture results alone
 are not a qualified release. A successful protected BIOS/UEFI workflow and its
 verified bundles identify the exact tested source; qualification of one commit
-does not qualify later changes or production deployment.
+does not qualify later changes or production deployment. The
+[retained issue #11 evidence](evidence/issue-11/README.md) records successful
+BIOS/UEFI inventories, protected signatures and independent verification for
+source `168691870ab27e6bc13604992650b745458c3311`.
 
 ## Inventory coverage
 
