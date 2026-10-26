@@ -692,6 +692,8 @@ impl Drop for Reservation {
     }
 }
 pub struct Runtime {
+    pub inspection: Arc<crate::inspection::Registry>,
+    pub inspection_generation: u64,
     pub acme_challenges: crate::acme::Challenges,
     pub stats_registry: crate::traffic::Registry,
     pub admission_registry: crate::admission::Registry,
@@ -807,6 +809,7 @@ impl Runtime {
             Default::default(),
             Default::default(),
             Default::default(),
+            Default::default(),
         )
     }
     pub fn with_certificates(
@@ -815,6 +818,7 @@ impl Runtime {
         admission_registry: crate::admission::Registry,
         stats_registry: crate::traffic::Registry,
         acme_challenges: crate::acme::Challenges,
+        inspection: Arc<crate::inspection::Registry>,
     ) -> Result<Arc<Self>> {
         let config = config.expand_domain_tls()?;
         crate::admission::prune(&admission_registry);
@@ -928,7 +932,10 @@ impl Runtime {
                 node_pools.push(Arc::new(pool));
             }
         }
+        let inspection_generation = inspection.generation();
         Ok(Arc::new(Self {
+            inspection,
+            inspection_generation,
             acme_challenges,
             stats_registry,
             admission_registry,
@@ -1190,36 +1197,44 @@ impl Runtime {
             let session_stop = sessions.1.clone();
             let active = active.clone();
             let config = self.config.clone();
+            let inspection = self.inspection.clone();
+            let inspection_generation = self.inspection_generation;
             tasks.spawn(async move {
                 loop {
                     let accepted = tokio::select! { _ = stop.cancelled() => break, result = listener.accept() => result };
                     let (client, source) = match accepted { Ok(v) => v, Err(e) => { tracing::error!(%e, "accept failed"); stop.cancel(); break; } };
                     pool.traffic.accepted.fetch_add(1, Ordering::Relaxed);
-                    if active.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| (n < config.max_connections).then_some(n + 1)).is_err() { pool.traffic.rejected.fetch_add(1, Ordering::Relaxed); continue; }
+                    if active.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| (n < config.max_connections).then_some(n + 1)).is_err() { inspection.reject(crate::inspection::Rejection::GlobalLimit); pool.traffic.rejected.fetch_add(1, Ordering::Relaxed); continue; }
                     let permit = Admission(active.clone());
                     if pool.config.http.is_some() {
-                        let Some(capacity) = crate::admission::Permit::take(&pool.admission,pool.config.connection_limit) else {pool.traffic.rejected.fetch_add(1,Ordering::Relaxed); continue;};
+                        let Some(capacity) = crate::admission::Permit::take(&pool.admission,pool.config.connection_limit) else {inspection.reject(crate::inspection::Rejection::VirtualLimit); pool.traffic.rejected.fetch_add(1,Ordering::Relaxed); continue;};
+                        let flow=inspection.observe(&pool.config.name,source,crate::inspection::Protocol::Http,None,inspection_generation);
+                        let observation=crate::inspection::Context {entry:flow.as_ref().map(crate::inspection::Guard::entry),registry:inspection.clone()};
                         let pool = pool.clone(); let config = config.clone();
                         let traffic_permit = pool.traffic.enter();
                         tracker.spawn(session_stop.clone().run_until_cancelled_owned(async move {
-                            let _permit = permit; let _capacity = capacity; let _traffic_permit = traffic_permit;
+                            let _permit = permit; let _capacity = capacity; let _traffic_permit = traffic_permit; let _flow=flow;
                             let client: Box<dyn HttpStream> = if let Some(tls) = &pool.tls {
                                 match timeout(Duration::from_millis(config.connect_timeout_ms),tls.accept(client)).await {
                                     Ok(Ok(stream)) => Box::new(stream),
                                     _ => {pool.traffic.failures.fetch_add(1,Ordering::Relaxed); pool.traffic.transport_errors.fetch_add(1,Ordering::Relaxed); return;}
                                 }
                             } else {Box::new(client)};
-                            let result = timeout(Duration::from_secs(config.session_timeout_secs),crate::http_proxy::serve(client,pool.clone(),config,source.ip())).await;
+                            if let Some(entry)=&observation.entry {entry.http();}
+                            let result = timeout(Duration::from_secs(config.session_timeout_secs),crate::http_proxy::serve(client,pool.clone(),config,source.ip(),observation)).await;
                             match result { Ok(Ok(())) => {}, Err(_) => {pool.traffic.failures.fetch_add(1,Ordering::Relaxed); pool.traffic.session_timeouts.fetch_add(1,Ordering::Relaxed);}, Ok(Err(_)) => {pool.traffic.failures.fetch_add(1,Ordering::Relaxed); pool.traffic.transport_errors.fetch_add(1,Ordering::Relaxed);} }
                         }));
                         continue;
                     }
-                    let Some(reservation) = pool.reserve(source.ip()) else { pool.traffic.rejected.fetch_add(1, Ordering::Relaxed); continue; };
+                    let Some(reservation) = pool.reserve(source.ip()) else { inspection.reject(crate::inspection::Rejection::NoEligibleBackend); pool.traffic.rejected.fetch_add(1, Ordering::Relaxed); continue; };
+                    let address=reservation.pool.members.lock().unwrap()[reservation.index].address;
+                    let flow=inspection.observe(&pool.config.name,source,crate::inspection::Protocol::Tcp,Some(address),inspection_generation);
                     let traffic_permit = pool.traffic.enter();
                     let config = config.clone();
                     tracker.spawn(session_stop.clone().run_until_cancelled_owned(async move {
                         let _permit = permit;
                         let _traffic_permit = traffic_permit;
+                        let _flow=flow;
                         trait Stream: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send {}
                         impl<T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send> Stream for T {}
                         let client: Box<dyn Stream> = if let Some(tls) = &reservation.pool.tls {
@@ -1228,7 +1243,6 @@ impl Runtime {
                                 _ => { reservation.pool.members.lock().unwrap()[reservation.index].failures += 1; reservation.pool.members.lock().unwrap()[reservation.index].traffic.failures.fetch_add(1, Ordering::Relaxed); reservation.pool.traffic.failures.fetch_add(1, Ordering::Relaxed); reservation.pool.traffic.transport_errors.fetch_add(1, Ordering::Relaxed); return; }
                             }
                         } else { Box::new(client) };
-                        let address = reservation.pool.members.lock().unwrap()[reservation.index].address;
                         let connect_started=Instant::now();
                         let result = timeout(Duration::from_millis(config.connect_timeout_ms), async {
                             let raw = Self::connect_backend(&config, &reservation.pool, false, address).await?;
@@ -1239,6 +1253,7 @@ impl Runtime {
                         }).await;
                         match result {
                             Ok(Ok(backend)) => {
+                                if let Some(flow)=&_flow {flow.entry().forwarding();}
                                 reservation.pool.traffic.connect_latency.record(connect_started.elapsed());
                                 reservation.pool.members.lock().unwrap()[reservation.index].traffic.connect_latency.record(connect_started.elapsed());
                                 let mut client = crate::traffic::Counted { stream: client, pool: reservation.pool.clone(), index: reservation.index, backend: false };

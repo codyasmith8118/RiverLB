@@ -56,21 +56,21 @@ impl Runtime {
                     Err(error) => { tracing::error!(%error, "UDP VIP receive failed"); stop.cancel(); break; }
                 };
                 let Ok(permit) = budget.clone().try_acquire_many_owned((size + 1) as u32) else {
-                    pool.traffic.rejected.fetch_add(1, Ordering::Relaxed); continue;
+                    runtime.inspection.reject(crate::inspection::Rejection::UdpQueue); pool.traffic.rejected.fetch_add(1, Ordering::Relaxed); continue;
                 };
                 let packet = Packet { bytes: buffer[..size].to_vec(), _budget: permit };
                 if flows.get(&client).is_some_and(|sender| sender.is_closed()) { flows.remove(&client); }
                 if let Some(sender) = flows.get(&client) {
-                    if sender.try_send(packet).is_err() { pool.traffic.rejected.fetch_add(1, Ordering::Relaxed); }
+                    if sender.try_send(packet).is_err() { runtime.inspection.reject(crate::inspection::Rejection::UdpQueue); pool.traffic.rejected.fetch_add(1, Ordering::Relaxed); }
                     continue;
                 }
                 pool.traffic.accepted.fetch_add(1, Ordering::Relaxed);
                 if active.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| (n < runtime.config.max_connections).then_some(n + 1)).is_err() {
-                    pool.traffic.rejected.fetch_add(1, Ordering::Relaxed); continue;
+                    runtime.inspection.reject(crate::inspection::Rejection::GlobalLimit); pool.traffic.rejected.fetch_add(1, Ordering::Relaxed); continue;
                 }
                 let admission = Admission(active.clone());
                 let Some(reservation) = pool.reserve(client.ip()) else {
-                    pool.traffic.rejected.fetch_add(1, Ordering::Relaxed); continue;
+                    runtime.inspection.reject(crate::inspection::Rejection::NoEligibleBackend); pool.traffic.rejected.fetch_add(1, Ordering::Relaxed); continue;
                 };
                 let (sender, incoming) = mpsc::channel(8);
                 // A new channel always has space for its first datagram.
@@ -106,6 +106,13 @@ impl Flow {
         let pool = self.reservation.pool.clone();
         let index = self.reservation.index;
         let address = pool.members.lock().unwrap()[index].address;
+        let observation = self.runtime.inspection.observe(
+            &pool.config.name,
+            self.client,
+            crate::inspection::Protocol::Udp,
+            Some(address),
+            self.runtime.inspection_generation,
+        );
         let began = Instant::now();
         let connected = tokio::select! {
             biased;
@@ -120,6 +127,9 @@ impl Flow {
                 return;
             }
         };
+        if let Some(flow) = &observation {
+            flow.entry().forwarding();
+        }
         // UDP connect selects a peer/source; it does not establish backend readiness.
         pool.traffic.connect_latency.record(began.elapsed());
         pool.members.lock().unwrap()[index]

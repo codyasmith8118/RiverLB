@@ -4,6 +4,9 @@ Use **System → Statistics** for live traffic, failure and latency tables, plus
 stored history. Refreshing statistics does not discard traffic configuration drafts.
 See [traffic statistics](traffic-statistics.md) for counter and reset semantics.
 
+For privileged live TCP/HTTP/UDP metadata, see [flow inspection](flow-inspection.md).
+It is separate from persistent statistics and Monitoring-token scrapes.
+
 ## Connect a collector
 
 `GET /metrics` serves the

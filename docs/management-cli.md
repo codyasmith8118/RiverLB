@@ -46,6 +46,7 @@ perform configuration mutations; the server makes that decision on every call.
 | Command | Behavior |
 |---|---|
 | `status` | Live virtual-server/member status |
+| `connections` | [Privileged, bounded flow inspection](flow-inspection.md), with filters and cursor pagination |
 | `get` | Current configuration, revision, network mode and pending confirmation |
 | `validate --input CONFIG.json` | Validate a complete raw configuration without activation |
 | `diff --revision N --input CONFIG.json` | Server-generated diff and confirmation requirements |

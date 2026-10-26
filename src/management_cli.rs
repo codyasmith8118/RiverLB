@@ -39,6 +39,23 @@ enum Action {
     },
     Logout,
     Status,
+    /// Privileged, read-only live connection/UDP metadata; cursors expire after five seconds.
+    Connections {
+        #[arg(long,default_value_t=100,value_parser=clap::value_parser!(u16).range(1..=200))]
+        limit: u16,
+        #[arg(long)]
+        cursor: Option<String>,
+        #[arg(long)]
+        virtual_server: Option<String>,
+        #[arg(long, value_enum)]
+        protocol: Option<crate::inspection::Protocol>,
+        #[arg(long)]
+        source: Option<std::net::IpAddr>,
+        #[arg(long)]
+        backend: Option<std::net::SocketAddr>,
+        #[arg(long, value_enum)]
+        state: Option<crate::inspection::Phase>,
+    },
     /// Read the complete revisioned configuration.
     Get,
     /// Validate a complete configuration JSON file without activating it.
@@ -380,7 +397,7 @@ fn objects(config: &mut Value, kind: Kind) -> Result<&mut Vec<Value>> {
 }
 async fn execute(options: Options) -> Result<Value> {
     if let Action::Completion { shell } = options.command {
-        let commands = "manage login logout status get validate diff apply confirmation confirm revert history rollback object completion list create update delete --url --ca --session-file --token-file --input --revision --target --output --shell --help";
+        let commands = "manage login logout status connections get validate diff apply confirmation confirm revert history rollback object completion list create update delete --url --ca --session-file --token-file --input --revision --target --output --shell --cursor --virtual-server --protocol --source --backend --state --limit --help tcp http udp connecting forwarding";
         let kinds = Kind::value_variants()
             .iter()
             .map(|k| k.to_possible_value().unwrap().get_name().to_owned())
@@ -439,6 +456,47 @@ async fn execute(options: Options) -> Result<Value> {
                 .await
         }
         Action::Status => client.call("GET", "/api/v1/status", None).await,
+        Action::Connections {
+            limit,
+            cursor,
+            virtual_server,
+            protocol,
+            source,
+            backend,
+            state,
+        } => {
+            let fields = json!({"limit":limit,"cursor":cursor,"virtual_server":virtual_server,"protocol":protocol,"source":source,"backend":backend,"state":state});
+            fn encode(value: &str) -> String {
+                value
+                    .bytes()
+                    .map(|b| {
+                        if b.is_ascii_alphanumeric() || b"-_.~".contains(&b) {
+                            (b as char).to_string()
+                        } else {
+                            format!("%{b:02X}")
+                        }
+                    })
+                    .collect()
+            }
+            let query = fields
+                .as_object()
+                .unwrap()
+                .iter()
+                .filter(|(_, v)| !v.is_null())
+                .map(|(key, value)| {
+                    let value = value
+                        .as_str()
+                        .map(str::to_owned)
+                        .unwrap_or_else(|| value.to_string());
+                    format!("{}={}", encode(key), encode(&value))
+                })
+                .collect::<Vec<_>>()
+                .join("&");
+            client
+                .call("GET", &format!("/api/v1/connections?{query}"), None)
+                .await
+        }
+
         Action::Get => client.call("GET", "/api/v1/config", None).await,
         Action::Validate { input: path } => {
             client
