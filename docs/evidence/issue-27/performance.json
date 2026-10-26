@@ -1,0 +1,95 @@
+{
+  "baseline": {
+    "connections_per_second": [
+      2432.6548280073334,
+      2392.4098252386348,
+      2415.839116925748,
+      2403.2482013977638,
+      2414.777899735579
+    ],
+    "coverage": null,
+    "max_poll_seconds": null,
+    "median_connections_per_second": 2414.777899735579,
+    "memory_after": {
+      "VmHWM_bytes": 161431552,
+      "VmRSS_bytes": 161431552
+    },
+    "memory_before": {
+      "VmHWM_bytes": 161263616,
+      "VmRSS_bytes": 161263616
+    },
+    "poll_statuses": {},
+    "polls": 0
+  },
+  "baseline_source": "393b938ddc0aee147cb7410b65c2059d69f75782",
+  "binaries": {
+    "baseline": {
+      "sha256": "955f6b26ae7670bb9fade832380bf71d368f2b4a4f5a0e703ab6c08e6c696122"
+    },
+    "candidate": {
+      "sha256": "3d630e0ed3e39a56c0eddbeefd61af6a211c4d7697f82d82899060b305b904e2"
+    }
+  },
+  "candidate": {
+    "connections_per_second": [
+      2372.2513976400205,
+      2397.66998049781,
+      2229.958861292753,
+      2347.393109976783,
+      2382.6404135324437
+    ],
+    "coverage": null,
+    "max_poll_seconds": null,
+    "median_connections_per_second": 2372.2513976400205,
+    "median_relative_to_baseline": 0.9823890627373163,
+    "memory_after": {
+      "VmHWM_bytes": 161443840,
+      "VmRSS_bytes": 161443840
+    },
+    "memory_before": {
+      "VmHWM_bytes": 160804864,
+      "VmRSS_bytes": 160804864
+    },
+    "poll_statuses": {},
+    "polls": 0
+  },
+  "candidate_source": "b21fa728c684f24c684dde2d54f34c17f5b8bf8d",
+  "candidate_with_polling": {
+    "connections_per_second": [
+      2205.0606857427692,
+      2246.700240803401,
+      2271.0310911146485,
+      2251.465289110324,
+      2193.7061913410116
+    ],
+    "coverage": {
+      "global_limit": 0,
+      "no_eligible_backend_or_capacity": 0,
+      "observation_skipped_capacity": 1983,
+      "observation_skipped_contention": 19,
+      "observation_skipped_long_name": 0,
+      "udp_queue_or_memory": 0,
+      "virtual_limit": 0
+    },
+    "max_poll_seconds": 0.01385263999691233,
+    "median_connections_per_second": 2246.700240803401,
+    "median_relative_to_baseline": 0.9303962244517051,
+    "memory_after": {
+      "VmHWM_bytes": 166998016,
+      "VmRSS_bytes": 166998016
+    },
+    "memory_before": {
+      "VmHWM_bytes": 161042432,
+      "VmRSS_bytes": 161042432
+    },
+    "poll_statuses": {
+      "200": 37
+    },
+    "polls": 37
+  },
+  "connections_per_round": 1000,
+  "idle_tcp_connections": 3000,
+  "rounds": 5,
+  "schema": 1,
+  "scope": "same-host development binary; authenticated loopback HTTP polling; no production capacity claim"
+}

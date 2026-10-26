@@ -1,0 +1,47 @@
+{
+  "binary": {
+    "profile": "dev",
+    "sha256": "3d630e0ed3e39a56c0eddbeefd61af6a211c4d7697f82d82899060b305b904e2",
+    "version": "riverlb 1.0.1"
+  },
+  "compiler": "rustc 1.92.0 (ded5c06cf 2025-12-08) (Red Hat 1.92.0-2.el10_2.alma.1)",
+  "flow_fixture_output": "PASS flow inspection: 3500 TCP + 1200 UDP + HTTP, cap/coverage, immutable pagination under churn, filtering, cursor expiry/restart, RBAC/scopes, payload/credential redaction, rate limits, apply/drain/disconnect/UDP idle cleanup and verified HTTPS CLI",
+  "limits": {
+    "http_sample_seconds": 1,
+    "live_observations": 4096,
+    "maintenance_seconds": 1,
+    "max_page": 200,
+    "max_snapshots": 6,
+    "name_bytes": 128,
+    "page_requests_per_window": 20,
+    "snapshot_ttl_seconds": 5,
+    "window_seconds": 1
+  },
+  "platform": {
+    "architecture": "x86_64",
+    "kernel": "6.12.0-211.61.1.el10_2.x86_64",
+    "nofile": [
+      524288,
+      524288
+    ],
+    "system": "Linux"
+  },
+  "results": {
+    "clippy": "passed",
+    "docs": "passed",
+    "existing_udp_including_ipv6": "passed",
+    "flow_fixture": "passed",
+    "http_keepalive": true,
+    "http_tls_websocket_accounting": "passed",
+    "management_cli": "passed",
+    "real_tcp_connections": 3500,
+    "real_udp_flows": 1200,
+    "rust_tests": {
+      "failed": 0,
+      "passed": 105
+    },
+    "rustfmt": "passed"
+  },
+  "schema": 1,
+  "source": "b21fa728c684f24c684dde2d54f34c17f5b8bf8d"
+}
