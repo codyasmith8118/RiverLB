@@ -88,7 +88,11 @@ firmware jobs. After all ten stages, guest assertions and cleanup succeed,
 compiler, OCI builder/tools, retained inputs, commands, resource limits and
 sanitized test report. Only then do pinned GitHub attestation actions request
 OIDC identity and sign SLSA v1 provenance and the CycloneDX SBOM for the same
-subject set. This is build attestation; application update publisher trust and
+subject set. The provenance follows the GitHub Actions workflow build type:
+external parameters identify the workflow repository, path and ref; internal
+parameters retain GitHub numeric identity and RiverLB compiler, builder, platform,
+artifact subjects and test bindings. Preparation rejects a signing context that
+differs from the qualified source/run. Verification checks both identities. This is build attestation; application update publisher trust and
 production release promotion remain separate controls.
 
 The software artifact contains only the explicit public inventory, notices,

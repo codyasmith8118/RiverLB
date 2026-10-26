@@ -8,6 +8,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -244,6 +245,13 @@ class InventoryTests(unittest.TestCase):
         with self.assertRaises(ValueError):validate_inventory(altered,'bios')
 
     def evidence(self):
+        signing_env = dict(GITHUB_EVENT_NAME='workflow_dispatch', GITHUB_REPOSITORY=prov.REPOSITORY,
+                           GITHUB_REPOSITORY_ID='1405680757', GITHUB_REPOSITORY_OWNER_ID='181609671',
+                           RUNNER_ENVIRONMENT='github-hosted', GITHUB_REF=prov.SOURCE_REF, GITHUB_SHA='a'*40,
+                           GITHUB_WORKFLOW_REF=prov.WORKFLOW+'@'+prov.SOURCE_REF,
+                           GITHUB_RUN_ID='123', GITHUB_RUN_ATTEMPT='1')
+        context = patch.dict(os.environ, signing_env)
+        context.start(); self.addCleanup(context.stop)
         inventory,document=self.generate();inventory.write(self.output,document)
         for name,data in {'payloads.json.gz':b'public payload inventory','compiler.txt':self.compiler.encode(),
                           'build-manifest.json':inv.canonical(self.manifest),'build-inputs.json':b'{}',
@@ -269,7 +277,10 @@ class InventoryTests(unittest.TestCase):
 
     def test_provenance_binds_exact_subjects_compiler_builder_and_tests(self):
         path,report=self.evidence();predicate=prov.prepare(self.root,self.output,path,'a'*40,'bios')
-        self.assertEqual(predicate['buildDefinition']['externalParameters']['commit'],'a'*40)
+        self.assertEqual(predicate['buildDefinition']['internalParameters']['riverlb']['commit'],'a'*40)
+        self.assertEqual(predicate['buildDefinition']['buildType'], 'https://actions.github.io/buildtypes/workflow/v1')
+        self.assertEqual(predicate['buildDefinition']['externalParameters'], prov.WORKFLOW_PARAMETERS)
+        self.assertEqual(predicate['buildDefinition']['internalParameters']['github'], prov.GITHUB_PARAMETERS)
         self.assertIn('compiler',predicate['buildDefinition']['internalParameters'])
         self.assertEqual(predicate['runDetails']['metadata']['invocationId'],'https://github.com/codyasmith8118/RiverLB/actions/runs/123/attempts/1')
         self.assertEqual(json.loads((self.output/'qualification.json').read_text()),report)
@@ -282,13 +293,22 @@ class InventoryTests(unittest.TestCase):
         report=copy.deepcopy(original);report['installer']['tests'].pop();path.write_bytes(inv.canonical(report))
         with self.assertRaises(ValueError):prov.prepare(self.root,self.output,path,'a'*40,'bios')
 
+    def test_wrong_signing_context_is_rejected(self):
+        path,_=self.evidence()
+        for key in ('GITHUB_EVENT_NAME', 'GITHUB_REPOSITORY_ID', 'GITHUB_REPOSITORY_OWNER_ID',
+                    'RUNNER_ENVIRONMENT', 'GITHUB_REF', 'GITHUB_SHA', 'GITHUB_WORKFLOW_REF',
+                    'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT'):
+            with self.subTest(key=key), patch.dict(os.environ, {key:'wrong'}):
+                with self.assertRaisesRegex(ValueError, 'workflow context'):
+                    prov.prepare(self.root,self.output,path,'a'*40,'bios')
+
     def test_changed_inventory_is_rejected_before_signing(self):
         path,_=self.evidence();(self.output/'sbom.cdx.json').write_text('{}')
         with self.assertRaisesRegex(ValueError,'changed'):prov.prepare(self.root,self.output,path,'a'*40,'bios')
 
     def test_altered_artifact_wrong_subject_set_and_platform_are_rejected(self):
         path,_=self.evidence();predicate=prov.prepare(self.root,self.output,path,'a'*40,'bios')
-        subjects=predicate['buildDefinition']['externalParameters']['subjects']
+        subjects=predicate['buildDefinition']['internalParameters']['riverlb']['subjects']
         value={'_type':'https://in-toto.io/Statement/v1','predicateType':prov.PREDICATE_TYPE,'predicate':predicate,
                'subject':[{'name':name,'digest':{'sha256':digest}} for name,digest in subjects.items()]}
         artifact=self.output/'sbom.cdx.json'
@@ -297,6 +317,19 @@ class InventoryTests(unittest.TestCase):
         with self.assertRaises(ValueError):prov.check_statement(value,predicate,artifact,'a'*40,'uefi')
         modified=copy.deepcopy(value);modified['subject'].pop()
         with self.assertRaises(ValueError):prov.check_statement(modified,predicate,artifact,'a'*40,'bios')
+        for section,key,replacement in [
+                ('buildDefinition','buildType','https://github.com/codyasmith8118/RiverLB/buildtypes/appliance/v1'),
+                ('buildDefinition','externalParameters',{'workflow':{}}),
+                ('buildDefinition','resolvedDependencies',[]),
+                ('runDetails','builder',{'id':'https://example.com/other'})]:
+            modified=copy.deepcopy(value)
+            modified['predicate'][section][key]=replacement
+            with self.subTest(field=key),self.assertRaises(ValueError):
+                prov.check_statement(modified,modified['predicate'],artifact,'a'*40,'bios')
+        modified=copy.deepcopy(value)
+        modified['predicate']['buildDefinition']['internalParameters']['github']['runner_environment']='self-hosted'
+        with self.assertRaises(ValueError):
+            prov.check_statement(modified,modified['predicate'],artifact,'a'*40,'bios')
         artifact.write_bytes(artifact.read_bytes()+b' ')
         with self.assertRaisesRegex(ValueError,'Artifact altered'):prov.check_statement(value,predicate,artifact,'a'*40,'bios')
 
