@@ -94,6 +94,7 @@ impl Control {
             Default::default(),
             Default::default(),
             Default::default(),
+            Default::default(),
         )?;
         if let Some(state) = &ha {
             for replica in state.persistence.lock().unwrap().iter() {
@@ -232,6 +233,7 @@ impl Control {
         let sampler = control.clone();
         crate::acme::start(control.clone());
         crate::operations::start(control.clone());
+        crate::inspection::start(control.clone()).await;
         tokio::spawn(async move {
             let mut timer = tokio::time::interval(std::time::Duration::from_secs(5));
             timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -558,6 +560,7 @@ impl Control {
                 old.runtime.admission_registry.clone(),
                 old.runtime.stats_registry.clone(),
                 old.runtime.acme_challenges.clone(),
+                old.runtime.inspection.clone(),
             )?;
             timing("runtime_construction");
             crate::network::validate_runtime_devices(&config)?;

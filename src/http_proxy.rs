@@ -834,6 +834,7 @@ pub async fn serve<S>(
     pool: Arc<Pool>,
     config: crate::config::Config,
     source: IpAddr,
+    observation: crate::inspection::Context,
 ) -> Result<()>
 where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
@@ -850,7 +851,12 @@ where
         let config = config.clone();
         let done = service_done.clone();
         let stop = tunnel_stop.clone();
-        async move { Ok::<_, Infallible>(handle(request, pool, config, source, stop, done).await) }
+        let observation = observation.clone();
+        async move {
+            Ok::<_, Infallible>(
+                handle(request, pool, config, source, stop, done, observation).await,
+            )
+        }
     });
     hyper::server::conn::http1::Builder::new()
         .max_buf_size(max_header_bytes)
@@ -871,6 +877,7 @@ async fn handle(
     source: IpAddr,
     tunnel_stop: tokio_util::sync::CancellationToken,
     tunnel_done: Arc<std::sync::Mutex<Option<tokio::sync::oneshot::Receiver<()>>>>,
+    observation: crate::inspection::Context,
 ) -> Response<Body> {
     let profile = pool.config.http.as_ref().unwrap();
     if request.method() == hyper::Method::CONNECT
@@ -1071,10 +1078,16 @@ async fn handle(
     let Some(reservation) =
         pool.reserve_http(source, chosen.or(preferred), chosen.is_some(), bypass)
     else {
+        observation
+            .registry
+            .reject(crate::inspection::Rejection::NoEligibleBackend);
         pool.traffic.rejected.fetch_add(1, Ordering::Relaxed);
         return local_response(response(503, "No available backend"), &response_headers);
     };
     let address = pool.members.lock().unwrap()[reservation.index].address;
+    if let Some(entry) = &observation.entry {
+        entry.selected(address);
+    }
     let head = request.method() == hyper::Method::HEAD;
     let client_upgrade = websocket.then(|| hyper::upgrade::on(&mut request));
     let streaming = profile.streaming && !websocket;

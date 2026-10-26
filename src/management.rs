@@ -1177,6 +1177,7 @@ pub fn router(control: Arc<Control>, address: SocketAddr, secure: bool) -> Route
             }),
         )
         .route("/api/v1/status", get(status))
+        .route("/api/v1/connections", get(crate::inspection::endpoint))
         .route("/api/v1/appliance", get(appliance_status))
         .route("/api/v1/ha", get(ha_group_get).put(ha_group_save))
         .route("/api/v1/ha/action", post(ha_group_action))

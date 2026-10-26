@@ -27,6 +27,9 @@ pub struct Principal {
 }
 impl Principal {
     pub fn permits(&self, method: &str, path: &str) -> bool {
+        if path == "/api/v1/connections" && self.role == Role::ReadOnly {
+            return false;
+        }
         let read = matches!(method, "GET" | "HEAD");
         let monitoring = matches!(
             path,

@@ -69,6 +69,7 @@ jobs:
       - run: python3 tests/smoke.py
       - run: python3 tests/configuration.py
       - run: python3 tests/management_cli.py
+      - run: python3 tests/flow_inspection.py
       - run: python3 tests/confirmation.py
       - run: python3 tests/persistence.py
       - run: python3 tests/draining.py

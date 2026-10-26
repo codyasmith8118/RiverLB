@@ -218,6 +218,7 @@ impl Snapshot {
             Default::default(),
             Default::default(),
             Default::default(),
+            Default::default(),
         )?;
         for row in &self.tables["acme_jobs"] {
             let job: crate::acme::Job = serde_json::from_str(row[1].as_str().unwrap())?;

@@ -13,6 +13,7 @@ mod ha_deploy;
 mod ha_group;
 mod ha_network;
 mod http_proxy;
+mod inspection;
 mod interfaces;
 mod local_control;
 mod management;

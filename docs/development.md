@@ -44,6 +44,7 @@ python3 scripts/check-docs.py
 python3 tests/smoke.py
 python3 tests/configuration.py
 python3 tests/management_cli.py
+python3 tests/flow_inspection.py
 node --check web/app.js
 npm ci --prefix tests --ignore-scripts
 npm test --prefix tests
