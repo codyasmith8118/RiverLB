@@ -21,7 +21,7 @@ See [configuration recovery](configuration-recovery.md), [offline updates](offli
 
 These changes do not by themselves qualify a production image. The management daemon still runs as root for the current networking/HA integration; the restrictions are concrete limits, not a completed privilege-separated network helper. Backup scheduling requires a real mounted destination and its systemd write permission. UDP syslog is best effort. Live TCP/TLS failover replication, HA rolling software updates and OS rollback remain unsupported.
 
-A release must rebuild the RPM and ISO from the final commit and pass full CI, supported BIOS/UEFI VM boots, graphical installation and recovery, network/firewall/SELinux tests, application update interruption/rollback, and HA fencing/failover tests on the intended platforms. Retained OS/build inputs and clean offline rebuild comparisons are implemented on the 2.0 development branch under #9; see [reproducible builds](reproducible-builds.md). Capacity and extended load testing, dependency/license inventory, protected signing/promotion and signing-key ownership remain release qualification work. Keep the evidence with the artifact manifest; do not label a converted image or unsigned candidate a qualified release.
+A release must rebuild the RPM and ISO from the final commit and pass full CI, supported BIOS/UEFI VM boots, graphical installation and recovery, network/firewall/SELinux tests, application update interruption/rollback, and HA fencing/failover tests on the intended platforms. Retained OS/build inputs and clean offline rebuild comparisons are implemented on the 2.0 development branch under #9; see [reproducible builds](reproducible-builds.md). Capacity and extended load testing, production release signing/promotion and signing-key ownership remain release qualification work. Exact-source dependency/license inventory and build provenance evidence are recorded below. Keep the evidence with the artifact manifest; do not label a converted image or unsigned candidate a qualified release.
 
 Isolated KVM qualification under issue #10 passed both BIOS and UEFI build,
 boot and interactive installer suites in run
@@ -34,10 +34,13 @@ artifacts still require the broader qualification and signing gates above.
 ## Source publication gate
 
 Issue #11 adds [software inventories and signed provenance](software-supply-chain.md)
-to the protected qualification workflow. Its fixture checks and source inventories
-do not close the release gate: both firmware jobs must pass the new aggregate
-inventory stage and verify their signed bundles for the intended source. Keep
-the issue open until that evidence is retained and published.
+to the protected qualification workflow. Both BIOS and UEFI passed aggregate
+inventory, protected signing and signature verification in
+[run 40320551997](https://github.com/codyasmith8118/RiverLB/actions/runs/40320551997)
+for source `168691870ab27e6bc13604992650b745458c3311`.
+[Durable inventories, notices, signed bundles and independent verification](evidence/issue-11/README.md)
+complete that issue for the tested source; later source revisions require fresh
+qualification. Build attestation does not authorize production release promotion.
 
 Source publication is experimental and separate from appliance qualification.
 Before changing repository visibility:

@@ -1,0 +1,161 @@
+{
+  "artifacts": {
+    "riverlb-image.iso": "9dbf252c193d34a405719d9055116ee54727e89266f58f1db8508749fe3feaa3",
+    "riverlb-installer.iso": "1a6bae5fa32b63e1f1c06ff915f58a1dcf69f92eb4758e35a1bdcf923b27c5d9",
+    "riverlb.qcow2": "68619d2e3e55d6eca1c41703ece064d865ac4693840ac0e7199a83587a1d1c06",
+    "riverlb.raw": "7df0e73e6d2e406c9753f53e4ac410710912b0514708668de547c3beb8914631"
+  },
+  "boot": {
+    "firmware": "bios",
+    "status": "passed",
+    "tests": [
+      "SELinux enforcing",
+      "SSH disabled",
+      "clean shutdown",
+      "console recovery login",
+      "console setup",
+      "independent clone certificates and machine IDs",
+      "persisted traffic statistics",
+      "private database permissions",
+      "real firewalld VIP TCP forwarding",
+      "reboot configuration/account/certificate persistence",
+      "verified HTTPS login"
+    ]
+  },
+  "cleanup": "passed",
+  "commands": {
+    "base-media": {
+      "argv": [
+        "python3",
+        "scripts/fetch-base-iso.py"
+      ],
+      "timeout_seconds": 900
+    },
+    "boot-suite": {
+      "argv": [
+        "bash",
+        "scripts/test-image.sh"
+      ],
+      "timeout_seconds": 1800
+    },
+    "disk-build": {
+      "argv": [
+        "bash",
+        "scripts/build-image.sh"
+      ],
+      "timeout_seconds": 5400
+    },
+    "image-media": {
+      "argv": [
+        "bash",
+        "scripts/build-iso.sh",
+        "/home/runner/work/RiverLB/RiverLB/dist/base/AlmaLinux-10.2-x86_64-minimal.iso",
+        "1b532f534231da0d1cd0ccae622bea6cd588d8a0d7b259f1f131501a6eed41a4",
+        "image"
+      ],
+      "timeout_seconds": 900
+    },
+    "image-structure": {
+      "argv": [
+        "bash",
+        "scripts/test-iso.sh",
+        "image"
+      ],
+      "timeout_seconds": 300
+    },
+    "installer-media": {
+      "argv": [
+        "bash",
+        "scripts/build-iso.sh",
+        "/home/runner/work/RiverLB/RiverLB/dist/base/AlmaLinux-10.2-x86_64-minimal.iso",
+        "1b532f534231da0d1cd0ccae622bea6cd588d8a0d7b259f1f131501a6eed41a4",
+        "installer"
+      ],
+      "timeout_seconds": 900
+    },
+    "installer-structure": {
+      "argv": [
+        "bash",
+        "scripts/test-iso.sh",
+        "installer"
+      ],
+      "timeout_seconds": 300
+    },
+    "installer-suite": {
+      "argv": [
+        "bash",
+        "scripts/test-installer.sh"
+      ],
+      "timeout_seconds": 1800
+    },
+    "resource-controls": {
+      "argv": [
+        "python3",
+        "tests/appliance/qualification_resources.py"
+      ],
+      "timeout_seconds": 900
+    },
+    "software-inventory": {
+      "argv": [
+        "bash",
+        "scripts/build-software-inventory.sh"
+      ],
+      "timeout_seconds": 1800
+    }
+  },
+  "finished_at_utc": "2026-10-26T12:48:22Z",
+  "firmware": "bios",
+  "inputs": {
+    "lock_sha256": "87e8163880e977e4717170e1f87e312c089ff8421d1b6b69d246f7968f6cecee",
+    "rpm_manifest_sha256": "5ffa5ab3c6ab71535c2b6fcff0124f349da393517f6d34fe68b6bb22d90358e1",
+    "snapshot_sha256": "ce3771582d766832180af8c09fa3993d71afdae01c4b7cd1ca7dff1484825c5a",
+    "tools_image": "sha256:c14a1c383313a2e10db31abdf68d6c899e0c75316953908159084c42de983e94"
+  },
+  "installer": {
+    "firmware": "bios",
+    "status": "passed",
+    "tests": [
+      "RiverLB graphical summary and accessible installation destination",
+      "blank disks unchanged before storage confirmation",
+      "native text Quit requested before installation",
+      "text-console storage selection"
+    ]
+  },
+  "platform": {
+    "kernel": "6.17.0-1022-azure",
+    "runner_image": "20261023.334.3"
+  },
+  "resources": {
+    "available_memory_bytes": 15784005632,
+    "free_disk_bytes": 109706313728,
+    "logical_cpus": 4,
+    "required_disk_bytes": 42949672960,
+    "required_logical_cpus": 2,
+    "required_memory_bytes": 6442450944
+  },
+  "run_attempt": "1",
+  "run_id": "40320551997",
+  "schema": 1,
+  "software": {
+    "inventory-identity.json": "864c5d3b8d280fc5d3e81770dd511ddc43dc85cf9a61a12a39624659fe89c177",
+    "licenses.json": "432dd1b56c2b796e7025a91ab94636b849b8afb7e6e60b7be0d674585cb9fda3",
+    "notices.tar.gz": "a2fa4fea3be9756d0d857f01b100e2686ab9540c79973dd7ffed22adc65a508b",
+    "payloads.json.gz": "b476f3159e48e03efcd97344d00f046cf458103274d7f23624c45c705e053713",
+    "sbom.cdx.json": "7de7f5f8df082b650e6ecb7d20a419e72f8d180076d5d7ea348ce19369836fba"
+  },
+  "source": "168691870ab27e6bc13604992650b745458c3311",
+  "stage": "complete",
+  "stages": {
+    "base-media": "passed",
+    "boot-suite": "passed",
+    "disk-build": "passed",
+    "image-media": "passed",
+    "image-structure": "passed",
+    "installer-media": "passed",
+    "installer-structure": "passed",
+    "installer-suite": "passed",
+    "resource-controls": "passed",
+    "software-inventory": "passed"
+  },
+  "status": "passed"
+}
