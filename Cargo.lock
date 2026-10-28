@@ -2151,7 +2151,7 @@ dependencies = [
  "hyper-util",
  "instant-acme",
  "libc",
- "rand 0.8.8",
+ "rand 0.10.3",
  "rcgen",
  "ring",
  "rpassword",
