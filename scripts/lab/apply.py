@@ -113,6 +113,7 @@ def main():
                 raise RuntimeError('Unexpected appliance at private management address')
             ssh(node, 'systemctl', 'is-active', 'riverlb')
             ssh(node, 'test', '!', '-e', '/usr/lib/riverlb/current')
+        ssh(node, 'test', '!', '-L', '/usr/lib/riverlb/current')
             if 'riverlb-ha-' in ssh(node, 'rpm', '-qa', '--qf', '%{NAME}-%{VERSION}\n'):
                 raise RuntimeError('HA requires a separate reviewed deployment procedure')
             health(node)
