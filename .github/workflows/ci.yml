@@ -32,6 +32,7 @@ jobs:
           cargo fmt --check
           python3 scripts/check-docs.py
           python3 tests/check_docs.py
+          python3 tests/development_lab.py
           python3 tests/build_release.py
           /usr/bin/python3 tests/software_inventory.py
           python3 tests/appliance/branding.py
