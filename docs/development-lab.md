@@ -107,7 +107,7 @@ ssh -i /root/riverlb-eve-lab/id_ed25519 \
   -o UserKnownHostsFile=/root/riverlb-eve-lab/guest-known-hosts root@10.77.0.50
 python3 /opt/riverlb-lab/http_load.py http://10.77.10.100:8080/ \
   --duration 60 --rate 100 --workers 32 \
-  --expect-nodes backend1,backend2,backend3 --output /tmp/load-test.json
+  --expect-nodes backend1,backend2,backend3 --output /tmp/load-test-$(date +%s).json
 ```
 
 Use `10.77.10.101` for B. Backends are `10.77.20.101`–`103`, each on TCP 8080.
