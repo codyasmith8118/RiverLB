@@ -11,6 +11,9 @@ PRs. The complete approved release will later be proposed for `main`. Follow the
 support claims, evidence and decisions; a merged planning document is not release
 approval. Keep the parent tracker #8 open until the release gates are met.
 
+Completed 2.0 tasks also follow the [development lab delivery procedure](development-lab.md):
+passing exact-commit GitHub checks and the same accepted build on both EVE appliances.
+
 ## Set up a development machine
 
 Install Rust with rustup, including `rustfmt` and `clippy`. The RPM builder uses
