@@ -230,6 +230,12 @@ try:
         "\nexcept PermissionError: raise SystemExit(0)"
         "\nraise SystemExit(1)"], user=65534, group=65534, extra_groups=[], capture_output=True, timeout=5)
     assert denied.returncode == 0, 'Non-root local IPC access must be refused'
+    same_uid = subprocess.run([sys.executable, '-c',
+        "import socket,json; s=socket.socket(socket.AF_UNIX); s.settimeout(3);"
+        "s.connect('/run/riverlb/operations.sock'); s.sendall(b'{\"action\":\"status\"}\\n');"
+        "assert 'error' in json.loads(s.recv(4096))"],
+        user=account.pw_uid, group=account.pw_gid, extra_groups=[], capture_output=True, timeout=5)
+    assert same_uid.returncode == 0, 'Service UID must not impersonate the root readiness client'
     status_lines = Path(f'/proc/{process.pid}/status').read_text().splitlines()
     identity = next(line for line in status_lines if line.startswith('Uid:'))
     assert {int(value) for value in identity.split()[1:]} == {account.pw_uid}

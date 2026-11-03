@@ -453,6 +453,10 @@ def serve(socket_path=SOCKET, policy_path=POLICY, state_path=STATE):
             # Reject unknown UIDs before allocating a worker or parsing any bytes.
             peer = struct.unpack('3i', connection.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
             if peer[1] not in {0, broker.configuration['uid']} or not slots.acquire(blocking=False):
+                reason = 'UnauthorizedPeer' if peer[1] not in {0, broker.configuration['uid']} else 'Busy'
+                syslog.syslog(syslog.LOG_AUTHPRIV | syslog.LOG_WARNING,
+                              json.dumps(dict(service='riverlb-privileged', uid=peer[1], pid=peer[0],
+                                              action='invalid', outcome='rejected', reason=reason)))
                 connection.close()
                 continue
             executor.submit(client, connection, broker, slots)

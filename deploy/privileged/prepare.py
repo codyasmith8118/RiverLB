@@ -7,6 +7,7 @@ import ipaddress
 import os
 from pathlib import Path
 import pwd
+import grp
 import sqlite3
 import socket
 import stat
@@ -101,10 +102,23 @@ def initial_policy(uid, gid):
                 management_interfaces=sorted(management))
 
 
+def account_identity():
+    account = pwd.getpwnam('riverlb')
+    group = grp.getgrnam('riverlb')
+    broker.policy.require(account.pw_uid > 0 and account.pw_gid == group.gr_gid > 0
+                          and account.pw_shell in {'/sbin/nologin', '/usr/sbin/nologin'}
+                          and account.pw_dir == str(DATA)
+                          and set(os.getgrouplist('riverlb', account.pw_gid)) == {account.pw_gid}
+                          and not any(value.pw_uid == account.pw_uid and value.pw_name != 'riverlb'
+                                      for value in pwd.getpwall())
+                          and not any(value.gr_gid == group.gr_gid and value.gr_name != 'riverlb'
+                                      for value in grp.getgrall()), 'RiverLB requires a dedicated non-login identity')
+    return account
+
+
 def prepare():
     broker.policy.require(os.geteuid() == 0)
-    account = pwd.getpwnam('riverlb')
-    broker.policy.require(account.pw_uid > 0 and account.pw_gid > 0)
+    account = account_identity()
     for path in [ROOT, STATE]:
         directory(path)
     lock = os.open(STATE / 'prepare.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)

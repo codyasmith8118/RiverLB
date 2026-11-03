@@ -309,7 +309,7 @@ impl State {
             let metadata = std::fs::metadata(&settings.state_file)?;
             ensure!(
                 metadata.uid() == state_owner() && metadata.permissions().mode() & 0o077 == 0,
-                "HA checkpoint must be root-owned and private"
+                "HA checkpoint must be service-owned and private"
             );
             serde_json::from_slice::<Checkpoint>(&std::fs::read(&settings.state_file)?)?
         } else {
@@ -365,7 +365,7 @@ impl State {
         let metadata = std::fs::metadata(&path)?;
         ensure!(
             metadata.uid() == state_owner() && metadata.permissions().mode() & 0o077 == 0,
-            "HA ownership journal must be private and root-owned"
+            "HA ownership journal must be private and service-owned"
         );
         let journal: OwnershipJournal = serde_json::from_slice(&std::fs::read(&path)?)?;
         ensure!(
@@ -745,7 +745,7 @@ async fn send_inner(control: &Control, periodic: bool) -> Result<()> {
         let metadata = std::fs::metadata(&path)?;
         ensure!(
             metadata.uid() == state_owner() && metadata.permissions().mode() & 0o077 == 0,
-            "HA synchronized snapshot must be root-owned and private"
+            "HA synchronized snapshot must be service-owned and private"
         );
         let mut previous: Bundle = serde_json::from_slice(&std::fs::read(path)?)?;
         ensure!(

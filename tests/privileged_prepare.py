@@ -8,6 +8,7 @@ import sqlite3
 import stat
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,6 +34,28 @@ class Migration(unittest.TestCase):
         self.assertEqual(data.read_bytes(), b'private fixture')
         self.assertEqual(stat.S_IMODE(data.stat().st_mode), 0o600)
         self.assertEqual(stat.S_IMODE(child.stat().st_mode), 0o700)
+
+    def test_service_identity_rejects_supplementary_privileges_and_aliases(self):
+        account = SimpleNamespace(pw_name='riverlb', pw_uid=1001, pw_gid=1002,
+                                  pw_shell='/sbin/nologin', pw_dir='/var/lib/riverlb')
+        group = SimpleNamespace(gr_name='riverlb', gr_gid=1002)
+        with patch.object(prepare.pwd, 'getpwnam', return_value=account), \
+             patch.object(prepare.pwd, 'getpwall', return_value=[account]), \
+             patch.object(prepare.grp, 'getgrnam', return_value=group), \
+             patch.object(prepare.grp, 'getgrall', return_value=[group]), \
+             patch.object(prepare.os, 'getgrouplist', return_value=[1002]):
+            self.assertIs(prepare.account_identity(), account)
+            with patch.object(prepare.os, 'getgrouplist', return_value=[1002, 999]):
+                with self.assertRaises(prepare.broker.policy.Rejected):
+                    prepare.account_identity()
+            alias = SimpleNamespace(gr_name='docker', gr_gid=1002)
+            with patch.object(prepare.grp, 'getgrall', return_value=[group, alias]):
+                with self.assertRaises(prepare.broker.policy.Rejected):
+                    prepare.account_identity()
+            alias = SimpleNamespace(pw_name='another-user', pw_uid=1001)
+            with patch.object(prepare.pwd, 'getpwall', return_value=[account, alias]):
+                with self.assertRaises(prepare.broker.policy.Rejected):
+                    prepare.account_identity()
 
     def test_symlink_hardlink_fifo_and_writable_directory_rejected(self):
         outside = self.root / 'outside'

@@ -126,7 +126,7 @@ install -D -m 0755 riverlb-traffic %{buildroot}%{_prefix}/lib/ocf/resource.d/riv
 %pre
 getent group riverlb >/dev/null || %{_sbindir}/groupadd --system riverlb || exit $?
 getent passwd riverlb >/dev/null || %{_sbindir}/useradd --system --gid riverlb --home-dir /var/lib/riverlb --no-create-home --shell /sbin/nologin riverlb || exit $?
-%{_bindir}/python3 -I -c 'import pwd; p=pwd.getpwnam("riverlb"); assert p.pw_uid>0 and p.pw_dir=="/var/lib/riverlb" and p.pw_shell in {"/sbin/nologin","/usr/sbin/nologin"} and not any(q.pw_uid==p.pw_uid and q.pw_name!=p.pw_name for q in pwd.getpwall()), "Unsafe pre-existing RiverLB service account"' || exit $?
+%{_bindir}/python3 -I -c 'import pwd,grp,os; p=pwd.getpwnam("riverlb"); g=grp.getgrnam("riverlb"); assert p.pw_uid>0 and p.pw_gid==g.gr_gid>0 and p.pw_dir=="/var/lib/riverlb" and p.pw_shell in {"/sbin/nologin","/usr/sbin/nologin"} and set(os.getgrouplist("riverlb",p.pw_gid))=={p.pw_gid} and not any(q.pw_uid==p.pw_uid and q.pw_name!=p.pw_name for q in pwd.getpwall()) and not any(q.gr_gid==g.gr_gid and q.gr_name!=g.gr_name for q in grp.getgrall()), "Unsafe pre-existing RiverLB service account"' || exit $?
 
 %post
 %{_sbindir}/semodule -i %{_datadir}/selinux/packages/riverlb-sandbox.cil || exit $?
