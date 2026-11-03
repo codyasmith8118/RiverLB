@@ -118,6 +118,23 @@ class Bundles(unittest.TestCase):
                     apply.unpack(*self.bundle(Path(directory), mutation))
 
 
+class HelperQuiesce(unittest.TestCase):
+    def test_legacy_absent_units_are_allowed(self):
+        with patch.object(apply, 'ssh', return_value='not-found\n') as remote:
+            apply.stop_auxiliary('a')
+        self.assertEqual(remote.call_count, 2)
+        self.assertTrue(all('show' in call.args for call in remote.call_args_list))
+
+    def test_loaded_helper_stop_failure_is_not_ignored(self):
+        with patch.object(apply, 'ssh', side_effect=['loaded\n', RuntimeError('stop failed')]):
+            with self.assertRaisesRegex(RuntimeError, 'stop failed'):
+                apply.stop_auxiliary('a')
+
+    def test_backup_and_rollback_scope_includes_private_state(self):
+        self.assertIn('etc/riverlb-privileged', apply.STATE_PATHS)
+        self.assertIn('var/lib/riverlb-privileged', apply.STATE_PATHS)
+
+
 class Recovery(unittest.TestCase):
     def simulate(self, backup_failure=False):
         with tempfile.TemporaryDirectory() as directory:
@@ -137,6 +154,8 @@ class Recovery(unittest.TestCase):
 
             def ssh(node, *args):
                 calls.append((node, args))
+                if args[:2] == ('systemctl', 'show'):
+                    return 'loaded\n'
                 if args[0] == 'hostname':
                     return 'riverlb-' + node
                 if args[0] == 'sha256sum':

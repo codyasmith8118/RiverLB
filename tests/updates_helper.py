@@ -16,6 +16,7 @@ import stat
 import subprocess
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 ROOT = RealPath(__file__).resolve().parents[1]
@@ -53,6 +54,7 @@ class Fixture:
                          CONFIG=self.root / 'etc/riverlb/riverlb.toml',
                          UPDATER=self.root / 'var/lib/riverlb-updater',
                          TRUST=self.root / 'etc/riverlb-updater/update-trust.json',
+                         BROKER_POLICY=self.root / 'etc/riverlb-privileged/policy.json',
                          HELPER=self.root / 'usr/libexec/riverlb/riverlb-update',
                          SOCKET=self.root / 'run/riverlb/operations.sock')
         constants.update(BUNDLE=constants['DB'].with_suffix('.update-bundle.json'),
@@ -84,7 +86,7 @@ class Fixture:
     def safe_path(self, value):
         path = RealPath(value)
         for original in ('/usr/lib/riverlb', '/var/lib/riverlb', '/var/lib/riverlb-updater',
-                         '/etc/riverlb', '/etc/riverlb-updater', '/run/riverlb', '/proc'):
+                         '/etc/riverlb', '/etc/riverlb-updater', '/etc/riverlb-privileged', '/run/riverlb', '/proc'):
             if path == RealPath(original) or RealPath(original) in path.parents:
                 return self.root / str(path).lstrip('/')
         if path == RealPath('/etc/os-release'):
@@ -120,6 +122,8 @@ class Fixture:
         if args[1:] == ['--version']:
             assert self.versions in RealPath(args[0]).parents
             return 'riverlb 0.1.1\n'
+        if args[1:] == ['privileged-protocol']:
+            return '1\n'
         assert RealPath(args[0]) == self.helper.BASE or self.versions in RealPath(args[0]).parents, 'Execute only a validated application reader in this fixture'
         operation = args[1]
         if operation == 'update-verify':
@@ -209,6 +213,62 @@ class UpdateHelperTests(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(self.helper.CURRENT.resolve().stat().st_mode), 0o755,
                          'A non-root CLI must traverse the selected version despite updater umask 077')
         self.assertEqual(stat.S_IMODE((self.helper.CURRENT.resolve() / 'riverlb').stat().st_mode), 0o755)
+
+    def test_installed_helper_protocol_checked_before_service_stop(self):
+        self.helper.write(self.helper.BROKER_POLICY, dict(uid=os.geteuid()))
+        execute = self.fixture.run
+
+        def unsupported(args):
+            if args[1:] == ['privileged-protocol']:
+                return '0\n'
+            return execute(args)
+
+        with patch.object(self.helper, 'run', side_effect=unsupported):
+            with self.assertRaisesRegex(RuntimeError, 'installed privileged protocol'):
+                self.helper.activate()
+        self.assertTrue(self.fixture.running)
+        self.assertFalse(self.helper.CURRENT.exists())
+        self.assertFalse(self.helper.JOURNAL.exists())
+        self.assertFalse(any(command[1:3] == ['stop', 'riverlb.service']
+                             for command in self.fixture.commands))
+
+    def test_service_identity_cannot_relax_root_state_ownership(self):
+        self.helper.write(self.helper.BROKER_POLICY, dict(uid=os.geteuid() + 1))
+        self.assertEqual(self.helper.service_owner(), os.geteuid() + 1)
+        with self.assertRaisesRegex(RuntimeError, 'Unsafe updater directory'):
+            self.helper.activate()
+        with patch.object(self.helper, 'OWNER', os.geteuid() + 1):
+            with self.assertRaisesRegex(RuntimeError, 'Unsafe updater directory'):
+                self.helper.state_read()
+
+    def test_untrusted_staging_is_copied_as_bytes_before_verification(self):
+        contents = b'not valid JSON: verifier must reject this'
+        self.helper.BUNDLE.write_bytes(contents)
+        original = self.fixture.run
+
+        def reject(args):
+            if args[1] == 'update-verify':
+                copy = RealPath(args[args.index('--bundle') + 1])
+                self.assertEqual(copy.read_bytes(), contents)
+                raise subprocess.CalledProcessError(1, args)
+            return original(args)
+
+        with patch.object(self.helper, 'run', side_effect=reject), \
+             patch.object(self.helper, 'load', wraps=self.helper.load) as parsed:
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.helper.activate()
+        self.assertFalse(any(call.args[0] == self.helper.BUNDLE for call in parsed.call_args_list))
+        self.assertTrue(self.fixture.running)
+        self.assertFalse(self.helper.JOURNAL.exists())
+
+    def test_staging_growth_after_metadata_check_is_bounded(self):
+        info = self.helper.BUNDLE.stat()
+        snapshot = SimpleNamespace(st_mode=info.st_mode, st_uid=info.st_uid,
+                                   st_nlink=1, st_size=0)
+        with patch.object(self.helper, 'MAX_BUNDLE', 32), \
+             patch.object(self.helper.os, 'fstat', return_value=snapshot):
+            with self.assertRaisesRegex(RuntimeError, 'grew beyond its bound'):
+                self.helper.copy_staged_bundle(self.helper.UPDATER / 'growth-fixture.json')
 
     def test_failed_readiness_restores_database_wal_selector_and_monotonic_highwater(self):
         with patch.object(self.helper, 'readiness', side_effect=RuntimeError('fixture not ready')):

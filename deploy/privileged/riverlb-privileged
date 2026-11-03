@@ -1,0 +1,494 @@
+#!/usr/bin/python3 -I
+"""Fixed-operation broker. Never execute caller-selected programs or shell text."""
+import array
+import concurrent.futures
+import fcntl
+import hashlib
+import importlib.util
+import ipaddress
+import json
+import os
+from pathlib import Path
+import secrets
+import signal
+import socket
+import stat
+import struct
+import subprocess
+import sys
+import syslog
+import threading
+import time
+
+spec = importlib.util.spec_from_file_location('riverlb_privileged_policy', Path(__file__).with_name('policy.py'))
+policy = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(policy)
+
+nm_spec = importlib.util.spec_from_file_location('riverlb_network_manager', Path(__file__).with_name('network_manager.py'))
+nm_module = importlib.util.module_from_spec(nm_spec)
+nm_spec.loader.exec_module(nm_module)
+
+ha_spec = importlib.util.spec_from_file_location('riverlb_privileged_ha', Path(__file__).with_name('ha.py'))
+ha_module = importlib.util.module_from_spec(ha_spec)
+ha_spec.loader.exec_module(ha_module)
+
+SOCKET = Path('/run/riverlb-privileged/control.sock')
+POLICY = Path('/etc/riverlb-privileged/policy.json')
+STATE = Path('/var/lib/riverlb-privileged/ownership.json')
+MAX_REQUEST = 65536
+MAX_RESPONSE = 2 * 1024 * 1024
+MAX_CLIENTS = 32
+ENV = {'PATH': '/usr/sbin:/usr/bin', 'LANG': 'C.UTF-8', 'LC_ALL': 'C'}
+
+
+def private(path, directory=False):
+    info = path.lstat()
+    policy.require((stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode))
+                   and info.st_uid == 0 and info.st_mode & 0o022 == 0,
+                   'Unsafe privileged file ownership or mode')
+    return info
+
+
+def load(path, limit=16 * 1024 * 1024):
+    private(path.parent, directory=True)
+    info = private(path)
+    policy.require(info.st_size <= limit)
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'r') as file:
+        opened = os.fstat(file.fileno())
+        policy.require((opened.st_dev, opened.st_ino) == (info.st_dev, info.st_ino))
+        return json.load(file)
+
+
+def save(path, value, mode=0o600):
+    private(path.parent, directory=True)
+    temporary = path.with_name('.' + secrets.token_hex(16) + '.new')
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
+    try:
+        with os.fdopen(fd, 'w') as file:
+            json.dump(value, file, sort_keys=True)
+            file.flush()
+            os.fsync(file.fileno())
+        os.replace(temporary, path)
+        parent = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(parent)
+        finally:
+            os.close(parent)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def process(program, args, timeout=5, data=None):
+    # The executable is fixed by the dispatch branch and must remain root-owned.
+    resolved = Path(program).resolve(strict=True)
+    private(resolved)
+    for parent in resolved.parents:
+        private(parent, directory=True)
+    completed = subprocess.run([program, *args], input=data, capture_output=True,
+                               timeout=timeout, env=ENV, close_fds=True)
+    policy.require(len(completed.stdout) <= MAX_RESPONSE and len(completed.stderr) <= 65536,
+                   'Privileged response exceeds its bound')
+    return dict(code=completed.returncode, stdout=completed.stdout.decode('utf-8'),
+                stderr=completed.stderr.decode('utf-8')[:4096])
+
+
+def success(result):
+    policy.require(result['code'] == 0, 'Fixed privileged operation failed')
+    return result
+
+
+def kernel_links():
+    return json.loads(success(process('/usr/sbin/ip', ['-j', '-d', 'link', 'show']))['stdout'])
+
+
+class Broker:
+    def __init__(self, configuration, state_path=STATE):
+        policy.fields(configuration, {'version', 'uid', 'gid', 'traffic_interfaces', 'management_interfaces'})
+        policy.require(type(configuration['version']) is int and configuration['version'] == 1 and type(configuration['uid']) is int
+                       and configuration['uid'] > 0 and type(configuration['gid']) is int
+                       and configuration['gid'] > 0)
+        for key in ['traffic_interfaces', 'management_interfaces']:
+            policy.require(type(configuration[key]) is list and len(configuration[key]) <= 64
+                           and len(set(configuration[key])) == len(configuration[key]))
+            for name in configuration[key]:
+                policy.interface(name)
+        policy.require(not set(configuration['traffic_interfaces']) & set(configuration['management_interfaces']))
+        self.configuration = configuration
+        self.state_path = state_path
+        self.state = load(state_path) if state_path.exists() else {'version': 1, 'owned': {}, 'intent': None}
+        policy.require(self.state.get('version') == 1 and type(self.state.get('owned')) is dict)
+        self.lock = threading.Lock()
+        self.mutable()
+        boot = Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+        policy.require(len(boot) == 36)
+        previous_boot = self.state.get('boot_id', boot)
+        self.state['boot_id'] = boot
+        if previous_boot != boot:
+            # ip-created objects disappear at reboot. Existing objects rendered
+            # by the OS at the next boot are borrowed, never silently re-adopted.
+            self.state['owned'] = {key: value for key, value in self.state['owned'].items()
+                                   if value.get('kind') == 'firewall'
+                                   and '--permanent' in value['operation']['argv']}
+            self.state['nm_checkpoints'] = {}
+        self.checkpoint()
+        self.nm = nm_module.NetworkManager(self, policy, process, success)
+        self.ha = ha_module.HA(self, policy, load, save, process, success)
+
+    def mutable(self):
+        policy.require(self.state.get('intent') is None,
+                       'An interrupted privileged operation requires console reconciliation')
+        policy.require(len(self.state['owned']) <= 8192, 'Privileged ownership limit reached')
+
+    def checkpoint(self):
+        save(self.state_path, self.state)
+
+    def device(self, name):
+        links = kernel_links()
+        link = next((link for link in links if link.get('ifname') == name), None)
+        policy.require(link is not None, 'Managed interface is missing')
+        if name in self.configuration['traffic_interfaces']:
+            return link
+        saved = self.state['owned'].get(json.dumps(['vlan', name]))
+        if saved is not None:
+            policy.require(saved.get('ifindex') == link.get('ifindex'), 'Managed VLAN was replaced')
+            return link
+        # A matching OS-created VLAN may be borrowed, never adopted or deleted.
+        parent = next((item for item in links if item.get('ifname') in self.configuration['traffic_interfaces']
+                       and (link.get('link') == item.get('ifname') or
+                            link.get('link_index') == item.get('ifindex'))), None)
+        info = link.get('linkinfo', {})
+        policy.require(parent is not None and info.get('info_kind') == 'vlan'
+                       and info.get('info_data', {}).get('protocol') == '802.1Q',
+                       'Interface is outside the delegated traffic scope')
+        return link
+
+    def present(self, operation):
+        a = operation['addition']
+        def argument(name, default=None):
+            return a[a.index(name) + 1] if name in a else default
+        def numeric(value, default=None):
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return default
+        if a[0] == 'address':
+            prefix = ipaddress.ip_interface(a[2])
+            devices = json.loads(success(process('/usr/sbin/ip', ['-j', 'address', 'show', 'dev', a[4]]))['stdout'])
+            return any(item.get('local') == str(prefix.ip) and item.get('prefixlen') == prefix.network.prefixlen
+                       for device in devices for item in device.get('addr_info', []))
+        if a[0] == 'link':
+            name = operation['identity'][1]
+            return any(link.get('ifname') == name for link in kernel_links())
+        family = 4 if a[0] == '-4' else 6
+        if a[1] == 'rule':
+            entries = json.loads(success(process('/usr/sbin/ip', ['-j', '-N', a[0], 'rule', 'show']))['stdout'])
+            return any((item.get('src') == argument('from') or
+                        str(item.get('src')) + ('/32' if family == 4 else '/128') == argument('from'))
+                       and numeric(item.get('table')) == int(argument('lookup'))
+                       and numeric(item.get('priority')) == 18600
+                       and numeric(item.get('protocol')) == 186 for item in entries)
+        queried = process('/usr/sbin/ip', ['-j', '-N', a[0], 'route', 'show',
+                                           'table', argument('table', 'main')])
+        if queried['code'] != 0 and 'FIB table does not exist' in queried['stderr']:
+            return False
+        entries = json.loads(success(queried)['stdout'])
+        index = 5 if a[3] == 'table' else 3
+        unreachable = a[index] == 'unreachable'
+        dest = a[index + 1] if unreachable else a[index]
+        metric = int(argument('metric', '0'))
+        if family == 6 and metric == 0:
+            metric = 1024
+        for item in entries:
+            actual = item.get('dst', '')
+            same = (actual == dest or actual + ('/32' if family == 4 else '/128') == dest
+                    or actual == 'default' and dest in {'0.0.0.0/0', '::/0'})
+            if (same and item.get('gateway') == argument('via')
+                    and item.get('dev') == ('lo' if unreachable and family == 6 else argument('dev'))
+                    and numeric(item.get('metric'), 0) == metric
+                    and numeric(item.get('protocol')) == 186
+                    and numeric(item.get('type'), 1) == (7 if unreachable else 1)
+                    and (family == 6 or argument('scope') != 'link' or numeric(item.get('scope')) == 253)
+                    and ('onlink' not in a or 'onlink' in item.get('flags', []))):
+                return True
+        return False
+
+    def stable_device(self, name):
+        link = self.device(name)
+        self.nm.conflict(name)
+        if link.get('linkinfo', {}).get('info_kind') == 'vlan':
+            parent = next((item['ifname'] for item in kernel_links()
+                           if link.get('link_index') == item.get('ifindex')
+                           or link.get('link') == item.get('ifname')), None)
+            policy.require(parent in self.configuration['traffic_interfaces'], 'VLAN parent is outside traffic scope')
+            self.nm.conflict(parent)
+        return link
+
+    def network(self, parameters):
+        policy.fields(parameters, {'argv'})
+        operation = policy.network(parameters['argv'])
+        key = json.dumps(operation['identity'])
+        with self.lock:
+            self.mutable()
+            owned = self.state['owned'].get(key)
+            if operation['operation'] == 'add' and owned is None:
+                policy.require(len(self.state['owned']) < 8192, 'Privileged ownership limit reached')
+            for dev in operation['devices']:
+                self.stable_device(dev)
+            if operation['source'] is not None:
+                source = ipaddress.ip_interface(operation['source']).ip
+                links = json.loads(success(process('/usr/sbin/ip', ['-j', 'address', 'show']))['stdout'])
+                device = next((link.get('ifname') for link in links if any(a.get('local') == str(source)
+                              for a in link.get('addr_info', []))), None)
+                policy.require(device is not None, 'Source rule requires a delegated local address')
+                self.stable_device(device)
+            if operation['operation'] == 'del' and owned is None:
+                return dict(code=0, stdout='', stderr='', changed=False)
+            if operation['identity'][0] == 'vlan' and operation['operation'] == 'add':
+                name = operation['identity'][1]
+                policy.require(name not in self.configuration['traffic_interfaces']
+                               and name not in self.configuration['management_interfaces'],
+                               'Cannot replace a physical or management interface')
+                policy.require(not any(link.get('ifname') == name for link in kernel_links()),
+                               'Cannot adopt an existing interface')
+            if operation['operation'] not in {'up'}:
+                present = self.present(operation)
+                if operation['operation'] == 'add' and present:
+                    return dict(code=0, stdout='', stderr='', changed=False)
+                if operation['operation'] == 'del' and not present:
+                    self.state['owned'].pop(key, None)
+                    self.checkpoint()
+                    return dict(code=0, stdout='', stderr='', changed=False)
+            self.state['intent'] = {'kind': 'network', 'operation': operation, 'created': int(time.time())}
+            self.checkpoint()
+            result = process('/usr/sbin/ip', operation['argv'])
+            if result['code'] == 0:
+                if operation['operation'] == 'add':
+                    entry = {'kind': 'network', 'operation': operation}
+                    if operation['identity'][0] == 'vlan':
+                        entry['ifindex'] = next(link['ifindex'] for link in kernel_links()
+                                                if link.get('ifname') == operation['identity'][1])
+                    self.state['owned'][key] = entry
+                elif operation['operation'] == 'del':
+                    self.state['owned'].pop(key, None)
+            self.state['intent'] = None
+            self.checkpoint()
+            result['changed'] = result['code'] == 0
+            return result
+
+    def firewall(self, parameters):
+        policy.fields(parameters, {'argv'})
+        operation = policy.firewall(parameters['argv'])
+        if operation['operation'] == 'query':
+            return process('/usr/bin/firewall-cmd', operation['argv'])
+        key = json.dumps(operation['identity'])
+        with self.lock:
+            self.mutable()
+            if operation['operation'] == 'add' and key not in self.state['owned']:
+                policy.require(len(self.state['owned']) < 8192, 'Privileged ownership limit reached')
+            if operation['operation'] == 'remove':
+                if key not in self.state['owned']:
+                    return dict(code=0, stdout='', stderr='', changed=False)
+            else:
+                interfaces = self.configuration['traffic_interfaces'] + self.configuration['management_interfaces']
+                links = json.loads(success(process('/usr/sbin/ip', ['-j', 'address', 'show']))['stdout'])
+                policy.require(any(link.get('ifname') in interfaces or
+                                   json.dumps(['vlan', link.get('ifname')]) in self.state['owned']
+                                   for link in links if any(a.get('local') == operation['ip']
+                                                           for a in link.get('addr_info', []))),
+                               'Firewall target is not a delegated local address')
+            probe = list(operation['argv'])
+            probe[-1] = '--query-rich-rule=' + operation['identity'][-1]
+            existing = process('/usr/bin/firewall-cmd', probe)
+            policy.require(existing['code'] in {0, 1}, 'Cannot inspect delegated firewall rule')
+            if operation['operation'] == 'add' and existing['code'] == 0:
+                return dict(code=0, stdout='', stderr='', changed=False)
+            if operation['operation'] == 'remove' and existing['code'] == 1:
+                self.state['owned'].pop(key, None)
+                self.checkpoint()
+                return dict(code=0, stdout='', stderr='', changed=False)
+            self.state['intent'] = {'kind': 'firewall', 'operation': operation, 'created': int(time.time())}
+            self.checkpoint()
+            result = process('/usr/bin/firewall-cmd', operation['argv'])
+            if result['code'] == 0:
+                if operation['operation'] == 'add':
+                    self.state['owned'][key] = {'kind': 'firewall', 'operation': operation}
+                else:
+                    self.state['owned'].pop(key, None)
+            self.state['intent'] = None
+            self.checkpoint()
+            result['changed'] = result['code'] == 0
+            return result
+
+    def dispatch(self, action, parameters, peer):
+        if action == 'status':
+            policy.fields(parameters, set())
+            return dict(protocol=1, uid=self.configuration['uid'])
+        if action == 'update_status':
+            policy.fields(parameters, set())
+            path = Path('/var/lib/riverlb-updater/status.json')
+            value = load(path, limit=1024 * 1024) if path.exists() else {'highest_sequence': 0, 'history': []}
+            policy.require(type(value.get('highest_sequence')) is int and value['highest_sequence'] >= 0
+                           and type(value.get('history')) is list and len(value['history']) <= 100)
+            return {key: value[key] for key in ['highest_sequence', 'history']}
+        if action == 'ha':
+            return self.ha.dispatch(parameters, peer)
+        if action == 'network_manager':
+            return self.nm.dispatch(parameters, peer)
+        if action == 'network':
+            return self.network(parameters)
+        if action == 'firewall':
+            return self.firewall(parameters)
+        if action == 'ping':
+            arguments = policy.ping(parameters)
+            if parameters.get('device') is not None:
+                with self.lock:
+                    self.device(parameters['device'])
+            if parameters.get('source') is not None:
+                links = json.loads(success(process('/usr/sbin/ip', ['-j', 'address', 'show']))['stdout'])
+                policy.require(any(a.get('local') == parameters['source']
+                                   for link in links for a in link.get('addr_info', [])),
+                               'ICMP source is not locally assigned')
+            return process('/usr/bin/ping', arguments, timeout=65)
+        if action == 'lifecycle':
+            policy.fields(parameters, {'unit', 'operation'})
+            units = {'update': 'riverlb-update.service', 'ha_deploy': 'riverlb-ha-deploy.service'}
+            policy.require(parameters['unit'] in units)
+            if parameters['operation'] == 'start':
+                result = process('/usr/bin/systemctl', ['start', '--no-block', units[parameters['unit']]])
+                result['changed'] = result['code'] == 0
+                return result
+            if parameters['operation'] == 'status':
+                return process('/usr/bin/systemctl', ['show', '--property=ActiveState', '--value',
+                                                      units[parameters['unit']]])
+        raise policy.Rejected('Unsupported privileged action')
+
+
+def receive(connection, length, deadline=None):
+    deadline = time.monotonic() + 5 if deadline is None else deadline
+    data = bytearray()
+    while len(data) < length:
+        remaining = deadline - time.monotonic()
+        policy.require(remaining > 0, 'Privileged request read deadline exceeded')
+        connection.settimeout(remaining)
+        chunk, ancillary, flags, _ = connection.recvmsg(min(length - len(data), 65536),
+                                                       socket.CMSG_SPACE(16 * array.array('i').itemsize),
+                                                       socket.MSG_CMSG_CLOEXEC)
+        if ancillary or flags & socket.MSG_CTRUNC:
+            for level, kind, content in ancillary:
+                if level == socket.SOL_SOCKET and kind == socket.SCM_RIGHTS:
+                    descriptors = array.array('i')
+                    descriptors.frombytes(content[:len(content) - len(content) % descriptors.itemsize])
+                    for descriptor in descriptors:
+                        os.close(descriptor)
+            raise policy.Rejected('Ancillary data and descriptors are forbidden')
+        policy.require(bool(chunk), 'Incomplete privileged request')
+        data.extend(chunk)
+    return bytes(data)
+
+
+def send(connection, value):
+    encoded = json.dumps(value, separators=(',', ':')).encode()
+    policy.require(len(encoded) <= MAX_RESPONSE, 'Privileged response is too large')
+    connection.sendall(struct.pack('!I', len(encoded)) + encoded)
+
+
+def client(connection, broker, slots):
+    action, uid, pid = "invalid", -1, -1
+    try:
+        connection.settimeout(5)
+        pid, uid, gid = struct.unpack('3i', connection.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
+        policy.require(uid in {0, broker.configuration['uid']}, 'Unauthorized local peer')
+        nonce = secrets.token_hex(32)
+        send(connection, {'version': 1, 'nonce': nonce})
+        deadline = time.monotonic() + 5
+        length = struct.unpack('!I', receive(connection, 4, deadline))[0]
+        policy.require(0 < length <= MAX_REQUEST, 'Privileged request exceeds its bound')
+        request = json.loads(receive(connection, length, deadline))
+        connection.settimeout(5)
+        policy.fields(request, {'version', 'nonce', 'action', 'parameters'})
+        policy.require(type(request['version']) is int and request['version'] == 1
+                       and request['nonce'] == nonce, 'Invalid or replayed privileged request')
+        policy.require(type(request['action']) is str and len(request['action']) <= 32)
+        action = request['action'] if request['action'] in {'network', 'firewall', 'ping', 'network_manager', 'lifecycle', 'ha', 'status', 'update_status'} else 'invalid'
+        result = broker.dispatch(request['action'], request['parameters'], (pid, uid, gid))
+        if isinstance(result, dict) and result.get('changed') is True:
+            syslog.syslog(syslog.LOG_AUTHPRIV | syslog.LOG_INFO, json.dumps({'service':'riverlb-privileged', 'uid':uid, 'pid':pid, 'action':action, 'outcome':'accepted'}))
+        send(connection, {'version': 1, 'ok': True, 'result': result})
+    except Exception as error:
+        syslog.syslog(syslog.LOG_AUTHPRIV | syslog.LOG_WARNING, json.dumps({'service':'riverlb-privileged', 'uid':uid, 'pid':pid, 'action':action, 'outcome':'rejected', 'reason':type(error).__name__}))
+        # Never return command output, HA credentials or packet/user data in protocol errors.
+        try:
+            send(connection, {'version': 1, 'ok': False, 'error': 'Privileged request rejected'})
+        except OSError:
+            pass
+    finally:
+        connection.close()
+        slots.release()
+
+
+def serve(socket_path=SOCKET, policy_path=POLICY, state_path=STATE):
+    policy.require(os.geteuid() == 0, 'Run the installed privileged service as root')
+    private(socket_path.parent, directory=True)
+    policy.require(stat.S_IMODE(socket_path.parent.stat().st_mode) == 0o755,
+                   'Privileged socket parent must be root-owned 0755')
+    private(state_path.parent, directory=True)
+    lock = os.open(state_path.parent / 'service.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    broker = Broker(load(policy_path), state_path)
+    listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_CLOEXEC)
+    # A live service's lock prevents unlinking another instance's endpoint.
+    if socket_path.exists() or socket_path.is_symlink():
+        info = socket_path.lstat()
+        policy.require(stat.S_ISSOCK(info.st_mode) and info.st_uid == 0, 'Foreign privileged endpoint')
+        socket_path.unlink()
+    listener.bind(str(socket_path))
+    os.chown(socket_path, 0, broker.configuration['gid'])
+    os.chmod(socket_path, 0o660)
+    listener.listen(16)
+    slots = threading.BoundedSemaphore(MAX_CLIENTS)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_CLIENTS) as executor:
+        while True:
+            connection, _ = listener.accept()
+            # Reject unknown UIDs before allocating a worker or parsing any bytes.
+            peer = struct.unpack('3i', connection.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
+            if peer[1] not in {0, broker.configuration['uid']} or not slots.acquire(blocking=False):
+                connection.close()
+                continue
+            executor.submit(client, connection, broker, slots)
+
+
+def reconcile_forget_intent():
+    """Console-only conservative recovery: leave uncertain OS resources borrowed."""
+    policy.require(os.geteuid() == 0)
+    private(STATE.parent, directory=True)
+    descriptor = os.open(STATE.parent / 'service.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        state = load(STATE)
+        policy.require(state.get('version') == 1 and type(state.get('owned')) is dict)
+        intent = state.get('intent')
+        policy.require(type(intent) is dict and intent.get('kind') in {'network', 'firewall'},
+                       'No interrupted privileged mutation to reconcile')
+        operation = intent['operation']
+        validated = (policy.network if intent['kind'] == 'network' else policy.firewall)(operation['argv'])
+        policy.require(operation == validated)
+        state['owned'].pop(json.dumps(validated['identity']), None)
+        state['intent'] = None
+        save(STATE, state)
+        syslog.syslog(syslog.LOG_AUTHPRIV | syslog.LOG_NOTICE,
+                      'RiverLB privileged console reconciliation: uncertain resource preserved as borrowed')
+    finally:
+        os.close(descriptor)
+
+
+if __name__ == '__main__':
+    os.umask(0o077)
+    try:
+        if sys.argv[1:] == ['reconcile-forget-intent']:
+            reconcile_forget_intent()
+        else:
+            policy.require(sys.argv[1:] == ['serve'], 'Use the installed fixed privileged service')
+            serve()
+    except Exception:
+        sys.exit('RiverLB privileged service could not start; inspect its root-owned policy and state')

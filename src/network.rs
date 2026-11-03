@@ -966,6 +966,9 @@ async fn execute(command: &[String]) -> Result<bool> {
     if command.first().is_some_and(|p| p == "firewall-cmd") {
         return crate::firewall::execute(&command[1..]).await;
     }
+    if crate::privileged::enabled() {
+        return crate::privileged::network(command).await;
+    }
     let output = tokio::process::Command::new("/usr/sbin/ip")
         .args(command)
         .output()

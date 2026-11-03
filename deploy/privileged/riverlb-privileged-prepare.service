@@ -1,0 +1,23 @@
+[Unit]
+Description=RiverLB protected identity and application state preparation
+After=riverlb-update-recovery.service
+Requires=riverlb-update-recovery.service
+Before=riverlb-privileged.service riverlb.service riverlb-ha.service
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/libexec/riverlb/privileged/prepare.py
+RemainAfterExit=yes
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/etc/riverlb /etc/riverlb-privileged /var/lib/riverlb /var/lib/riverlb-privileged /run
+CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+RestrictNamespaces=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes

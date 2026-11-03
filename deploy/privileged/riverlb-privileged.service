@@ -1,0 +1,44 @@
+[Unit]
+Description=RiverLB authenticated fixed-operation privileged helper
+After=network-online.target firewalld.service NetworkManager.service riverlb-privileged-prepare.service
+Requires=riverlb-privileged-prepare.service
+Before=riverlb.service riverlb-ha.service
+
+[Service]
+Type=simple
+User=root
+UMask=0077
+ExecStart=/usr/libexec/riverlb/privileged/riverlb-privileged serve
+Restart=on-failure
+RestartSec=2s
+TimeoutStopSec=90s
+KillMode=control-group
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/etc/riverlb-privileged /var/lib/riverlb-privileged /run/riverlb-privileged /run/riverlb-ha-deploy -/etc/corosync -/var/lib/pcsd -/var/lib/pacemaker /dev/shm
+# Fixed HA pcs helpers require hacluster state and IPC. None of these capabilities
+# or paths are granted to the application daemon.
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_CHOWN CAP_FOWNER CAP_SETUID CAP_SETGID CAP_DAC_OVERRIDE
+BindPaths=/dev/shm
+NoExecPaths=/dev/shm
+InaccessiblePaths=-/etc/shadow -/etc/gshadow
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK AF_PACKET
+SystemCallArchitectures=native
+SystemCallFilter=~@mount @reboot @swap @module @raw-io @obsolete @debug @cpu-emulation memfd_create
+SystemCallErrorNumber=EPERM
+TasksMax=96
+MemoryMax=512M

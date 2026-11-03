@@ -148,3 +148,6 @@ checks in addition to full CI. See the [source publication gate](release-readine
 See [retained inputs and reproducible builds](reproducible-builds.md) for appliance dependency snapshots and clean-build comparisons.
 See [software inventories and provenance](software-supply-chain.md) for the
 offline inventory checks, notice capture process and protected signing workflow.
+
+See [installed privilege separation](privileged-helper.md) for the helper
+protocol, console policy, migration, recovery, and qualification requirements.

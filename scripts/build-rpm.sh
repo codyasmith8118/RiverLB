@@ -21,7 +21,7 @@ target_dir=$(mktemp -d)
 trap 'rm -rf -- "$stage_dir" "$target_dir"' EXIT
 # Explicit source allowlist avoids copying databases, keys, git metadata or build outputs.
 for file in Cargo.toml Cargo.lock LICENSE README.md; do cp "$file" "$stage_dir/"; done
-for folder in src web deploy/ha packaging docs appliance; do
+for folder in src web deploy/ha deploy/privileged packaging docs appliance; do
     mkdir -p "$stage_dir/$(dirname "$folder")"
     cp -a "$folder" "$stage_dir/$folder"
 done

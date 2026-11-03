@@ -11,6 +11,7 @@ Requires:       iproute
 Requires:       firewalld
 Requires:       openssl
 Requires:       python3
+Requires:       shadow-utils
 Requires:       NetworkManager
 Requires:       policycoreutils
 Requires:       selinux-policy-targeted
@@ -79,6 +80,11 @@ install -D -m 0755 riverlb %{buildroot}%{_prefix}/lib/riverlb/base/riverlb
 install -D -m 0755 riverlb-launcher %{buildroot}%{_bindir}/riverlb
 install -D -m 0755 riverlb-audit-security %{buildroot}%{_libexecdir}/riverlb/riverlb-audit-security
 install -D -m 0755 riverlb-update %{buildroot}%{_libexecdir}/riverlb/riverlb-update
+install -d -m 0755 %{buildroot}%{_libexecdir}/riverlb/privileged
+install -m 0755 privileged/riverlb-privileged privileged/prepare.py %{buildroot}%{_libexecdir}/riverlb/privileged/
+install -m 0644 privileged/policy.py privileged/network_manager.py privileged/ha.py %{buildroot}%{_libexecdir}/riverlb/privileged/
+install -m 0644 privileged/riverlb-privileged.service privileged/riverlb-privileged-prepare.service %{buildroot}%{_unitdir}/
+install -d -m 0700 %{buildroot}%{_sysconfdir}/riverlb-privileged %{buildroot}%{_localstatedir}/lib/riverlb-privileged
 install -D -m 0644 riverlb-update.service %{buildroot}%{_unitdir}/riverlb-update.service
 install -D -m 0644 riverlb-update-recovery.service %{buildroot}%{_unitdir}/riverlb-update-recovery.service
 install -d -m 0755 %{buildroot}%{_prefix}/lib/riverlb/versions %{buildroot}%{_localstatedir}/lib/riverlb-updater %{buildroot}%{_sysconfdir}/riverlb-updater
@@ -115,6 +121,11 @@ install -D -m 0755 riverlb-cluster %{buildroot}%{_libexecdir}/riverlb/riverlb-cl
 install -D -m 0755 riverlb-authority %{buildroot}%{_libexecdir}/riverlb/riverlb-authority
 install -D -m 0755 riverlb-traffic %{buildroot}%{_prefix}/lib/ocf/resource.d/riverlb/traffic
 
+%pre
+getent group riverlb >/dev/null || %{_sbindir}/groupadd --system riverlb || exit $?
+getent passwd riverlb >/dev/null || %{_sbindir}/useradd --system --gid riverlb --home-dir /var/lib/riverlb --no-create-home --shell /sbin/nologin riverlb || exit $?
+%{_bindir}/python3 -I -c 'import pwd; p=pwd.getpwnam("riverlb"); assert p.pw_uid>0 and p.pw_dir=="/var/lib/riverlb" and p.pw_shell in {"/sbin/nologin","/usr/sbin/nologin"} and not any(q.pw_uid==p.pw_uid and q.pw_name!=p.pw_name for q in pwd.getpwall()), "Unsafe pre-existing RiverLB service account"' || exit $?
+
 %post
 %{_sbindir}/semodule -i %{_datadir}/selinux/packages/riverlb-sandbox.cil || exit $?
 %{_bindir}/systemctl daemon-reload >/dev/null 2>&1 || :
@@ -122,6 +133,7 @@ install -D -m 0755 riverlb-traffic %{buildroot}%{_prefix}/lib/ocf/resource.d/riv
 %preun
 if [ "$1" -eq 0 ]; then
     %{_bindir}/systemctl --no-reload disable --now riverlb.service >/dev/null 2>&1 || :
+    %{_bindir}/systemctl --no-reload stop riverlb-privileged.service riverlb-privileged-prepare.service >/dev/null 2>&1 || :
 fi
 
 %postun
@@ -160,6 +172,11 @@ fi
 %{_datadir}/riverlb/release-stage
 %dir %{_libexecdir}/riverlb
 %{_libexecdir}/riverlb/riverlb-update
+%{_libexecdir}/riverlb/privileged/
+%{_unitdir}/riverlb-privileged.service
+%{_unitdir}/riverlb-privileged-prepare.service
+%dir %attr(0700,root,root) %{_sysconfdir}/riverlb-privileged
+%dir %attr(0700,root,root) %{_localstatedir}/lib/riverlb-privileged
 %{_libexecdir}/riverlb/riverlb-audit-security
 %dir %attr(0755,root,root) %{_sysconfdir}/riverlb-updater
 %config(noreplace) %attr(0644,root,root) %{_sysconfdir}/riverlb-updater/update-trust.json

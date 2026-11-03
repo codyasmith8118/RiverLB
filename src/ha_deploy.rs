@@ -90,6 +90,10 @@ fn read_optional(path: &Path) -> Result<Value> {
     Ok(serde_json::from_slice(&std::fs::read(path)?)?)
 }
 async fn status() -> Result<Value> {
+    if crate::privileged::enabled() {
+        return crate::privileged::call("ha", json!({"operation":"deployment_status","data":{}}))
+            .await;
+    }
     let busy = unit_busy().await.unwrap_or(false);
     if !busy {
         reap_request()?;
@@ -239,14 +243,41 @@ async fn submit_inner(
         "Move traffic to the peer before deploying HA on this appliance"
     );
     ensure!(
-        control.ha_config_path == Path::new("/etc/riverlb/ha.json"),
+        control.ha_config_path
+            == Path::new(if crate::privileged::enabled() {
+                ha::PRIVILEGED_SETTINGS
+            } else {
+                "/etc/riverlb/ha.json"
+            }),
         "GUI deployment requires the installed appliance configuration paths"
     );
-    ensure!(control.ha_config_path.exists(), "Save the HA group first");
+    ensure!(
+        ha::configured(&control.ha_config_path).await?.is_some(),
+        "Save the HA group first"
+    );
     ensure!(
         Path::new("/usr/libexec/riverlb/riverlb-ha-deploy").is_file(),
         "Install the updated appliance HA RPM; new ISOs include it"
     );
+    if crate::privileged::enabled() {
+        control
+            .store
+            .record_audit(
+                actor,
+                &format!("HA deployment {} requested", request.action),
+            )
+            .await?;
+        let payload = json!({"action":request.action,"cluster_password":request.cluster_password,
+            "peer_sync_key":request.peer_sync_key,"peer_host_key":request.peer_host_key,
+            "peer_host_fingerprint":request.peer_host_fingerprint,"fence_resource":request.fence_resource,
+            "fence_agent":request.fence_agent,"fence_parameters":request.fence_parameters,
+            "fence_probe_action":request.fence_probe_action,"fence_target":request.fence_target});
+        return crate::privileged::call(
+            "ha",
+            json!({"operation":"deployment_submit","data":payload}),
+        )
+        .await;
+    }
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
     let directory = std::fs::symlink_metadata(RUN)
         .context("HA deployment runtime directory missing; reinstall the HA RPM")?;

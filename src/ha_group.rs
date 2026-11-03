@@ -25,7 +25,16 @@ pub struct Action {
     pub action: String,
 }
 
-fn read_group(path: &std::path::Path) -> Result<Group> {
+async fn read_group(path: &std::path::Path) -> Result<Group> {
+    if crate::privileged::enabled() {
+        ensure!(
+            path == std::path::Path::new("/etc/riverlb-privileged/ha.group.json"),
+            "Fixed installed HA group path required"
+        );
+        return Ok(serde_json::from_value(
+            crate::privileged::call("ha", json!({"operation":"group_read","data":{}})).await?,
+        )?);
+    }
     let mut value: Value = serde_json::from_slice(&std::fs::read(path)?)?;
     if let Some(object) = value.as_object_mut() {
         for key in ["fencing_host", "local_vm_id", "peer_vm_id"] {
@@ -36,16 +45,16 @@ fn read_group(path: &std::path::Path) -> Result<Group> {
 }
 pub async fn view(control: &Control) -> Result<Value> {
     let path = control.ha_config_path.with_extension("group.json");
-    let group: Option<Group> = if path.exists() {
-        Some(read_group(&path)?)
+    let group: Option<Group> = if crate::privileged::enabled() {
+        serde_json::from_value(
+            crate::privileged::call("ha", json!({"operation":"group_read","data":{}})).await?,
+        )?
+    } else if path.exists() {
+        Some(read_group(&path).await?)
     } else {
         None
     };
-    let settings = if control.ha_config_path.exists() {
-        Some(ha::Settings::load(&control.ha_config_path)?)
-    } else {
-        None
-    };
+    let settings = ha::configured(&control.ha_config_path).await?;
     let status = control.ha_status().await;
     let configuration_sync = status["configuration_sync"].clone();
     Ok(
@@ -115,17 +124,19 @@ pub async fn save(control: &Control, group: Group, actor: &str) -> Result<Value>
             .any(|ip| &ip.name == name)),
         "Select floating self IP names already configured on this appliance"
     );
-    let existing = if control.ha_config_path.exists() {
-        Some(ha::Settings::load(&control.ha_config_path)?)
+    let existing = ha::configured(&control.ha_config_path).await?;
+    let credential_directory = if crate::privileged::enabled() {
+        "/etc/riverlb-privileged"
     } else {
-        None
+        "/etc/riverlb"
     };
     let mut settings=existing.clone().unwrap_or(serde_json::from_value(json!({
         "cluster_id":group.cluster_id,"node_id":group.node_id,"peer_id":group.peer_id,
         "socket":"/run/riverlb/ha.sock","state_file":"/var/lib/riverlb/ha-state.json",
         "authority":"/usr/libexec/riverlb/riverlb-authority","floating_self_ips":group.floating_self_ips,
         "ssh_target":format!("root@{}",group.peer_address),
-        "ssh_identity":"/etc/riverlb/ha-sync-ed25519","ssh_known_hosts":"/etc/riverlb/ha-known-hosts",
+        "ssh_identity":format!("{credential_directory}/ha-sync-ed25519"),"ssh_known_hosts":format!("{credential_directory}/ha-known-hosts"),
+        "ssh_port":if crate::privileged::enabled(){2223}else{22},
         "peer_socket":"/run/riverlb/ha.sock","peer_binary":"/usr/bin/riverlb"
     }))?);
     settings.cluster_id = group.cluster_id.clone();
@@ -147,28 +158,36 @@ pub async fn save(control: &Control, group: Group, actor: &str) -> Result<Value>
         !structural || control.ha.is_none() || !control.data_plane_active(),
         "Move traffic to the peer before changing group membership or floating ownership"
     );
-    use std::os::unix::fs::{MetadataExt, PermissionsExt};
-    let parent = control
-        .ha_config_path
-        .parent()
-        .context("HA settings directory missing")?;
-    let directory = std::fs::metadata(parent)?;
-    ensure!(
-        directory.uid() == 0 && directory.permissions().mode() & 0o022 == 0,
-        "HA group settings require a root-owned directory that others cannot modify"
-    );
-    // New HA locations are private; no arbitrary executable or credential paths are accepted from the browser.
-    if existing.is_none() {
-        for path in [&settings.socket, &settings.state_file] {
-            let directory = path.parent().context("HA directory missing")?;
-            if !directory.exists() {
-                std::fs::create_dir_all(directory)?;
-                std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700))?;
+    if crate::privileged::enabled() {
+        crate::privileged::call(
+            "ha",
+            json!({"operation":"group_save","data":{"group":group}}),
+        )
+        .await?;
+    } else {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        let parent = control
+            .ha_config_path
+            .parent()
+            .context("HA settings directory missing")?;
+        let directory = std::fs::metadata(parent)?;
+        ensure!(
+            directory.uid() == 0 && directory.permissions().mode() & 0o022 == 0,
+            "HA group settings require a root-owned directory that others cannot modify"
+        );
+        // New HA locations are private; no arbitrary executable or credential paths are accepted from the browser.
+        if existing.is_none() {
+            for path in [&settings.socket, &settings.state_file] {
+                let directory = path.parent().context("HA directory missing")?;
+                if !directory.exists() {
+                    std::fs::create_dir_all(directory)?;
+                    std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700))?;
+                }
             }
         }
+        ha::private_write(&control.ha_config_path, &settings)?;
+        ha::private_write(&control.ha_config_path.with_extension("group.json"), &group)?;
     }
-    ha::private_write(&control.ha_config_path, &settings)?;
-    ha::private_write(&control.ha_config_path.with_extension("group.json"), &group)?;
     if !structural && let Some(state) = &control.ha {
         state
             .automatic_sync
@@ -222,7 +241,7 @@ pub async fn action(control: &Control, action: Action, actor: &str) -> Result<Va
                     "Synchronize a current checkpoint before failover"
                 );
             }
-            let group = read_group(&control.ha_config_path.with_extension("group.json"))?;
+            let group = read_group(&control.ha_config_path.with_extension("group.json")).await?;
             group.validate()?;
             ensure!(
                 group.cluster_id == state.settings.cluster_id
@@ -236,24 +255,30 @@ pub async fn action(control: &Control, action: Action, actor: &str) -> Result<Va
                 &group.node_id
             };
             let request = json!({"action":action.action,"group":group,"target":target});
-            let mut command = tokio::process::Command::new("/usr/libexec/riverlb/riverlb-cluster");
-            command
-                .stdin(std::process::Stdio::piped())
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::piped());
-            // Do not cancel a cluster transaction when the browser disconnects or a request times out.
-            let mut child = command
-                .spawn()
-                .context("Install deploy/ha integration and pre-authenticate pcs hosts first")?;
-            let mut stdin = child.stdin.take().unwrap();
-            stdin.write_all(&serde_json::to_vec(&request)?).await?;
-            drop(stdin);
-            let output = child.wait_with_output().await?;
-            ensure!(
-                output.status.success(),
-                "Cluster action failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            );
+            if crate::privileged::enabled() {
+                let output = crate::privileged::command("ha", json!({"operation":"group_action","data":{"action":action.action,"target":target}})).await?;
+                ensure!(output.status.success(), "Privileged cluster action failed");
+            } else {
+                let mut command =
+                    tokio::process::Command::new("/usr/libexec/riverlb/riverlb-cluster");
+                command
+                    .stdin(std::process::Stdio::piped())
+                    .stdout(std::process::Stdio::piped())
+                    .stderr(std::process::Stdio::piped());
+                // Do not cancel a cluster transaction when the browser disconnects or a request times out.
+                let mut child = command.spawn().context(
+                    "Install deploy/ha integration and pre-authenticate pcs hosts first",
+                )?;
+                let mut stdin = child.stdin.take().unwrap();
+                stdin.write_all(&serde_json::to_vec(&request)?).await?;
+                drop(stdin);
+                let output = child.wait_with_output().await?;
+                ensure!(
+                    output.status.success(),
+                    "Cluster action failed: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
         }
         _ => anyhow::bail!("Unknown HA group action"),
     }

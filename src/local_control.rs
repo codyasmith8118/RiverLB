@@ -297,11 +297,12 @@ async fn handle(control: Arc<Control>, mut stream: UnixStream) {
 /// runtime directory comes from systemd or a private child of the trusted /run
 /// parent for direct CLI startup. Existing directories are never adopted.
 pub async fn start(control: Arc<Control>, database: &Path) -> Result<Option<Server>> {
-    if database != Path::new(DATABASE) || unsafe { libc::geteuid() } != 0 {
+    let owner = unsafe { libc::geteuid() };
+    if database != Path::new(DATABASE) || (owner != 0 && !crate::privileged::enabled()) {
         return Ok(None);
     }
-    ensure_runtime_directory(Path::new(SOCKET), 0)?;
-    let (listener, guard) = bind_private(Path::new(SOCKET), 0).await?;
+    ensure_runtime_directory(Path::new(SOCKET), owner)?;
+    let (listener, guard) = bind_private(Path::new(SOCKET), owner).await?;
     let stop = CancellationToken::new();
     let server_stop = stop.clone();
     let task = tokio::spawn(async move {

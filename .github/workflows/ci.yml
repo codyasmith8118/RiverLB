@@ -45,6 +45,8 @@ jobs:
           python3 tests/appliance/qualification.py
           python3 tests/appliance/service_hardening.py
           python3 tests/updates_helper.py
+          python3 tests/privileged_helper.py
+          python3 tests/privileged_prepare.py
           cargo clippy --locked --all-targets -- -D warnings
   linux:
     name: Linux integration and network tests

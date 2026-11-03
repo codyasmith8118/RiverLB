@@ -15,6 +15,8 @@ import time
 
 ROOT = Path('/root/riverlb-eve-lab')
 NODES = {'a': '10.77.0.11', 'b': '10.77.0.12'}
+STATE_PATHS = ['etc/riverlb', 'var/lib/riverlb', 'var/lib/riverlb-updater',
+               'etc/riverlb-privileged', 'var/lib/riverlb-privileged']
 
 
 def run(args, **kwargs):
@@ -31,6 +33,29 @@ def copy(node, source, destination):
     run(['scp', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes',
          '-o', f'UserKnownHostsFile={ROOT}/guest-known-hosts', '-i', str(ROOT / 'id_ed25519'),
          str(source), 'root@' + NODES[node] + ':' + destination])
+
+
+def stop_auxiliary(node):
+    # Old rollback packages have no helper units. Existing units must quiesce
+    # successfully before their root-owned policy and journal can be copied.
+    for unit in ['riverlb-privileged.service', 'riverlb-privileged-prepare.service']:
+        loaded = ssh(node, 'systemctl', 'show', '--property=LoadState', '--value', unit).strip()
+        if loaded == 'loaded':
+            ssh(node, 'systemctl', 'stop', unit)
+        elif loaded != 'not-found':
+            raise RuntimeError('Unexpected helper unit state')
+
+
+def existing_state(node):
+    return json.loads(ssh(node, 'python3', '-c',
+        'import json,pathlib;print(json.dumps([p for p in ' + repr(STATE_PATHS) +
+        ' if pathlib.Path("/"+p).exists()]))'))
+
+
+def restore_labels(node):
+    paths = existing_state(node)
+    if paths:
+        ssh(node, 'restorecon', '-RF', *['/' + path for path in paths])
 
 
 def unpack(bundle, digest, destination):
@@ -134,14 +159,14 @@ def main():
                     copy(node, p, guest + '/previous/' + p.name)
                 stopped.append(node)
                 ssh(node, 'systemctl', 'stop', 'riverlb')
+                stop_auxiliary(node)
                 # Turso/SQLite files are copied only after the daemon has stopped.
-                state = json.loads(ssh(node, 'python3', '-c',
-                                       "import json,pathlib;print(json.dumps([p for p in ['etc/riverlb','var/lib/riverlb','var/lib/riverlb-updater'] if pathlib.Path('/'+p).exists()]))"))
+                state = existing_state(node)
                 ssh(node, 'tar', '--xattrs', '--selinux', '-C', '/', '-czf', guest + '/state.tgz', *state)
                 changed.append(node)
                 ssh(node, 'rpm', '-Uvh', '--replacepkgs', '--oldpackage',
                     *[guest + '/new/' + p.name for p in packages])
-                ssh(node, 'restorecon', '-RF', '/etc/riverlb', '/var/lib/riverlb')
+                restore_labels(node)
                 ssh(node, 'systemctl', 'daemon-reload')
                 ssh(node, 'systemctl', 'start', 'riverlb')
                 health(node)
@@ -183,13 +208,14 @@ def main():
             for node in reversed(changed):
                 try:
                     ssh(node, 'systemctl', 'stop', 'riverlb')
+                    stop_auxiliary(node)
                     ssh(node, 'tar', '-tzf', guest + '/state.tgz')
                     ssh(node, 'rpm', '-Uvh', '--oldpackage', '--replacepkgs',
                         *[guest + '/previous/' + p.name for p in old_packages])
                     # Remove newly created DB sidecars before restoring the stopped state.
-                    ssh(node, 'rm', '-rf', '/etc/riverlb', '/var/lib/riverlb', '/var/lib/riverlb-updater')
+                    ssh(node, 'rm', '-rf', *['/' + path for path in STATE_PATHS])
                     ssh(node, 'tar', '--xattrs', '--selinux', '-C', '/', '-xzf', guest + '/state.tgz')
-                    ssh(node, 'restorecon', '-RF', '/etc/riverlb', '/var/lib/riverlb')
+                    restore_labels(node)
                     ssh(node, 'systemctl', 'daemon-reload')
                     ssh(node, 'systemctl', 'start', 'riverlb')
                     health(node)

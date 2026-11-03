@@ -182,7 +182,7 @@ impl Updates {
             gate: tokio::sync::Mutex::new(()),
         }
     }
-    pub fn status(&self) -> Result<Value> {
+    pub async fn status(&self) -> Result<Value> {
         let state = if self.path.exists() {
             ensure!(
                 std::fs::symlink_metadata(&self.path)?.is_file()
@@ -195,7 +195,11 @@ impl Updates {
         };
         let mut state: Value = state;
         let high = Path::new("/var/lib/riverlb-updater/status.json");
-        if high.exists() {
+        if crate::privileged::enabled() {
+            let trusted = crate::privileged::call("update_status", json!({})).await?;
+            state["highest_sequence"] = trusted["highest_sequence"].clone();
+            state["history"] = trusted["history"].clone();
+        } else if high.exists() {
             use std::os::unix::fs::MetadataExt;
             let meta = std::fs::symlink_metadata(high)?;
             ensure!(
@@ -260,10 +264,10 @@ async fn stage(
     tokio::spawn(async move {
         let _gate=c.updates.gate.lock().await;
         check(c.pending_configuration.lock().await.is_none(),"Confirm the configuration before staging an update").map_err(error)?;
-        let highest=c.updates.status().map_err(error)?["state"]["highest_sequence"].as_u64().unwrap_or(0);
+        let highest=c.updates.status().await.map_err(error)?["state"]["highest_sequence"].as_u64().unwrap_or(0);
         let bundle_path=c.updates.staged.clone();let state_path=c.updates.path.clone();
         let manifest=tokio::task::spawn_blocking(move||{let (manifest,_)=verify(&bundle,&trust(Path::new(TRUST))?,highest,crate::storage::now())?;atomic_write(&bundle_path,&serde_json::to_vec(&bundle)?)?;anyhow::Ok(manifest)}).await.map_err(|e|error(e.into()))?.map_err(error)?;
-        let mut state=c.updates.status().map_err(error)?["state"].clone();state["candidate"]=json!(manifest);atomic_write(&state_path,&serde_json::to_vec(&state).unwrap()).map_err(error)?;
+        let mut state=c.updates.status().await.map_err(error)?["state"].clone();state["candidate"]=json!(manifest);atomic_write(&state_path,&serde_json::to_vec(&state).unwrap()).map_err(error)?;
         c.store.record_audit(&actor,&format!("Signed update staged: {} sequence {}",manifest.version,manifest.sequence)).await.map_err(error)?;
         Ok(Json(json!({"message":"Signed update verified and staged. Review the version before activation.","manifest":manifest})))
     }).await.map_err(|e|error(e.into()))?
@@ -278,7 +282,7 @@ async fn activate(
         check(c.ha.is_none(),"Signed offline activation currently supports standalone appliances. HA rolling update qualification is required before activation on an HA pair.").map_err(error)?;
         check(c.updates.staged.exists() && c.updates.staged==Path::new("/var/lib/riverlb/riverlb.update-bundle.json"),"Activation requires an installed appliance; repository instances can verify bundles through the CLI").map_err(error)?;
         c.store.record_audit(&actor,"Signed offline update activation requested").await.map_err(error)?;
-        let output=tokio::process::Command::new("/usr/bin/systemctl").args(["start","--no-block","riverlb-update.service"]).kill_on_drop(true).output().await.map_err(|e|error(e.into()))?;
+        let output=if crate::privileged::enabled(){crate::privileged::command("lifecycle",json!({"unit":"update","operation":"start"})).await.map_err(error)?}else{tokio::process::Command::new("/usr/bin/systemctl").args(["start","--no-block","riverlb-update.service"]).kill_on_drop(true).output().await.map_err(|e|error(e.into()))?};
         check(output.status.success(),"Could not start the installed update service").map_err(error)?;
         Ok(Json(json!({"message":"Update activation started. Management will reconnect after readiness checks; a failed update restores the previous application and database."})))
     }).await.map_err(|e|error(e.into()))?
@@ -286,7 +290,7 @@ async fn activate(
 pub fn router() -> Router<Arc<crate::control::Control>> {
     Router::new().route("/release.js",get(||async{([("content-type","text/javascript; charset=utf-8")],include_str!("../web/release.js"))}))
         .route("/api/v1/updates/status",get(|State(c):State<Arc<crate::control::Control>>|async move{
-            let mut status=c.updates.status().map_err(error)?;
+            let mut status=c.updates.status().await.map_err(error)?;
             let installed=c.updates.staged==Path::new("/var/lib/riverlb/riverlb.update-bundle.json") && Path::new("/usr/libexec/riverlb/riverlb-update").exists();
             status["activation_supported"]=json!(installed && c.ha.is_none());
             status["activation_reason"]=json!(if c.ha.is_some(){"HA rolling update qualification is required before activating on a pair."}else if !installed{"Activation requires an installed standalone appliance. Repository builds can verify bundles using the CLI."}else{""});

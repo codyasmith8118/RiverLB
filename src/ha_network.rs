@@ -59,6 +59,14 @@ pub async fn announce(
     {
         let (ip, _) = crate::network::cidr(&address.address)?;
         let device = network.device(&address.vlan);
+        if crate::privileged::enabled() {
+            crate::privileged::call(
+                "ha",
+                serde_json::json!({"operation":"announce","data":{"device":device,"address":ip.to_string()}}),
+            )
+            .await?;
+            continue;
+        }
         let output = tokio::process::Command::new("/usr/sbin/ip")
             .args(["-j", "link", "show", "dev", device])
             .output()

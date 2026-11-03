@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python3 -I
 """Fixed-operation signed standalone updater; recovery runs before every start."""
 import base64
 import fcntl
@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import socket
+import struct
 import stat
 import subprocess
 import sys
@@ -29,6 +30,18 @@ TRUST = Path('/etc/riverlb-updater/update-trust.json')
 SOCKET = Path('/run/riverlb/operations.sock')
 HELPER = Path('/usr/libexec/riverlb/riverlb-update')
 OWNER = 0
+BROKER_POLICY = Path('/etc/riverlb-privileged/policy.json')
+MAX_BUNDLE = 180 * 1024 * 1024
+
+
+def service_owner():
+    if not BROKER_POLICY.exists():
+        return OWNER  # Legacy, pre-migration recovery and repository fixtures.
+    value = load(BROKER_POLICY)
+    owner = value.get('uid')
+    if type(owner) is not int or owner <= 0:
+        raise RuntimeError('Invalid installed service identity')
+    return owner
 
 
 def run(args):
@@ -48,18 +61,20 @@ def sync_directory(path):
         os.close(fd)
 
 
-def secure_directory(path):
+def secure_directory(path, owner=None):
+    owner = OWNER if owner is None else owner
     info = path.lstat()
-    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != OWNER or info.st_mode & 0o022
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != owner or info.st_mode & 0o022
             or path.resolve() != path.absolute()):
         raise RuntimeError('Unsafe updater directory')
 
 
-def secure_file(path):
+def secure_file(path, owner=None):
+    owner = OWNER if owner is None else owner
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     try:
         info = os.fstat(fd)
-        if (not stat.S_ISREG(info.st_mode) or info.st_uid != OWNER
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != owner
                 or info.st_mode & 0o022 or info.st_nlink != 1):
             raise RuntimeError('Unsafe updater file')
     finally:
@@ -83,14 +98,15 @@ def write(path, data):
             os.unlink(name)
 
 
-def load(path):
-    secure_directory(path.parent)
+def load(path, owner=None):
+    owner = OWNER if owner is None else owner
+    secure_directory(path.parent, owner)
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     try:
         info = os.fstat(fd)
-        if (not stat.S_ISREG(info.st_mode) or info.st_uid != OWNER
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != owner
                 or info.st_mode & 0o022 or info.st_nlink != 1
-                or info.st_size > 180 * 1024 * 1024):
+                or info.st_size > MAX_BUNDLE):
             raise RuntimeError('Unsafe or oversized update state')
         with os.fdopen(fd, 'r') as source:
             fd = None
@@ -100,9 +116,35 @@ def load(path):
             os.close(fd)
 
 
+def copy_staged_bundle(destination):
+    """Bounded byte copy; never parse app-controlled JSON in the root copier."""
+    owner = service_owner()
+    secure_directory(BUNDLE.parent, owner)
+    secure_directory(destination.parent)
+    descriptor = os.open(BUNDLE, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, 'rb') as source:
+        info = os.fstat(source.fileno())
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != owner or info.st_nlink != 1
+                or info.st_mode & 0o022 or info.st_size > MAX_BUNDLE):
+            raise RuntimeError('Unsafe or oversized staged bundle')
+        with destination.open('xb') as output:
+            total = 0
+            while True:
+                chunk = source.read(min(1024 * 1024, MAX_BUNDLE + 1 - total))
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_BUNDLE:
+                    raise RuntimeError('Staged bundle grew beyond its bound')
+                output.write(chunk)
+            output.flush()
+            os.fsync(output.fileno())
+    sync_directory(destination.parent)
+
+
 def remove(path):
     if path.exists() or path.is_symlink():
-        secure_file(path)
+        secure_file(path, service_owner() if path == BUNDLE else OWNER)
         path.unlink()
         sync_directory(path.parent)
 
@@ -150,14 +192,17 @@ def point(target):
 
 
 @contextmanager
-def exclusive_lock(path):
-    secure_directory(path.parent)
+def exclusive_lock(path, owner=None):
+    owner = OWNER if owner is None else owner
+    secure_directory(path.parent, owner)
     fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
     try:
         info = os.fstat(fd)
-        if (not stat.S_ISREG(info.st_mode) or info.st_uid != OWNER
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid not in {OWNER, owner}
                 or info.st_mode & 0o077 or info.st_nlink != 1):
             raise RuntimeError('Unsafe updater lock')
+        if info.st_uid != owner:
+            os.fchown(fd, owner, -1)
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         yield
     finally:
@@ -167,22 +212,25 @@ def exclusive_lock(path):
 def restore_database(reader):
     # The previous validated application understands its own checkpoint schema.
     # This companion lock also refuses manual recovery against a live daemon.
-    with exclusive_lock(Path(str(DB) + '.lock')):
-        secure_file(DB)
-        with tempfile.TemporaryDirectory(dir=DB.parent, prefix='.riverlb-rollback-') as directory:
+    owner = service_owner()
+    with exclusive_lock(Path(str(DB) + '.lock'), owner):
+        secure_file(DB, owner)
+        with tempfile.TemporaryDirectory(dir=UPDATER, prefix='.riverlb-rollback-') as directory:
             restored = Path(directory) / 'restored.db'
             run([reader, 'restore', '--database', restored, '--input', CHECKPOINT])
             secure_file(restored)
             for suffix in ('-wal', '-shm'):
                 old = Path(str(DB) + suffix)
                 if old.exists() or old.is_symlink():
-                    secure_file(old)
+                    secure_file(old, owner)
                     old.unlink()
+            os.chown(restored, owner, -1)
             os.replace(restored, DB)
             for suffix in ('-wal', '-shm'):
                 source = Path(str(restored) + suffix)
                 if source.exists():
                     secure_file(source)
+                    os.chown(source, owner, -1)
                     os.replace(source, Path(str(DB) + suffix))
             sync_directory(DB.parent)
 
@@ -227,13 +275,17 @@ def recover():
 
 
 def local_status():
-    secure_directory(SOCKET.parent)
+    owner = service_owner()
+    secure_directory(SOCKET.parent, owner)
     info = SOCKET.lstat()
-    if not stat.S_ISSOCK(info.st_mode) or info.st_uid != OWNER or info.st_mode & 0o077:
+    if not stat.S_ISSOCK(info.st_mode) or info.st_uid != owner or info.st_mode & 0o077:
         raise RuntimeError('Unsafe local readiness socket')
     with socket.socket(socket.AF_UNIX) as connection:
         connection.settimeout(2)
         connection.connect(str(SOCKET))
+        peer = struct.unpack('3i', connection.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
+        if peer[1] != owner:
+            raise RuntimeError('Unexpected local readiness peer')
         connection.sendall(b'{"action":"status"}\n')
         response = bytearray()
         while b'\n' not in response:
@@ -270,9 +322,9 @@ def readiness(snapshot, baseline, manifest):
 
 def activate():
     secure_directory(UPDATER)
-    secure_directory(DB.parent)
+    secure_directory(DB.parent, service_owner())
     previous, reader = previous_reader()
-    if Path('/etc/riverlb/ha.json').exists():
+    if Path('/etc/riverlb/ha.json').exists() or Path('/etc/riverlb-privileged/ha.json').exists():
         raise RuntimeError('HA activation requires rolling-update qualification')
     if DB.with_suffix('.confirmation.json').exists():
         raise RuntimeError('Confirm pending configuration before updating')
@@ -286,12 +338,11 @@ def activate():
     if platform.get('ID') != 'almalinux' or not platform.get('VERSION_ID', '').startswith('10.'):
         raise RuntimeError('This offline bundle supports AlmaLinux 10 x86-64 appliances')
     state = state_read()
-    # The daemon shares UID 0 but cannot write UPDATER from its filesystem
-    # sandbox. A private directory inside its writable DB directory would not
-    # isolate the verified copy from a compromised daemon with the same UID.
+    # Copy untrusted staging bytes into a root-private directory before signature
+    # verification. The service UID cannot replace or modify the verified copy.
     with tempfile.TemporaryDirectory(dir=UPDATER, prefix='.riverlb-update-') as directory:
         copy = Path(directory) / 'bundle.json'
-        write(copy, load(BUNDLE))
+        copy_staged_bundle(copy)
         manifest = json.loads(run([reader, 'update-verify', '--bundle', copy,
                                   '--trust', TRUST, '--sequence', state['highest_sequence']]))
         payload = base64.b64decode(load(copy)['payload'], validate=True)
@@ -318,6 +369,8 @@ def activate():
         sync_directory(VERSIONS)
         if run([binary, '--version']).strip() != 'riverlb ' + manifest['version']:
             raise RuntimeError('Payload version does not match signed metadata')
+        if BROKER_POLICY.exists() and run([binary, 'privileged-protocol']).strip() != '1':
+            raise RuntimeError('Signed payload does not support the installed privileged protocol')
     baseline = local_status()
     if baseline['ha_role'] != 'standalone' or baseline['confirmation_pending']:
         raise RuntimeError('Only a confirmed standalone appliance can activate an update')
@@ -363,7 +416,8 @@ def active_updater():
 
 def main(action):
     os.umask(0o077)
-    secure_directory(DB.parent)
+    if action == 'activate' or JOURNAL.exists() or JOURNAL.is_symlink():
+        secure_directory(DB.parent, service_owner())
     secure_directory(UPDATER)
     try:
         with exclusive_lock(UPDATER / 'update.lock'):

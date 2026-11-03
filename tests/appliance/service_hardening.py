@@ -49,14 +49,12 @@ def run():
     altered = copy.deepcopy(ha)
     altered[("Service", "OpenFile")] = ""
     assert "read-only host network namespace" in failures(altered, True)
-    altered = copy.deepcopy(ha)
-    altered[("Service", "RestrictAddressFamilies")] = "AF_INET AF_INET6 AF_UNIX AF_NETLINK"
-    assert "socket families" in failures(altered, True), "HA gratuitous ARP requires AF_PACKET"
     for field, bad, expected in [
-        ("BindPaths", "", "HA local IPC shared memory"),
-        ("InaccessiblePaths", "-/etc/shadow -/etc/gshadow -/dev/shm", "HA local IPC shared memory"),
-        ("NoExecPaths", "", "executable-memory bypasses blocked"),
-        ("ExecPaths", "/dev/shm", "executable-memory bypasses blocked"),
+        ("RestrictAddressFamilies", "AF_INET AF_INET6 AF_UNIX AF_NETLINK AF_PACKET", "socket families"),
+        ("User", "root", "dedicated non-root identity"),
+        ("AmbientCapabilities", "CAP_NET_RAW", "ambient low-port binding only"),
+        ("InaccessiblePaths", "-/etc/shadow -/etc/gshadow", "executable-memory bypasses blocked"),
+        ("ReadWritePaths", "/etc/riverlb-privileged", "protected helper state remains read-only"),
     ]:
         altered = copy.deepcopy(ha)
         altered[("Service", field)] = bad
@@ -64,8 +62,7 @@ def run():
     altered = copy.deepcopy(standalone)
     altered[("Unit", "Requires")] = ""
     assert "interrupted-update recovery before traffic" in failures(altered)
-    assert any(item["result"] == "warning" and "privilege separation" in item["detail"] for item in audit.check_service(standalone))
-    print("PASS appliance service hardening: bounded capabilities, writable paths, syscall/socket restrictions, immutable publisher trust, HA ARP allowance and update recovery ordering")
+    print("PASS appliance service hardening: bounded capabilities, writable paths, syscall/socket restrictions, immutable publisher trust, non-root helper delegation and update recovery ordering")
 
 
 if __name__ == "__main__":
