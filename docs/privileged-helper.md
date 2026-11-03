@@ -120,6 +120,13 @@ the updater stops traffic. Readiness authenticates the service UID; restored
 databases and sidecars return to that UID. Root updater state and monotonic
 sequence records keep their root-only ownership.
 
+Database backup and restore tools run as the service UID in temporary private
+workspaces below the root-owned `/var/lib/riverlb-updater-work` traversal parent.
+The root updater copies bounded checkpoint bytes without parsing their private
+contents, and keeps its durable checkpoint outside those workspaces. Preflight
+removes interrupted owned workspaces under the updater lock. The application
+cannot create or rename workspace entries in the root-owned parent.
+
 ## Ownership and interrupted-operation recovery
 
 The helper journals intent before each network or firewall mutation and owns

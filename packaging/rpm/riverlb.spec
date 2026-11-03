@@ -83,8 +83,10 @@ install -D -m 0755 riverlb-update %{buildroot}%{_libexecdir}/riverlb/riverlb-upd
 install -d -m 0755 %{buildroot}%{_libexecdir}/riverlb/privileged
 install -m 0755 privileged/riverlb-privileged privileged/prepare.py %{buildroot}%{_libexecdir}/riverlb/privileged/
 install -m 0644 privileged/policy.py privileged/network_manager.py privileged/ha.py %{buildroot}%{_libexecdir}/riverlb/privileged/
+install -d -m 0755 %{buildroot}%{_unitdir}
 install -m 0644 privileged/riverlb-privileged.service privileged/riverlb-privileged-prepare.service %{buildroot}%{_unitdir}/
 install -d -m 0700 %{buildroot}%{_sysconfdir}/riverlb-privileged %{buildroot}%{_localstatedir}/lib/riverlb-privileged
+install -d -m 0711 %{buildroot}%{_localstatedir}/lib/riverlb-updater-work
 install -D -m 0644 riverlb-update.service %{buildroot}%{_unitdir}/riverlb-update.service
 install -D -m 0644 riverlb-update-recovery.service %{buildroot}%{_unitdir}/riverlb-update-recovery.service
 install -d -m 0755 %{buildroot}%{_prefix}/lib/riverlb/versions %{buildroot}%{_localstatedir}/lib/riverlb-updater %{buildroot}%{_sysconfdir}/riverlb-updater
@@ -177,6 +179,7 @@ fi
 %{_unitdir}/riverlb-privileged-prepare.service
 %dir %attr(0700,root,root) %{_sysconfdir}/riverlb-privileged
 %dir %attr(0700,root,root) %{_localstatedir}/lib/riverlb-privileged
+%dir %attr(0711,root,root) %{_localstatedir}/lib/riverlb-updater-work
 %{_libexecdir}/riverlb/riverlb-audit-security
 %dir %attr(0755,root,root) %{_sysconfdir}/riverlb-updater
 %config(noreplace) %attr(0644,root,root) %{_sysconfdir}/riverlb-updater/update-trust.json

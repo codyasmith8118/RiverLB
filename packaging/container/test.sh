@@ -9,6 +9,7 @@ rpm -V riverlb riverlb-ha riverlb-appliance
 # Check dependency resolution, file layout and a real management startup/login.
 python3 /tests/firstboot.py
 python3 /tests/rpm_smoke.py
+python3 /tests/privileged_updater.py
 # Removing packages must preserve user-created state and edited configuration.
 printf '\n# operator change\n' >> /etc/riverlb/riverlb.toml
 printf 'persistent-state\n' > /var/lib/riverlb/package-retention-fixture

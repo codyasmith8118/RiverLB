@@ -16,7 +16,8 @@ import time
 ROOT = Path('/root/riverlb-eve-lab')
 NODES = {'a': '10.77.0.11', 'b': '10.77.0.12'}
 STATE_PATHS = ['etc/riverlb', 'var/lib/riverlb', 'var/lib/riverlb-updater',
-               'etc/riverlb-privileged', 'var/lib/riverlb-privileged']
+               'etc/riverlb-privileged', 'var/lib/riverlb-privileged',
+               'var/lib/riverlb-updater-work']
 
 
 def run(args, **kwargs):
@@ -50,6 +51,15 @@ def existing_state(node):
     return json.loads(ssh(node, 'python3', '-c',
         'import json,pathlib;print(json.dumps([p for p in ' + repr(STATE_PATHS) +
         ' if pathlib.Path("/"+p).exists()]))'))
+
+
+def no_active_update(node):
+    state = ssh(node, 'systemctl', 'show', '--property=ActiveState', '--value',
+                'riverlb-update.service').strip()
+    if state not in {'inactive', 'failed'}:
+        raise RuntimeError('Finish the active application update before RPM deployment')
+    for flag in ['-e', '-L']:
+        ssh(node, 'test', '!', flag, '/var/lib/riverlb-updater/recovery.json')
 
 
 def restore_labels(node):
@@ -137,6 +147,7 @@ def main():
             if ssh(node, 'hostname').strip() != 'riverlb-' + node:
                 raise RuntimeError('Unexpected appliance at private management address')
             ssh(node, 'systemctl', 'is-active', 'riverlb')
+            no_active_update(node)
             ssh(node, 'test', '!', '-e', '/usr/lib/riverlb/current')
             ssh(node, 'test', '!', '-L', '/usr/lib/riverlb/current')
             if 'riverlb-ha-' in ssh(node, 'rpm', '-qa', '--qf', '%{NAME}-%{VERSION}\n'):
@@ -160,6 +171,7 @@ def main():
                 stopped.append(node)
                 ssh(node, 'systemctl', 'stop', 'riverlb')
                 stop_auxiliary(node)
+                no_active_update(node)
                 # Turso/SQLite files are copied only after the daemon has stopped.
                 state = existing_state(node)
                 ssh(node, 'tar', '--xattrs', '--selinux', '-C', '/', '-czf', guest + '/state.tgz', *state)

@@ -133,6 +133,12 @@ class HelperQuiesce(unittest.TestCase):
     def test_backup_and_rollback_scope_includes_private_state(self):
         self.assertIn('etc/riverlb-privileged', apply.STATE_PATHS)
         self.assertIn('var/lib/riverlb-privileged', apply.STATE_PATHS)
+        self.assertIn('var/lib/riverlb-updater-work', apply.STATE_PATHS)
+
+    def test_running_update_blocks_deployment(self):
+        with patch.object(apply, 'ssh', return_value='activating\n'):
+            with self.assertRaisesRegex(RuntimeError, 'active application update'):
+                apply.no_active_update('a')
 
 
 class Recovery(unittest.TestCase):
@@ -155,6 +161,8 @@ class Recovery(unittest.TestCase):
             def ssh(node, *args):
                 calls.append((node, args))
                 if args[:2] == ('systemctl', 'show'):
+                    if '--property=ActiveState' in args:
+                        return 'inactive\n'
                     return 'loaded\n'
                 if args[0] == 'hostname':
                     return 'riverlb-' + node

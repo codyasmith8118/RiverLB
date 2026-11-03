@@ -53,6 +53,7 @@ class Fixture:
                          DB=self.root / 'var/lib/riverlb/riverlb.db',
                          CONFIG=self.root / 'etc/riverlb/riverlb.toml',
                          UPDATER=self.root / 'var/lib/riverlb-updater',
+                         WORK=self.root / 'var/lib/riverlb-updater-work',
                          TRUST=self.root / 'etc/riverlb-updater/update-trust.json',
                          BROKER_POLICY=self.root / 'etc/riverlb-privileged/policy.json',
                          HELPER=self.root / 'usr/libexec/riverlb/riverlb-update',
@@ -68,6 +69,7 @@ class Fixture:
             value.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         if hasattr(self.helper, 'VERSIONS'):
             self.helper.VERSIONS = self.versions
+        self.helper.WORK.mkdir(mode=0o711)
         self.helper.BASE.write_bytes(b'baseline-reader-fixture')
         self.helper.BASE.chmod(0o755)
         self.helper.DB.write_bytes(self.original_database)
@@ -269,6 +271,39 @@ class UpdateHelperTests(unittest.TestCase):
              patch.object(self.helper.os, 'fstat', return_value=snapshot):
             with self.assertRaisesRegex(RuntimeError, 'grew beyond its bound'):
                 self.helper.copy_staged_bundle(self.helper.UPDATER / 'growth-fixture.json')
+
+    def test_installed_database_checkpoint_and_restore_use_service_identity(self):
+        self.helper.write(self.helper.BROKER_POLICY, dict(uid=os.geteuid(), gid=os.getegid()))
+        with patch.object(self.helper, 'run_application', side_effect=self.fixture.run) as application, \
+             patch.object(self.helper, 'readiness', side_effect=RuntimeError('fixture not ready')):
+            with self.assertRaisesRegex(RuntimeError, 'fixture not ready'):
+                self.helper.activate()
+        self.assertEqual([call.args[0][1] for call in application.call_args_list], ['backup', 'restore'])
+        self.assertEqual(self.helper.DB.read_bytes(), self.fixture.original_database)
+        self.assertFalse(self.helper.JOURNAL.exists())
+        self.assertEqual(list(self.helper.WORK.iterdir()), [])
+
+    def test_application_reader_drops_root_identity_and_groups(self):
+        self.helper.write(self.helper.BROKER_POLICY, dict(uid=1001, gid=1002))
+        with patch.object(self.helper.subprocess, 'run') as execute:
+            self.helper.run_application([self.helper.BASE, 'backup'])
+        options = execute.call_args.kwargs
+        self.assertEqual((options['user'], options['group'], options['extra_groups']), (1001, 1002, []))
+        self.assertTrue(options['close_fds'])
+        self.assertEqual(options['stdout'], subprocess.DEVNULL)
+
+    def test_preflight_removes_only_interrupted_owned_workspaces(self):
+        self.helper.write(self.helper.BROKER_POLICY, dict(uid=os.geteuid(), gid=os.getegid()))
+        stale = self.helper.WORK / 'operation-1234abcd'
+        stale.mkdir(mode=0o700)
+        (stale / 'private.json').write_bytes(b'private fixture')
+        self.helper.main('preflight')
+        self.assertEqual(list(self.helper.WORK.iterdir()), [])
+        unexpected = self.helper.WORK / 'unrelated'
+        unexpected.mkdir(mode=0o700)
+        with self.assertRaisesRegex(RuntimeError, 'console inspection'):
+            self.helper.main('preflight')
+        self.assertTrue(unexpected.is_dir())
 
     def test_failed_readiness_restores_database_wal_selector_and_monotonic_highwater(self):
         with patch.object(self.helper, 'readiness', side_effect=RuntimeError('fixture not ready')):

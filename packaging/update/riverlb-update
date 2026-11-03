@@ -8,6 +8,8 @@ import os
 from pathlib import Path
 import socket
 import struct
+import shutil
+import re
 import stat
 import subprocess
 import sys
@@ -22,6 +24,7 @@ DB = Path('/var/lib/riverlb/riverlb.db')
 CONFIG = Path('/etc/riverlb/riverlb.toml')
 BUNDLE = DB.with_suffix('.update-bundle.json')
 UPDATER = Path('/var/lib/riverlb-updater')
+WORK = Path('/var/lib/riverlb-updater-work')
 JOURNAL = UPDATER / 'recovery.json'
 CHECKPOINT = UPDATER / 'checkpoint.json'
 HIGHSTATE = UPDATER / 'status.json'
@@ -32,6 +35,7 @@ HELPER = Path('/usr/libexec/riverlb/riverlb-update')
 OWNER = 0
 BROKER_POLICY = Path('/etc/riverlb-privileged/policy.json')
 MAX_BUNDLE = 180 * 1024 * 1024
+MAX_CHECKPOINT = 32 * 1024 * 1024
 
 
 def service_owner():
@@ -142,6 +146,77 @@ def copy_staged_bundle(destination):
     sync_directory(destination.parent)
 
 
+@contextmanager
+def application_workspace():
+    secure_directory(WORK)
+    identity = load(BROKER_POLICY)
+    owner, group = identity['uid'], identity['gid']
+    if type(owner) is not int or type(group) is not int or owner <= 0 or group <= 0:
+        raise RuntimeError('Invalid application workspace identity')
+    with tempfile.TemporaryDirectory(dir=WORK, prefix='operation-') as directory:
+        os.chown(directory, owner, group)
+        yield Path(directory)
+
+
+def run_application(args):
+    identity = load(BROKER_POLICY)
+    # Database engines and certificate/configuration parsers consume app-owned
+    # data without root authority. Their output never becomes an executable.
+    subprocess.run([str(value) for value in args], check=True, timeout=90,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                   user=identity['uid'], group=identity['gid'], extra_groups=[],
+                   env={'PATH': '/usr/sbin:/usr/bin', 'LANG': 'C.UTF-8'}, close_fds=True)
+
+
+def cleanup_workspaces():
+    if not BROKER_POLICY.exists():
+        return
+    secure_directory(WORK)
+    for path in WORK.iterdir():
+        if not re.fullmatch(r'operation-[a-z0-9_]{8}', path.name):
+            raise RuntimeError('Unexpected updater workspace requires console inspection')
+        secure_directory(path, service_owner())
+        shutil.rmtree(path)  # Python's descriptor-based implementation rejects links.
+    sync_directory(WORK)
+
+
+def copy_checkpoint(source, destination, source_owner, destination_owner, parent_owner):
+    secure_directory(source.parent, source_owner)
+    secure_directory(destination.parent, parent_owner)
+    descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, 'rb') as incoming:
+        info = os.fstat(incoming.fileno())
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != source_owner or info.st_nlink != 1
+                or info.st_mode & 0o077 or info.st_size > MAX_CHECKPOINT):
+            raise RuntimeError('Unsafe checkpoint transfer')
+        output_fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(output_fd, 'wb') as output:
+            total = 0
+            while True:
+                chunk = incoming.read(min(1024 * 1024, MAX_CHECKPOINT + 1 - total))
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_CHECKPOINT:
+                    raise RuntimeError('Checkpoint transfer exceeds its bound')
+                output.write(chunk)
+            output.flush()
+            os.fchown(output.fileno(), destination_owner, -1)
+            os.fsync(output.fileno())
+    sync_directory(destination.parent)
+
+
+def checkpoint_database(reader):
+    if not BROKER_POLICY.exists():
+        run([reader, 'backup', '--database', DB, '--output', CHECKPOINT])
+        return load(CHECKPOINT)
+    with application_workspace() as directory:
+        snapshot = directory / 'checkpoint.json'
+        run_application([reader, 'backup', '--database', DB, '--output', snapshot])
+        copy_checkpoint(snapshot, CHECKPOINT, service_owner(), OWNER, OWNER)
+    return None  # Root does not parse private app-controlled snapshot contents.
+
+
 def remove(path):
     if path.exists() or path.is_symlink():
         secure_file(path, service_owner() if path == BUNDLE else OWNER)
@@ -215,10 +290,16 @@ def restore_database(reader):
     owner = service_owner()
     with exclusive_lock(Path(str(DB) + '.lock'), owner):
         secure_file(DB, owner)
-        with tempfile.TemporaryDirectory(dir=UPDATER, prefix='.riverlb-rollback-') as directory:
+        workspace = application_workspace() if BROKER_POLICY.exists() else tempfile.TemporaryDirectory(dir=UPDATER, prefix='.riverlb-rollback-')
+        with workspace as directory:
             restored = Path(directory) / 'restored.db'
-            run([reader, 'restore', '--database', restored, '--input', CHECKPOINT])
-            secure_file(restored)
+            if BROKER_POLICY.exists():
+                source = Path(directory) / 'checkpoint.json'
+                copy_checkpoint(CHECKPOINT, source, OWNER, owner, owner)
+                run_application([reader, 'restore', '--database', restored, '--input', source])
+            else:
+                run([reader, 'restore', '--database', restored, '--input', CHECKPOINT])
+            secure_file(restored, owner)
             for suffix in ('-wal', '-shm'):
                 old = Path(str(DB) + suffix)
                 if old.exists() or old.is_symlink():
@@ -229,7 +310,7 @@ def restore_database(reader):
             for suffix in ('-wal', '-shm'):
                 source = Path(str(restored) + suffix)
                 if source.exists():
-                    secure_file(source)
+                    secure_file(source, owner)
                     os.chown(source, owner, -1)
                     os.replace(source, Path(str(DB) + suffix))
             sync_directory(DB.parent)
@@ -300,9 +381,12 @@ def local_status():
 
 
 def readiness(snapshot, baseline, manifest):
-    rows = snapshot['tables']['configurations']
-    revision, config = max(rows, key=lambda row: row[0])[:2]
-    config = json.loads(config)
+    if snapshot is None:
+        revision, config = baseline['revision'], dict(management=baseline['management'])
+    else:
+        rows = snapshot['tables']['configurations']
+        revision, config = max(rows, key=lambda row: row[0])[:2]
+        config = json.loads(config)
     required = {v['name'] for v in baseline['virtual_servers'] if v['enabled'] and v['state'] == 'up'}
     for _ in range(30):
         try:
@@ -377,8 +461,7 @@ def activate():
     try:
         run(['/usr/bin/systemctl', 'stop', 'riverlb.service'])
         remove(CHECKPOINT)
-        run([reader, 'backup', '--database', DB, '--output', CHECKPOINT])
-        snapshot = load(CHECKPOINT)
+        snapshot = checkpoint_database(reader)
         journal = dict(format=1, previous=previous, reader=str(reader), version=manifest['version'],
                        sequence=manifest['sequence'])
         write(JOURNAL, journal)
@@ -429,6 +512,7 @@ def main(action):
                     remove(RUNNING)
             else:
                 recover()
+                cleanup_workspaces()
                 remove(RUNNING)
     except BlockingIOError:
         if action == 'preflight' and active_updater():
