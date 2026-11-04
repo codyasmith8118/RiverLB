@@ -1820,7 +1820,7 @@ byId('renewal-save').onclick=async()=>{
 };
 byId('backup-download').onclick=async()=>{
     if(busy)return;lock(true);
-    try{const snapshot=await api('/api/v1/backup','POST',{});const url=URL.createObjectURL(new Blob([JSON.stringify(snapshot)],{type:'application/json'}));const link=node('a');link.href=url;link.download='riverlb-private-backup.json';link.click();URL.revokeObjectURL(url);say('Private backup downloaded. It contains private keys and account credentials.');}catch(e){say(e.message,true);}finally{lock(false);}
+    try{const proof=await api('/api/v1/security/proof','POST',{action:'private_backup',current_password:byId('backup-password').value,code:byId('backup-code').value||null});byId('backup-password').value='';byId('backup-code').value='';const snapshot=await api('/api/v1/backup','POST',{proof:proof.proof});const url=URL.createObjectURL(new Blob([JSON.stringify(snapshot)],{type:'application/json'}));const link=node('a');link.href=url;link.download='riverlb-private-backup.json';link.click();URL.revokeObjectURL(url);say('Private backup downloaded. It contains private keys and account credentials.');}catch(e){say(e.message,true);}finally{byId('backup-password').value='';byId('backup-code').value='';lock(false);}
 };
 byId('backup-stage').onclick=async()=>{
     if(busy)return; const file=byId('backup-file').files[0];if(!file){say('Select a backup file.',true);return;}if(file.size>33554432){say('Backup exceeds 32 MiB limit.',true);return;}lock(true);

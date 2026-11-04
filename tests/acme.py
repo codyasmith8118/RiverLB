@@ -4,7 +4,7 @@ Never contacts a public CA. The fixture is not a production certificate authorit
 import base64, http.client, http.server, json, os, signal, socket, ssl, subprocess
 import tempfile, threading, urllib.error, urllib.request
 from pathlib import Path
-from auth_helpers import bootstrap
+from auth_helpers import private_backup, bootstrap
 from smoke import BINARY, free_port, wait_until
 
 def decode(value):return base64.urlsafe_b64decode(value+'='*((-len(value))%4))
@@ -136,7 +136,7 @@ members=["127.0.0.1:{ca.server_port}"]
                 process.send_signal(signal.SIGINT);process.wait(timeout=15)
                 process=subprocess.Popen([BINARY,'serve','-c',path],stdout=log,stderr=log)
                 wait_until(lambda:api('/api/v1/renewals')[0]['failures']==1);assert fingerprint()==second and ca.accounts==1
-                snapshot=api('/api/v1/backup',{},'POST');assert len(snapshot['tables']['acme_accounts'])==1
+                snapshot=private_backup(api);assert len(snapshot['tables']['acme_accounts'])==1
                 api('/api/v1/restore/stage',snapshot,'POST')
                 api('/api/v1/renewals/automatic',{},'DELETE');api('/api/v1/renewals/management-auto',{},'DELETE');assert api('/api/v1/renewals')==[]
             print('PASS ACME: local HTTP-01/CSR issuance, account reuse, assigned SNI hot renewal, failure/backoff/restart, backup credentials, validation')

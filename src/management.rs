@@ -693,22 +693,34 @@ struct Change {
     config: Config,
 }
 type ApiResult = Result<Json<Value>, (StatusCode, Json<Value>)>;
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PrivateBackupRequest {
+    #[serde(default)]
+    proof: String,
+}
 async fn backup_download(
     State(control): State<Arc<Control>>,
     Extension(actor): Extension<String>,
+    Extension(session): Extension<crate::auth::BrowserSession>,
+    Json(request): Json<PrivateBackupRequest>,
 ) -> Result<Response, (StatusCode, Json<Value>)> {
-    tokio::spawn(async move { backup_download_inner(State(control), Extension(actor)).await })
-        .await
-        .map_err(|_| {
-            error(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Backup download failed".into(),
-            )
-        })?
+    tokio::spawn(async move {
+        backup_download_inner(State(control), Extension(actor), session, request).await
+    })
+    .await
+    .map_err(|_| {
+        error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Backup download failed".into(),
+        )
+    })?
 }
 async fn backup_download_inner(
     State(control): State<Arc<Control>>,
     Extension(actor): Extension<String>,
+    session: crate::auth::BrowserSession,
+    request: PrivateBackupRequest,
 ) -> Result<Response, (StatusCode, Json<Value>)> {
     let _gate = control.change_gate.lock().await;
     if control.pending_configuration.lock().await.is_some() {
@@ -719,14 +731,15 @@ async fn backup_download_inner(
     }
     let snapshot = control
         .store
-        .backup()
+        .private_backup(&actor, &session.0, &request.proof)
         .await
-        .map_err(|e| error(StatusCode::SERVICE_UNAVAILABLE, e.to_string()))?;
-    control
-        .store
-        .record_audit(&actor, "private backup downloaded")
-        .await
-        .map_err(|e| error(StatusCode::SERVICE_UNAVAILABLE, e.to_string()))?;
+        .map_err(|_| error(StatusCode::SERVICE_UNAVAILABLE, "Backup unavailable".into()))?
+        .ok_or_else(|| {
+            error(
+                StatusCode::UNAUTHORIZED,
+                "Fresh private backup proof required".into(),
+            )
+        })?;
     Ok((
         [
             ("content-type", "application/json"),
@@ -993,11 +1006,27 @@ async fn protect(
         };
         if let Some(principal) = user {
             if !principal.permits(request.method().as_str(), request.uri().path()) {
+                if matches!(
+                    request.uri().path(),
+                    "/api/v1/backup" | "/api/v1/security/proof"
+                ) && control
+                    .store
+                    .record_audit(&principal.username, "private backup authorization denied")
+                    .await
+                    .is_err()
+                {
+                    return error(StatusCode::SERVICE_UNAVAILABLE, "Audit unavailable".into())
+                        .into_response();
+                }
                 return error(
                     StatusCode::FORBIDDEN,
                     "Your account or token does not permit this operation".into(),
                 )
                 .into_response();
+            }
+            if bearer.is_none() {
+                let session = crate::auth::BrowserSession(session_token(request.headers()));
+                request.extensions_mut().insert(session);
             }
             request.extensions_mut().insert(principal.username.clone());
             request.extensions_mut().insert(principal);

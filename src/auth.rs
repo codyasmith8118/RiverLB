@@ -342,6 +342,10 @@ mod tests {
     }
 }
 
+/// Internal authenticated browser session; never serialized or logged.
+#[derive(Clone)]
+pub(crate) struct BrowserSession(pub String);
+
 type ApiError = (axum::http::StatusCode, axum::Json<serde_json::Value>);
 fn failure(e: anyhow::Error) -> (axum::http::StatusCode, axum::Json<serde_json::Value>) {
     (
@@ -356,6 +360,19 @@ struct SecurityChange {
     current_password: String,
     #[serde(default)]
     code: Option<String>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BackupProof {
+    action: BackupAction,
+    current_password: String,
+    #[serde(default)]
+    code: Option<String>,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum BackupAction {
+    PrivateBackup,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -427,6 +444,13 @@ pub fn router() -> axum::Router<std::sync::Arc<crate::control::Control>> {
     Router::new()
         .route("/accounts.js",get(||async { ([("content-type","text/javascript; charset=utf-8")],include_str!("../web/accounts.js")) }))
         .route("/api/v1/auth/me",get(|Extension(principal):Extension<Principal>|async move{Json(json!(principal))}))
+        .route("/api/v1/security/proof",post(|State(c):State<Shared>,Extension(actor):Extension<String>,Extension(session):Extension<BrowserSession>,Json(proof):Json<BackupProof>|async move{admitted(async move {
+            let BackupAction::PrivateBackup=proof.action;
+            security_budget(&c).await.map_err(failure)?;
+            let token=c.store.issue_backup_proof(&actor,&session.0,proof.current_password,proof.code.as_deref()).await.map_err(|_|failure(anyhow::anyhow!("Authentication unavailable")))?;
+            let Some(token)=token else { return Err((axum::http::StatusCode::UNAUTHORIZED,Json(json!({"error":"Invalid password, authenticator code or session"})))); };
+            Ok(([("cache-control","no-store")],Json(json!({"proof":token,"expires_in":60,"action":"private_backup"}))))
+        }).await}))
         .route("/api/v1/security/settings",get(|State(c):State<Shared>|async move{c.store.security_settings().await.map(|s|Json(json!(s))).map_err(failure)}).put(|State(c):State<Shared>,Extension(actor):Extension<String>,Extension(peer):Extension<std::net::SocketAddr>,Json(change):Json<SecurityChange>|async move{admitted(async move{
             reauthenticate(&c,&actor,change.current_password,change.code.as_deref()).await.map_err(failure)?;
             change.settings.validate().map_err(failure)?;

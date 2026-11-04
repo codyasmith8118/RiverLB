@@ -149,3 +149,32 @@ switch management to HTTPS. Confirm the HTTPS URL works and retain console acces
 and a backup. New versions reject remote HTTP at startup and during configuration
 validation/apply; there is no remote plaintext override. If already upgraded, use
 the local console recovery procedure in the [operations guide](operations.md).
+
+## Recent proof for private backup export
+
+Raw private backups contain certificate keys, password hashes and MFA seeds.
+Each web download requires the administrator's current password and an unused
+authenticator or recovery code when MFA is enrolled. A browser session alone
+cannot download a private backup. Operators, read-only users and API tokens
+cannot obtain proof or export it.
+
+`POST /api/v1/security/proof` accepts `action: "private_backup"`,
+`current_password` and optional `code`. Its `proof` is valid for 60 seconds,
+bound to the actor, browser session and action, and consumed once by
+`POST /api/v1/backup` with `{ "proof": "…" }`. A new proof replaces that
+session's previous unused proof. Both responses use `Cache-Control: no-store`.
+Keep proof tokens private; never put them in URLs or logs.
+
+Export rechecks account role and session validity while consuming proof and
+taking the snapshot in one transaction. Password/MFA changes, logout, account
+removal, session expiry and restart invalidate outstanding authorization.
+Concurrent requests cannot redeem one proof twice. Audit entries record proof
+acceptance/denial and export success/denial without recording credentials or
+proof tokens. Proof records are excluded from backups and cleared on restore.
+
+This protects against a stolen browser session. The application database and
+process remain trusted for authentication; this does not establish proof of
+human presence against a compromised daemon. Scheduled encrypted backups keep
+their existing encrypted workflow. Local console backup/restore remains
+available to an authorized OS account while the daemon is stopped; protect
+its plaintext output using the existing recovery procedure.
