@@ -97,7 +97,9 @@ virtual_servers = []
         (directory / "probe.py").write_text(PROBE)
         lines = []
         in_service = False
-        excluded = {"ExecStart", "ExecStartPre", "ExecStartPost", "ExecStop", "ExecStopPost",
+        # This fixture prepares its own private identity/state above. Installed
+        # preparation/readiness paths belong to the appliance, not this runner.
+        excluded = {"ExecCondition", "ExecStart", "ExecStartPre", "ExecStartPost", "ExecStop", "ExecStopPost",
                     "RuntimeDirectory", "StateDirectory", "WorkingDirectory", "Restart", "User", "Group"}
         for line in unit_source.read_text().splitlines():
             if line.startswith("["):
