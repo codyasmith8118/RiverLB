@@ -24,6 +24,14 @@ policy = broker.policy
 
 
 class Grammar(unittest.TestCase):
+    def test_independent_ethernet_profile_preserves_empty_controller_field(self):
+        instance = SimpleNamespace(state={}, configuration=dict(traffic_interfaces=['eth1'], management_interfaces=[]))
+        for controller in ['', '--']:
+            def execute(*args, **kwargs):
+                return dict(code=0, stdout='eth1\n802-3-ethernet\n' + controller + '\n')
+            manager = broker.nm_module.NetworkManager(instance, policy, execute, broker.success)
+            self.assertEqual(manager.profile('12345678-1234-1234-1234-123456789abc'), 'eth1')
+
     def test_generated_network_shapes_and_inverse_identity(self):
         commands = [
             ['address', 'add', '192.0.2.1/24', 'dev', 'eth1'],

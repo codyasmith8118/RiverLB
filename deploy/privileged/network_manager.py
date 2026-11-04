@@ -20,7 +20,7 @@ class NetworkManager:
     def profile(self, identifier):
         self.policy.uuid(identifier)
         text = self.success(self.run_nm(['-g', 'connection.interface-name,connection.type,connection.controller',
-                                        'connection', 'show', 'uuid', identifier]))['stdout'].rstrip('\n')
+                                        'connection', 'show', 'uuid', identifier]))['stdout'].removesuffix('\n')
         rows = text.split('\n')
         self.policy.require(len(rows) == 3 and rows[1] == '802-3-ethernet' and rows[2] in {'', '--'},
                             'Only independent Ethernet profiles are delegated')
@@ -106,7 +106,7 @@ class NetworkManager:
                 result = self.success(self.process('/usr/bin/busctl',
                     ['--system', '--timeout=3s', '--json=short', 'get-property', self.policy.NM,
                      request['device'], self.policy.NM + '.Device', 'Interface']))
-                name = json.loads(result['stdout'])['data'][0]
+                name = json.loads(result['stdout'])['data']
                 self.permitted(name)
                 self.policy.require(not any(v['interface'] == name for v in self.broker.state['nm_checkpoints'].values()),
                                     'A broker checkpoint already covers this adapter')
