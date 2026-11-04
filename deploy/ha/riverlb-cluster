@@ -100,7 +100,9 @@ def execute(request):
     elif action == "enable":
         verify_fencing(group)
         run("resource", "enable", "riverlb-traffic", "--wait=120")
-        run("constraint", "remove", "riverlb-initial-primary")
+        cib = ET.fromstring(subprocess.check_output(["/usr/sbin/cibadmin", "--query"], timeout=10))
+        if cib.find("./configuration/constraints/rsc_location[@id='riverlb-initial-primary']") is not None:
+            run("constraint", "remove", "riverlb-initial-primary")
     elif action == "failover":
         if request["target"] not in (group["node_id"], group["peer_id"]):
             raise ValueError("Target is outside the HA group")

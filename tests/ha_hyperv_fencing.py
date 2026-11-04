@@ -26,6 +26,9 @@ from unittest.mock import patch
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
+# Hosted Windows PowerShell 5.1 can cold-start slowly. This harness budget
+# includes CLR/module startup; the receiver request's power deadline stays 5s.
+POWERSHELL_PROCESS_TIMEOUT = 45
 AGENT = ROOT / 'deploy/ha/agents/fence_riverlb_hyperv'
 loader = importlib.machinery.SourceFileLoader('hyperv_fence', str(AGENT))
 spec = importlib.util.spec_from_loader(loader.name, loader)
@@ -345,7 +348,7 @@ Export-ModuleMember -Function New-CimSession,Remove-CimSession,Get-VM,Stop-VM,St
             before = session_log.read_text() if session_log.exists() else ''
             result = subprocess.run([executable, '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'RemoteSigned', '-File', str(receiver)],
                                     input=raw if raw is not None else json.dumps(request) + '\n', text=True, capture_output=True,
-                                    env={**environment, **changes}, timeout=15)
+                                    env={**environment, **changes}, timeout=POWERSHELL_PROCESS_TIMEOUT)
             after = session_log.read_text() if session_log.exists() else ''
             result.session_events = after[len(before):].splitlines()
             assert result.session_events in ([], ['created', 'removed']), 'Local CIM session leaked or was not reused'
@@ -394,7 +397,7 @@ Export-ModuleMember -Function New-CimSession,Remove-CimSession,Get-VM,Stop-VM,St
         scripts = [str(path) for path in (ROOT / 'deploy/ha/hyperv').glob('*.ps1')]
         parse = '''$failed=$false; foreach($file in ($env:RIVERLB_HYPERV_PARSE_FILES|ConvertFrom-Json)){$tokens=$null;$parseErrors=$null;[System.Management.Automation.Language.Parser]::ParseFile($file,[ref]$tokens,[ref]$parseErrors)|Out-Null;if($parseErrors.Count){$failed=$true;$parseErrors|Out-String|Write-Error}};if($failed){exit 1}'''
         parsed = subprocess.run([executable, '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'RemoteSigned', '-Command', parse],
-                                text=True, capture_output=True, env={**environment, 'RIVERLB_HYPERV_PARSE_FILES': json.dumps(scripts)}, timeout=15)
+                                text=True, capture_output=True, env={**environment, 'RIVERLB_HYPERV_PARSE_FILES': json.dumps(scripts)}, timeout=POWERSHELL_PROCESS_TIMEOUT)
         assert parsed.returncode == 0, parsed.stderr
     print('PASS PowerShell: actual receiver parsing/execution, GUID allowlist, read-only discovery, hard-off confirmation and private stage diagnostics')
 
@@ -425,7 +428,7 @@ if ($script:seen.Count -ne 2 -or $script:seen[0] -cne $AllowedVMIds[0].ToString(
 '''
         def run(**changes):
             return subprocess.run([executable, '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'RemoteSigned', '-Command', script],
-                                  text=True, capture_output=True, env={**environment, **changes}, timeout=15)
+                                  text=True, capture_output=True, env={**environment, **changes}, timeout=POWERSHELL_PROCESS_TIMEOUT)
         before = run(RIVERLB_OLD_SUMMARY='1')
         assert before.returncode != 0, 'Fixture did not reproduce the Windows scalar-Guid binding failure'
         after = run()
