@@ -126,6 +126,9 @@ The root updater copies bounded checkpoint bytes without parsing their private
 contents, and keeps its durable checkpoint outside those workspaces. Preflight
 removes interrupted owned workspaces under the updater lock. The application
 cannot create or rename workspace entries in the root-owned parent.
+The updater and recovery units explicitly retain only their fixed file-operation
+and UID/GID-switch capabilities. Their database children clear supplementary
+groups and run without effective or ambient capabilities.
 
 ## Ownership and interrupted-operation recovery
 

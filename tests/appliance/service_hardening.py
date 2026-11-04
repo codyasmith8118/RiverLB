@@ -28,6 +28,11 @@ def run():
     rpm = (ROOT / "packaging/rpm/riverlb.spec").read_text()
     assert 'semodule -i %{_datadir}/selinux/packages/riverlb-sandbox.cil || exit $?' in rpm
     assert 'semodule -r riverlb-sandbox' in rpm
+    for name in ['riverlb-update.service', 'riverlb-update-recovery.service']:
+        updater = audit.parse_unit(ROOT / 'packaging/update' / name)
+        assert set(updater[('Service', 'CapabilityBoundingSet')].split()) == {
+            'CAP_CHOWN', 'CAP_DAC_OVERRIDE', 'CAP_FOWNER', 'CAP_SETUID', 'CAP_SETGID'}
+        assert set(updater[('Service', 'AmbientCapabilities')].split()) == {'CAP_SETUID', 'CAP_SETGID'}
     standalone = audit.parse_unit(ROOT / "packaging/rpm/riverlb.service")
     ha = audit.parse_unit(ROOT / "deploy/ha/riverlb-ha.service")
     assert not failures(standalone)

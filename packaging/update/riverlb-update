@@ -305,15 +305,45 @@ def restore_database(reader):
                 if old.exists() or old.is_symlink():
                     secure_file(old, owner)
                     old.unlink()
-            os.chown(restored, owner, -1)
-            os.replace(restored, DB)
+            install_restored_file(restored, DB, owner)
             for suffix in ('-wal', '-shm'):
                 source = Path(str(restored) + suffix)
                 if source.exists():
                     secure_file(source, owner)
-                    os.chown(source, owner, -1)
-                    os.replace(source, Path(str(DB) + suffix))
+                    install_restored_file(source, Path(str(DB) + suffix), owner)
             sync_directory(DB.parent)
+
+
+def install_restored_file(source, destination, owner):
+    # ReadWritePaths creates separate bind mounts even on one filesystem.
+    # Copy opaque bytes to a new destination-local inode before atomic rename.
+    # Never parse application data or follow its links while running as root.
+    secure_directory(destination.parent, owner)
+    descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    temporary = None
+    try:
+        info = os.fstat(descriptor)
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != owner
+                or info.st_nlink != 1 or info.st_mode & 0o077 or info.st_size > MAX_CHECKPOINT):
+            raise RuntimeError('Unsafe restored database file')
+        output_fd, name = tempfile.mkstemp(dir=destination.parent, prefix='.riverlb-restore-')
+        temporary = Path(name)
+        with os.fdopen(output_fd, 'wb') as output:
+            total = 0
+            while chunk := os.read(descriptor, min(1024 * 1024, MAX_CHECKPOINT + 1 - total)):
+                total += len(chunk)
+                if total > MAX_CHECKPOINT:
+                    raise RuntimeError('Restored database exceeds its bound')
+                output.write(chunk)
+            output.flush()
+            os.fchown(output.fileno(), owner, -1)
+            os.fsync(output.fileno())
+        os.replace(temporary, destination)
+        sync_directory(destination.parent)
+    finally:
+        os.close(descriptor)
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def state_read():

@@ -8,6 +8,9 @@ UMask=0077
 ExecStart=/usr/libexec/riverlb/riverlb-update activate
 TimeoutStartSec=900
 NoNewPrivileges=yes
+# Fixed root file operations and explicit UID/GID drop for database tools.
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_SETUID CAP_SETGID
+AmbientCapabilities=CAP_SETUID CAP_SETGID
 ProtectHome=yes
 PrivateTmp=yes
 ProtectSystem=strict

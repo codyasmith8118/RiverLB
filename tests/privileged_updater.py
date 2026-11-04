@@ -20,6 +20,10 @@ loader.exec_module(helper)
 account = pwd.getpwnam('riverlb')
 assert account.pw_uid > 0 and helper.DB.stat().st_uid == account.pw_uid
 assert not helper.JOURNAL.exists() and not helper.CHECKPOINT.exists()
+helper.run_application([sys.executable, '-c',
+    'import os,pathlib; assert os.geteuid()>0; assert os.getgroups()==[]; '
+    'fields=dict(line.split(":",1) for line in pathlib.Path("/proc/self/status").read_text().splitlines() if ":" in line); '
+    'assert int(fields["CapEff"].strip(),16)==0; assert int(fields["CapAmb"].strip(),16)==0'])
 
 
 def child(arguments, **options):

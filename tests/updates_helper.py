@@ -216,6 +216,37 @@ class UpdateHelperTests(unittest.TestCase):
                          'A non-root CLI must traverse the selected version despite updater umask 077')
         self.assertEqual(stat.S_IMODE((self.helper.CURRENT.resolve() / 'riverlb').stat().st_mode), 0o755)
 
+    def test_restore_renames_only_within_destination_mount(self):
+        replace = os.replace
+
+        def separate_mounts(source, destination):
+            if RealPath(source).parent != RealPath(destination).parent:
+                raise OSError(18, 'Invalid cross-device link')
+            return replace(source, destination)
+
+        with patch.object(self.helper, 'readiness', side_effect=RuntimeError('fixture not ready')), \
+             patch.object(self.helper.os, 'replace', side_effect=separate_mounts):
+            with self.assertRaisesRegex(RuntimeError, 'fixture not ready'):
+                self.helper.activate()
+        self.assertEqual(self.helper.DB.read_bytes(), self.fixture.original_database)
+        self.assertFalse(self.helper.JOURNAL.exists())
+        self.assertTrue(self.fixture.running)
+        self.assertEqual(list(self.helper.DB.parent.glob('.riverlb-restore-*')), [])
+
+    def test_restored_copy_refuses_links_and_size_overflow_without_replacing_database(self):
+        source = self.fixture.root / 'restored.db'
+        source.symlink_to(self.helper.DB)
+        with self.assertRaises(OSError):
+            self.helper.install_restored_file(source, self.helper.DB, os.geteuid())
+        source.unlink()
+        source.write_bytes(b'x' * 17)
+        source.chmod(0o600)
+        with patch.object(self.helper, 'MAX_CHECKPOINT', 16):
+            with self.assertRaisesRegex(RuntimeError, 'Unsafe restored database'):
+                self.helper.install_restored_file(source, self.helper.DB, os.geteuid())
+        self.assertEqual(self.helper.DB.read_bytes(), self.fixture.original_database)
+        self.assertEqual(list(self.helper.DB.parent.glob('.riverlb-restore-*')), [])
+
     def test_installed_helper_protocol_checked_before_service_stop(self):
         self.helper.write(self.helper.BROKER_POLICY, dict(uid=os.geteuid()))
         execute = self.fixture.run
