@@ -6,7 +6,8 @@ Requires=riverlb-privileged-prepare.service
 After=riverlb-privileged.service riverlb-privileged-prepare.service
 
 [Service]
-Type=simple
+Type=notify
+NotifyAccess=main
 User=riverlb
 Group=riverlb
 UMask=0077

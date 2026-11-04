@@ -27,6 +27,8 @@ assert config.stat().st_mode & 0o777 == 0o600
 assert Path("/var/lib/riverlb").stat().st_mode & 0o777 == 0o700
 assert "Conflicts=riverlb-ha.service" in Path("/usr/lib/systemd/system/riverlb.service").read_text()
 assert "Conflicts=riverlb.service" in Path("/usr/lib/systemd/system/riverlb-ha.service.d/packaging.conf").read_text()
+assert 'After=riverlb-ha.service' in Path('/usr/lib/systemd/system/pacemaker.service.d/riverlb.conf').read_text()
+assert 'Type=notify' in Path('/usr/lib/systemd/system/riverlb-ha.service').read_text()
 for helper in ("riverlb-authority", "riverlb-cluster", "riverlb-ha-deploy"):
     assert os.access(f"/usr/libexec/riverlb/{helper}", os.X_OK)
 assert os.access("/usr/lib/ocf/resource.d/riverlb/traffic", os.X_OK)

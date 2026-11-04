@@ -23,7 +23,7 @@ cp -a packaging/third-party "$stage/packaging/"
 cp appliance/base-media.json "$stage/appliance/"
 cp -a deploy/ha/vendor/fence-agents "$stage/deploy/ha/vendor/"
 cp deploy/ha/vendor/openstack-requirements.txt "$stage/deploy/ha/vendor/"
-for helper in riverlb-authority riverlb-cluster riverlb-traffic riverlb-ha.service; do
+for helper in riverlb-authority riverlb-cluster riverlb-traffic riverlb-ha.service pacemaker-riverlb.conf; do
     cp "deploy/ha/$helper" "$stage/deploy/ha/"
 done
 mkdir -m 0700 "$output"

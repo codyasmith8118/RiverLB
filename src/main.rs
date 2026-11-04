@@ -25,6 +25,7 @@ mod operations;
 mod privileged;
 mod runtime;
 mod server_tls;
+mod service_notify;
 mod storage;
 mod tls;
 mod traffic;
@@ -462,6 +463,11 @@ async fn main() -> Result<()> {
             let manage_network = manage_network || !external_network;
             let control =
                 control::Control::new(config, manage_network, database, ha_config).await?;
+            if let Err(error) = service_notify::ready() {
+                control.shutdown().await;
+                control.cleanup_network().await?;
+                return Err(error);
+            }
             tokio::select! { _ = shutdown() => {}, _ = control.stop.cancelled() => {} }
             control.shutdown().await;
             if tokio::time::timeout(Duration::from_secs(10), control.sessions.wait())

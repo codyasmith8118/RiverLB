@@ -23,7 +23,7 @@ def run():
         (project / "Cargo.lock").write_bytes(lock_bytes)
         (project / "LICENSE").write_text("fixture license\n")
         (project / "deploy/ha").mkdir(parents=True)
-        for name in ("riverlb-authority", "riverlb-cluster", "riverlb-traffic", "riverlb-ha.service"):
+        for name in ("riverlb-authority", "riverlb-cluster", "riverlb-traffic", "riverlb-ha.service", "pacemaker-riverlb.conf"):
             (project / "deploy/ha" / name).write_text("fixture helper\n")
         (project / "deploy/ha/vendor").mkdir()
         shutil.copytree(ROOT / "deploy/ha/vendor/fence-agents", project / "deploy/ha/vendor/fence-agents")

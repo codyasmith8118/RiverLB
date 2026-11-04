@@ -189,8 +189,14 @@ metric = 500
 
         def start(with_ha=True):
             nonlocal process
+            notification = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+            notification_path = root / 'notify.sock'
+            notification_path.unlink(missing_ok=True)
+            notification.bind(str(notification_path))
+            notification.settimeout(15)
             with logfile.open("a") as log:
-                process = subprocess.Popen(command(with_ha), stdout=log, stderr=log)
+                process = subprocess.Popen(command(with_ha), stdout=log, stderr=log,
+                                           env={**os.environ, 'NOTIFY_SOCKET': str(notification_path)})
 
             def ready():
                 if process.poll() is not None:
@@ -201,10 +207,17 @@ metric = 500
                 return not with_ha or (control_socket.exists() and ha("status")["role"] == "standby")
 
             try:
+                assert notification.recv(64) == b'READY=1'
+                if with_ha:
+                    assert control_socket.exists() and ha('status')['role'] == 'standby'
+                    assert_standby_network()
                 wait_until(ready)
             except BaseException:
                 stop(crash=True)
                 raise AssertionError(logfile.read_text())
+            finally:
+                notification.close()
+                notification_path.unlink(missing_ok=True)
 
         def stop(crash=False):
             nonlocal process

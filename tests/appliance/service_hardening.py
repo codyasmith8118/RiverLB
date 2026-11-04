@@ -37,6 +37,12 @@ def run():
     ha = audit.parse_unit(ROOT / "deploy/ha/riverlb-ha.service")
     assert not failures(standalone)
     assert not failures(ha, True)
+    assert ha[('Service', 'Type')] == 'notify'
+    assert ha[('Service', 'NotifyAccess')] == 'main'
+    ordering = audit.parse_unit(ROOT / 'deploy/ha/pacemaker-riverlb.conf')
+    assert ordering[('Unit', 'After')] == 'riverlb-ha.service'
+    assert ('Unit', 'Wants') not in ordering, 'Ordering must not enable an unconfigured HA service'
+    assert 'pacemaker.service.d/riverlb.conf' in rpm
     # Appliance drop-ins append readiness checks. Repair must stay first even
     # when inspecting the combined installed unit; ExecStartPre runs too late.
     with tempfile.TemporaryDirectory() as directory:

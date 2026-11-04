@@ -34,6 +34,12 @@ exercise the intentionally delegated operations and can deny its own service;
 it must not gain arbitrary root execution or overwrite publisher trust or root
 credentials. Fresh password/MFA proof is separate work under #18.
 
+The HA service signals systemd readiness after startup withdrawal, management
+initialization and HA control-socket binding. Pacemaker is ordered after that
+signal. Probing an HA socket before it exists can otherwise turn an ordinary
+reboot into an uncertain stop and power fencing. The OCF agent still refuses
+to treat an unreachable daemon as a successful stop.
+
 ## Protocol 1
 
 Each request uses a new Unix stream and a root-generated 256-bit challenge.

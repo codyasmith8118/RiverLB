@@ -94,6 +94,7 @@ install -m 0644 update-trust.json %{buildroot}%{_sysconfdir}/riverlb-updater/upd
 install -d -m 0700 %{buildroot}%{_sysconfdir}/riverlb %{buildroot}%{_localstatedir}/lib/riverlb
 install -m 0600 riverlb.toml %{buildroot}%{_sysconfdir}/riverlb/riverlb.toml
 install -D -m 0644 riverlb.service %{buildroot}%{_unitdir}/riverlb.service
+install -D -m 0644 pacemaker-riverlb.conf %{buildroot}%{_unitdir}/pacemaker.service.d/riverlb.conf
 install -D -m 0644 riverlb-sandbox.cil %{buildroot}%{_datadir}/selinux/packages/riverlb-sandbox.cil
 install -D -m 0755 riverlb-setup %{buildroot}%{_sbindir}/riverlb-setup
 install -D -m 0755 riverlb-brand-appliance %{buildroot}%{_libexecdir}/riverlb/riverlb-brand-appliance
@@ -200,6 +201,8 @@ fi
 %{_datadir}/riverlb/ha/
 %{_unitdir}/riverlb-ha.service
 %{_unitdir}/riverlb-ha.service.d/
+%dir %{_unitdir}/pacemaker.service.d
+%{_unitdir}/pacemaker.service.d/riverlb.conf
 %{_libexecdir}/riverlb/riverlb-cluster
 %{_libexecdir}/riverlb/riverlb-authority
 %{_libexecdir}/riverlb/riverlb-ha-deploy

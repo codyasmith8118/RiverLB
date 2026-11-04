@@ -25,7 +25,7 @@ def package(root, binary, software, manifest, compiler, output):
     files = {'riverlb': binary.read_bytes(), 'LICENSE': (root / 'LICENSE').read_bytes(),
              'README.md': b'''# RiverLB unsigned application candidate\n\nThis development archive contains the application, HA helpers, software inventory\nand preserved third-party notices. Its ABI matches the recorded compiler/builder.\nIt is not a production-qualified appliance or a signed offline update bundle.\nRun ./riverlb --help and consult the source docs before deployment. There is no\ndefault administrator password. HA also needs configured fencing and peer trust.\nsoftware/ records dependency inventory and source availability. Its SHA256SUMS\ndetects corruption; publisher identity requires the protected Sigstore provenance.\n''',
              'compiler.txt': compiler.encode()}
-    for helper in ('riverlb-authority', 'riverlb-cluster', 'riverlb-traffic', 'riverlb-ha.service'):
+    for helper in ('riverlb-authority', 'riverlb-cluster', 'riverlb-traffic', 'riverlb-ha.service', 'pacemaker-riverlb.conf'):
         files['deploy/ha/' + helper] = (root / 'deploy/ha' / helper).read_bytes()
     for file in ('sbom.cdx.json', 'licenses.json', 'notices.tar.gz'):
         files['software/' + file] = (software / file).read_bytes()
