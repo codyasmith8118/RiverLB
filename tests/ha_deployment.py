@@ -31,6 +31,17 @@ METADATA='''<resource-agent shortdesc="VMware REST"><longdesc>Remote power API</
 
 
 class Deployment(unittest.TestCase):
+    def test_fencing_connection_fields_cannot_inject_local_ssh_options(self):
+        document=METADATA.replace('<parameter name="api_path">', '<parameter name="login"><content type="string"/></parameter><parameter name="api_path">')
+        metadata=helper.parse_metadata('fence_virsh',document)
+        with patch.object(helper,'agent_metadata',return_value=metadata):
+            for field,bad in [('login','root -oProxyCommand=id'),('login','root;id'),
+                              ('ip','host -oProxyCommand=id'),('ip','-oProxyCommand=id'),('ip','$(id)')]:
+                with self.subTest(field=field,value=bad),self.assertRaises(ValueError):
+                    helper.fence_parameters(dict(fence_agent='fence_virsh',fence_parameters={field:bad}))
+            for address in ['192.0.2.1','2001:db8::1','controller.example']:
+                helper.fence_parameters(dict(fence_agent='fence_virsh',fence_parameters=dict(ip=address,login='root')))
+
     def test_sync_service_uses_the_prepared_ssh_configuration(self):
         service=(ROOT/'deploy/ha/riverlb-ha-sshd.service').read_text()
         self.assertIn('ExecStart=/usr/sbin/sshd -D -f '+str(helper.SSH_CONFIG)+'\n',service)
