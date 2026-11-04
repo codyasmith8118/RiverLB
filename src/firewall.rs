@@ -102,6 +102,9 @@ fn interface_for_address(snapshot: &serde_json::Value, ip: IpAddr) -> Result<Opt
 }
 
 async fn run(program: &Path, args: &[String]) -> Result<Output> {
+    if crate::privileged::enabled() && program == Path::new(PROGRAM) {
+        return crate::privileged::command("firewall", serde_json::json!({"argv":args})).await;
+    }
     tokio::time::timeout(
         std::time::Duration::from_secs(5),
         tokio::process::Command::new(program)
@@ -349,6 +352,9 @@ pub fn plan(old: &Rules, new: &Rules) -> Vec<Step> {
     steps
 }
 pub async fn execute(args: &[String]) -> Result<bool> {
+    if crate::privileged::enabled() {
+        return crate::privileged::firewall(args).await;
+    }
     execute_at(Path::new(PROGRAM), args).await
 }
 async fn execute_at(program: &Path, args: &[String]) -> Result<bool> {

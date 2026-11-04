@@ -55,14 +55,19 @@ impl Control {
         database: Option<PathBuf>,
         ha_config: Option<PathBuf>,
     ) -> Result<Arc<Self>> {
-        let ha_config_path = ha_config
-            .clone()
-            .unwrap_or_else(|| PathBuf::from("/etc/riverlb/ha.json"));
-        let ha_config =
-            ha_config.or_else(|| ha_config_path.exists().then(|| ha_config_path.clone()));
-        let ha = ha_config
-            .map(|p| crate::ha::Settings::load(&p).and_then(crate::ha::State::new))
-            .transpose()?;
+        let ha_config_path = ha_config.clone().unwrap_or_else(|| {
+            PathBuf::from(if crate::privileged::enabled() {
+                crate::ha::PRIVILEGED_SETTINGS
+            } else {
+                "/etc/riverlb/ha.json"
+            })
+        });
+        let selected = crate::ha::configured(&ha_config_path).await?;
+        ensure!(
+            ha_config.is_none() || selected.is_some(),
+            "Requested HA settings are missing"
+        );
+        let ha = selected.map(crate::ha::State::new).transpose()?;
         ensure!(
             ha.is_none() || manage_network,
             "HA requires managed Linux networking"

@@ -237,6 +237,25 @@ impl Default for Backend {
 }
 impl Backend {
     async fn run(&self, program: &std::path::Path, args: &[String]) -> Result<String> {
+        if crate::privileged::enabled() {
+            let tool = if program == self.nmcli {
+                "nmcli"
+            } else if program == self.busctl {
+                "busctl"
+            } else if program == self.ip {
+                "ip_link"
+            } else {
+                anyhow::bail!("Unknown privileged interface operation")
+            };
+            let output =
+                crate::privileged::command("network_manager", json!({"tool":tool,"argv":args}))
+                    .await?;
+            ensure!(
+                output.status.success(),
+                "Privileged NetworkManager operation failed"
+            );
+            return Ok(String::from_utf8(output.stdout)?.trim_end().to_string());
+        }
         let result = tokio::time::timeout(
             Duration::from_secs(25),
             tokio::process::Command::new(program)

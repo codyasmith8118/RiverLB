@@ -3,6 +3,7 @@ import base64
 import json
 import hashlib
 import os
+import pwd
 from pathlib import Path
 import shutil
 import stat
@@ -26,6 +27,8 @@ assert config.stat().st_mode & 0o777 == 0o600
 assert Path("/var/lib/riverlb").stat().st_mode & 0o777 == 0o700
 assert "Conflicts=riverlb-ha.service" in Path("/usr/lib/systemd/system/riverlb.service").read_text()
 assert "Conflicts=riverlb.service" in Path("/usr/lib/systemd/system/riverlb-ha.service.d/packaging.conf").read_text()
+assert 'After=riverlb-ha.service' in Path('/usr/lib/systemd/system/pacemaker.service.d/riverlb.conf').read_text()
+assert 'Type=notify' in Path('/usr/lib/systemd/system/riverlb-ha.service').read_text()
 for helper in ("riverlb-authority", "riverlb-cluster", "riverlb-ha-deploy"):
     assert os.access(f"/usr/libexec/riverlb/{helper}", os.X_OK)
 assert os.access("/usr/lib/ocf/resource.d/riverlb/traffic", os.X_OK)
@@ -117,8 +120,14 @@ thread.start()
 with socket.socket() as reservation:
     reservation.bind(("127.0.0.1", 0))
     vip_port = reservation.getsockname()[1]
-process = subprocess.Popen(["riverlb", "serve", "--config", str(config),
+subprocess.run(['/usr/libexec/riverlb/privileged/prepare.py'], check=True, timeout=30)
+account = pwd.getpwnam('riverlb')
+assert account.pw_uid > 0
+helper = subprocess.Popen(['/usr/libexec/riverlb/privileged/riverlb-privileged', 'serve'],
+                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+process = subprocess.Popen(["riverlb", "serve", "--privileged", "--config", str(config),
                             "--database", "/var/lib/riverlb/riverlb.db", "--external-network"],
+                           user=account.pw_uid, group=account.pw_gid, extra_groups=[],
                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 try:
     for _ in range(100):
@@ -197,7 +206,7 @@ try:
     local = runtime / 'operations.sock'
     for path, expected_mode in ((runtime, 0o700), (local, 0o600)):
         metadata = path.lstat()
-        assert metadata.st_uid == 0 and stat.S_IMODE(metadata.st_mode) == expected_mode
+        assert metadata.st_uid == account.pw_uid and stat.S_IMODE(metadata.st_mode) == expected_mode
     assert stat.S_ISSOCK(local.lstat().st_mode)
     snapshot = local_status()
     assert set(snapshot) == {'version', 'revision', 'management', 'management_secure',
@@ -223,6 +232,30 @@ try:
         "\nexcept PermissionError: raise SystemExit(0)"
         "\nraise SystemExit(1)"], user=65534, group=65534, extra_groups=[], capture_output=True, timeout=5)
     assert denied.returncode == 0, 'Non-root local IPC access must be refused'
+    same_uid = subprocess.run([sys.executable, '-c',
+        "import socket,json; s=socket.socket(socket.AF_UNIX); s.settimeout(3);"
+        "s.connect('/run/riverlb/operations.sock'); s.sendall(b'{\"action\":\"status\"}\\n');"
+        "assert 'error' in json.loads(s.recv(4096))"],
+        user=account.pw_uid, group=account.pw_gid, extra_groups=[], capture_output=True, timeout=5)
+    assert same_uid.returncode == 0, 'Service UID must not impersonate the root readiness client'
+    status_lines = Path(f'/proc/{process.pid}/status').read_text().splitlines()
+    identity = next(line for line in status_lines if line.startswith('Uid:'))
+    assert {int(value) for value in identity.split()[1:]} == {account.pw_uid}
+    protected = subprocess.run([sys.executable, '-c',
+        "import os; paths=['/etc/riverlb-privileged/policy.json',"
+        "'/var/lib/riverlb-privileged/ownership.json',"
+        "'/etc/riverlb-updater/update-trust.json','/usr/lib/riverlb/base/riverlb'];"
+        "\nfor path in paths:"
+        "\n try: fd=os.open(path,os.O_WRONLY|os.O_CREAT,0o600)"
+        "\n except PermissionError: continue"
+        "\n else: os.close(fd); raise SystemExit(1)"],
+        user=account.pw_uid, group=account.pw_gid, extra_groups=[], capture_output=True, timeout=5)
+    assert protected.returncode == 0, 'Service UID must not modify root policy, journals, trust or executables'
+    same_group = subprocess.run([sys.executable, '-c',
+        "import socket; s=socket.socket(socket.AF_UNIX); s.settimeout(3);"
+        "s.connect('/run/riverlb-privileged/control.sock'); assert not s.recv(1)"],
+        user=65534, group=account.pw_gid, extra_groups=[], capture_output=True, timeout=5)
+    assert same_group.returncode == 0, 'Helper must reject an unknown UID even with socket group access'
 
     # Sign only the actual installed package executable. Fixture trust and its
     # private key exist solely in this container and are never release inputs.
@@ -269,7 +302,7 @@ try:
             assert staged['manifest']['sequence'] == 41 and staged['manifest']['version'] == version
             saved_bundle = Path('/var/lib/riverlb/riverlb.update-bundle.json')
             metadata = saved_bundle.lstat()
-            assert stat.S_ISREG(metadata.st_mode) and metadata.st_uid == 0
+            assert stat.S_ISREG(metadata.st_mode) and metadata.st_uid == account.pw_uid
             assert stat.S_IMODE(metadata.st_mode) == 0o600
             original = hashlib.sha256(saved_bundle.read_bytes()).digest()
             status = api('updates/status')
@@ -301,7 +334,14 @@ finally:
         raise AssertionError("Packaged daemon failed to stop cleanly")
     backend.shutdown()
     backend.server_close()
+    helper.terminate()
+    try:
+        helper_output, _ = helper.communicate(timeout=10)
+    except subprocess.TimeoutExpired:
+        helper.kill()
+        helper_output, _ = helper.communicate()
+        raise AssertionError('Privileged helper failed to stop')
     assert process.returncode == 0, output
 assert Path("/var/lib/riverlb/riverlb.db").exists()
 assert not Path('/run/riverlb/operations.sock').exists(), 'Installed shutdown must remove its own readiness socket'
-print("Installed RPM login, TCP forwarding, root-only local IPC, signed update CLI/API staging, tamper/replay rejection and clean shutdown passed")
+print("Installed non-root RPM login, TCP forwarding, authenticated helper, protected root state, root-only readiness IPC, signed update staging and clean shutdown passed")

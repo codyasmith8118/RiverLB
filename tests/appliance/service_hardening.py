@@ -2,6 +2,7 @@
 import copy
 import importlib.util
 from pathlib import Path
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("appliance_security", ROOT / "scripts/audit-appliance-security.py")
@@ -27,10 +28,33 @@ def run():
     rpm = (ROOT / "packaging/rpm/riverlb.spec").read_text()
     assert 'semodule -i %{_datadir}/selinux/packages/riverlb-sandbox.cil || exit $?' in rpm
     assert 'semodule -r riverlb-sandbox' in rpm
+    for name in ['riverlb-update.service', 'riverlb-update-recovery.service']:
+        updater = audit.parse_unit(ROOT / 'packaging/update' / name)
+        assert set(updater[('Service', 'CapabilityBoundingSet')].split()) == {
+            'CAP_CHOWN', 'CAP_DAC_OVERRIDE', 'CAP_FOWNER', 'CAP_SETUID', 'CAP_SETGID'}
+        assert set(updater[('Service', 'AmbientCapabilities')].split()) == {'CAP_SETUID', 'CAP_SETGID'}
     standalone = audit.parse_unit(ROOT / "packaging/rpm/riverlb.service")
     ha = audit.parse_unit(ROOT / "deploy/ha/riverlb-ha.service")
     assert not failures(standalone)
     assert not failures(ha, True)
+    assert ha[('Service', 'Type')] == 'notify'
+    assert ha[('Service', 'NotifyAccess')] == 'main'
+    ordering = audit.parse_unit(ROOT / 'deploy/ha/pacemaker-riverlb.conf')
+    assert ordering[('Unit', 'After')] == 'riverlb-ha.service'
+    assert ('Unit', 'Wants') not in ordering, 'Ordering must not enable an unconfigured HA service'
+    assert 'pacemaker.service.d/riverlb.conf' in rpm
+    # Appliance drop-ins append readiness checks. Repair must stay first even
+    # when inspecting the combined installed unit; ExecStartPre runs too late.
+    with tempfile.TemporaryDirectory() as directory:
+        combined = Path(directory) / 'combined.service'
+        combined.write_text((ROOT / 'packaging/rpm/riverlb.service').read_text()
+                            + '\n' + (ROOT / 'appliance/firstboot/firstboot-gate.conf').read_text())
+        effective = audit.parse_unit(combined)
+        assert effective[('Service', 'ExecCondition')].splitlines() == [
+            '+/usr/libexec/riverlb/privileged/prepare.py',
+            '/usr/sbin/riverlb-setup --check-ready',
+        ]
+        assert not failures(effective)
     for field, bad, expected in [
         ("NoNewPrivileges", "false", "NoNewPrivileges"),
         ("CapabilityBoundingSet", "CAP_SYS_ADMIN CAP_NET_ADMIN", "bounded capabilities"),
@@ -42,6 +66,7 @@ def run():
         ("ProtectSystem", "false", "ProtectSystem"),
         ("SystemCallFilter", "@system-service", "dangerous syscall groups blocked"),
         ("ExecStartPre", "/usr/bin/true", "preflight on every service start"),
+        ("ExecCondition", "/usr/sbin/riverlb-setup --check-ready", "ownership repair before appliance readiness"),
     ]:
         altered = copy.deepcopy(standalone)
         altered[("Service", field)] = bad
@@ -49,14 +74,12 @@ def run():
     altered = copy.deepcopy(ha)
     altered[("Service", "OpenFile")] = ""
     assert "read-only host network namespace" in failures(altered, True)
-    altered = copy.deepcopy(ha)
-    altered[("Service", "RestrictAddressFamilies")] = "AF_INET AF_INET6 AF_UNIX AF_NETLINK"
-    assert "socket families" in failures(altered, True), "HA gratuitous ARP requires AF_PACKET"
     for field, bad, expected in [
-        ("BindPaths", "", "HA local IPC shared memory"),
-        ("InaccessiblePaths", "-/etc/shadow -/etc/gshadow -/dev/shm", "HA local IPC shared memory"),
-        ("NoExecPaths", "", "executable-memory bypasses blocked"),
-        ("ExecPaths", "/dev/shm", "executable-memory bypasses blocked"),
+        ("RestrictAddressFamilies", "AF_INET AF_INET6 AF_UNIX AF_NETLINK AF_PACKET", "socket families"),
+        ("User", "root", "dedicated non-root identity"),
+        ("AmbientCapabilities", "CAP_NET_RAW", "ambient low-port binding only"),
+        ("InaccessiblePaths", "-/etc/shadow -/etc/gshadow", "executable-memory bypasses blocked"),
+        ("ReadWritePaths", "/etc/riverlb-privileged", "protected helper state remains read-only"),
     ]:
         altered = copy.deepcopy(ha)
         altered[("Service", field)] = bad
@@ -64,8 +87,7 @@ def run():
     altered = copy.deepcopy(standalone)
     altered[("Unit", "Requires")] = ""
     assert "interrupted-update recovery before traffic" in failures(altered)
-    assert any(item["result"] == "warning" and "privilege separation" in item["detail"] for item in audit.check_service(standalone))
-    print("PASS appliance service hardening: bounded capabilities, writable paths, syscall/socket restrictions, immutable publisher trust, HA ARP allowance and update recovery ordering")
+    print("PASS appliance service hardening: bounded capabilities, writable paths, syscall/socket restrictions, immutable publisher trust, non-root helper delegation and update recovery ordering")
 
 
 if __name__ == "__main__":

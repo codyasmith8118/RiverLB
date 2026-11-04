@@ -1,23 +1,19 @@
 # Appliance service security
 
-The standalone and HA services run with a restricted systemd sandbox. They retain
-root identity because current Linux network provisioning, firewalld authorization,
-and Pacemaker integration require it. This implementation limits privileges and
-writable paths; it does not provide complete separation between the traffic
-daemon and privileged network control. A compromised process still has network
-administration capability and access to RiverLB's private state.
+The standalone and HA services run as the dedicated non-login `riverlb`
+account with a restricted systemd sandbox. Their only capability is
+`CAP_NET_BIND_SERVICE`. Network changes, firewalld, ICMP probes, HA authority,
+SSH synchronization, provisioning, and address announcements go through the
+root-owned authenticated helper. See [privilege separation](privileged-helper.md)
+for its threat model, closed protocol, policy, migration and recovery procedure.
+This implementation is under qualification; the source declaration alone does
+not establish installed or platform acceptance.
 
-The standalone capability bound contains only `CAP_NET_ADMIN`,
-`CAP_NET_BIND_SERVICE`, and `CAP_NET_RAW`. These support managed networking, privileged listener ports,
-ICMP probes, device binding, and HA gratuitous ARP. Standalone excludes other
-capabilities, including mount, kernel module, identity switching, and broad
-filesystem bypass privileges. `NoNewPrivileges` prevents children gaining privileges through
-setuid programs or file capabilities. HA additionally retains `CAP_CHOWN`,
-`CAP_FOWNER`, `CAP_SETUID`, `CAP_SETGID`, and `CAP_DAC_OVERRIDE` for fixed pcs setup
-operations and hacluster-owned state/IPC. Consequently HA does retain broader
-filesystem and identity privileges; removing these safely requires qualifying
-separate provisioning and runtime helpers against a real cluster. The source
-audit reports this distinction explicitly. Neither service grants `CAP_SYS_ADMIN`.
+`NoNewPrivileges` prevents children gaining privileges through setuid programs
+or file capabilities. Neither application service grants `CAP_NET_ADMIN`,
+`CAP_NET_RAW`, identity switching, filesystem bypass, or `CAP_SYS_ADMIN`.
+The separate root helper retains the network and fixed pcs privileges needed
+for its delegated operations. Its larger authority remains a review boundary.
 
 Both units use systemd's `OpenFile=` to pass a read-only host network namespace
 descriptor named `riverlb-host-netns`. RiverLB compares its device and inode with its own
@@ -30,12 +26,11 @@ The descriptor is marked close-on-exec before firewall commands run. This servic
 setting requires systemd 253 or later, as provided by the appliance's OS baseline.
 
 The filesystem is read-only except `/etc/riverlb`, `/var/lib/riverlb`,
-`/run/riverlb`, and the optional backup mount `/mnt/riverlb-backups`. HA also permits
-the local Corosync, pcsd, and Pacemaker state directories used by the fixed cluster
-helper. HA also shares the host's `/dev/shm` mount because Pacemaker's libqb
-control channel uses shared-memory files. `NoExecPaths=/dev/shm` prohibits
-executing files from that mount; `memfd_create` remains blocked. The standalone
-service keeps shared memory inaccessible. Home directories remain read-only for existing SSH identity access.
+`/run/riverlb`, and the optional backup mount `/mnt/riverlb-backups`. Both
+application units keep host shared memory inaccessible and block `memfd_create`.
+HA's pcs state, protected SSH identity and shared-memory IPC belong to the root
+helper's sandbox; they are not writable by the web daemon. Home directories
+remain read-only.
 OS password hashes are inaccessible. Publisher trust at
 `/etc/riverlb-updater/update-trust.json` remains outside writable daemon paths;
 install or rotate it through the appliance console before restarting the service.
@@ -46,14 +41,15 @@ preflight operation and is not a general command-execution endpoint.
 
 The services restrict socket families, namespace creation, realtime scheduling,
 setuid file creation, personality changes, writable executable memory, and
-dangerous syscall groups. Only HA permits packet sockets. The update activation
+dangerous syscall groups. Neither application service permits packet sockets. The update activation
 and boot recovery helpers run in separate fixed-operation units; these units have
 their own filesystem permissions and are not executed as arbitrary administrator
 commands supplied through the portal.
 
 Scheduled backups require an independently mounted directory. The default unit
 permits `/mnt/riverlb-backups` if it exists. For another destination, add only that
-mount point through a service override and requalify the effective writable paths:
+mount point through a service override, grant the dedicated service account access
+to that backup directory, and requalify the effective writable paths:
 
 ```ini
 [Service]
@@ -87,8 +83,8 @@ sudo /usr/libexec/riverlb/riverlb-audit-security --live --service riverlb-ha.ser
 The source audit validates declared policy; it does not demonstrate kernel or
 SELinux enforcement. The live audit reads effective unit restrictions, process
 capabilities, private directory modes, and SELinux enforcing state without
-changing the appliance. It reports retained root identity and operational
-qualification as explicit limitations.
+changing the appliance. It requires the dedicated service UID and private application directory ownership.
+Operational qualification remains a separate acceptance gate.
 
 Before publishing an image, verify boot and management access, configuration
 apply/rollback, real firewalld and VLAN provisioning, ICMP/TLS probes, signed

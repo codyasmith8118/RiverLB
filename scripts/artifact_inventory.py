@@ -247,7 +247,7 @@ def verify_application_archive(path, root, software, manifest, compiler, binary_
         raise ValueError('Application archive name differs from source/platform')
     expected = {'riverlb': binary_sha256, 'LICENSE': sha256(root / 'LICENSE'),
                 'compiler.txt': hashlib.sha256(compiler.encode()).hexdigest()}
-    for name in ('riverlb-authority', 'riverlb-cluster', 'riverlb-traffic', 'riverlb-ha.service'):
+    for name in ('riverlb-authority', 'riverlb-cluster', 'riverlb-traffic', 'riverlb-ha.service', 'pacemaker-riverlb.conf'):
         expected['deploy/ha/' + name] = sha256(root / 'deploy/ha' / name)
     for name in ('sbom.cdx.json', 'licenses.json', 'notices.tar.gz'):
         expected['software/' + name] = sha256(software / name)

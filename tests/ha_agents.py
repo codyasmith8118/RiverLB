@@ -142,5 +142,18 @@ class Agents(unittest.TestCase):
                 with self.assertRaises(ValueError):module.verify_fencing(group)
         with self.assertRaises(ValueError):module.verify_fencing(dict(group,fencing_resources=[]))
 
+    def test_enable_after_recovery_does_not_require_initial_placement_constraint(self):
+        module=load('riverlb-cluster')
+        group=dict(cluster_id='lb',node_id='a',peer_id='b',local_address='192.0.2.10',peer_address='192.0.2.20')
+        for present in [False,True]:
+            constraint='<rsc_location id="riverlb-initial-primary"/>' if present else ''
+            cib=('<cib><configuration><constraints>'+constraint+'</constraints></configuration></cib>').encode()
+            with self.subTest(initial_constraint=present),patch.object(module,'verify_fencing'), \
+                 patch.object(module.subprocess,'check_output',return_value=cib),patch.object(module,'run') as command:
+                module.execute(dict(action='enable',group=group))
+                calls=[call.args for call in command.call_args_list]
+                self.assertIn(('resource','enable','riverlb-traffic','--wait=120'),calls)
+                self.assertEqual(('constraint','remove','riverlb-initial-primary') in calls,present)
+
 
 if __name__=='__main__':unittest.main()

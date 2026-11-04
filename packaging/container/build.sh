@@ -27,8 +27,9 @@ install -m 0644 packaging/rpm/riverlb-sandbox.cil /build/riverlb-payload/
 install -m 0644 packaging/update/update-trust.json /build/riverlb-payload/
 install -m 0755 packaging/update/riverlb-launcher packaging/update/riverlb-update /build/riverlb-payload/
 install -m 0644 packaging/update/riverlb-update.service packaging/update/riverlb-update-recovery.service /build/riverlb-payload/
+cp -a deploy/privileged /build/riverlb-payload/
 install -m 0644 docs/high-availability.md /build/riverlb-payload/
-for file in riverlb-authority riverlb-cluster riverlb-traffic riverlb-ha.service riverlb-ha-deploy riverlb-ha-deploy.service riverlb-ha-activate.service riverlb-ha-sshd.service riverlb-ha-tmpfiles.conf; do
+for file in riverlb-authority riverlb-cluster riverlb-traffic riverlb-ha.service pacemaker-riverlb.conf riverlb-ha-deploy riverlb-ha-deploy.service riverlb-ha-activate.service riverlb-ha-sshd.service riverlb-ha-tmpfiles.conf; do
     cp "deploy/ha/$file" /build/riverlb-payload/
 done
 cp -a deploy/ha/vendor/fence-agents /build/riverlb-payload/fence-agents-source

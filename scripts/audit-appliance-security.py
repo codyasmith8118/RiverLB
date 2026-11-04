@@ -6,15 +6,14 @@ changes SELinux policy, grants privileges or rewrites appliance files.
 """
 import argparse
 import json
+import pwd
 import stat
 import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CAPABILITIES = {"CAP_NET_ADMIN", "CAP_NET_BIND_SERVICE", "CAP_NET_RAW"}
-HA_CAPABILITIES = CAPABILITIES | {"CAP_CHOWN", "CAP_FOWNER", "CAP_SETUID", "CAP_SETGID", "CAP_DAC_OVERRIDE"}
-CAPABILITY_MASK = (1 << 10) | (1 << 12) | (1 << 13)
-HA_CAPABILITY_MASK = CAPABILITY_MASK | (1 << 0) | (1 << 1) | (1 << 3) | (1 << 6) | (1 << 7)
+CAPABILITIES = {"CAP_NET_BIND_SERVICE"}
+CAPABILITY_MASK = 1 << 10
 BOOL_POLICY = ["NoNewPrivileges", "PrivateTmp", "PrivateDevices", "ProtectKernelTunables", "ProtectKernelModules", "ProtectKernelLogs", "ProtectControlGroups", "ProtectClock", "ProtectHostname", "RestrictSUIDSGID", "RestrictRealtime", "RestrictNamespaces", "LockPersonality", "MemoryDenyWriteExecute"]
 TRUE_VALUES = {"true", "yes", "1"}
 
@@ -28,7 +27,11 @@ def parse_unit(path):
             section = line[1:-1]
         elif "=" in line and not line.startswith(("#", ";")):
             key, value = line.split("=", 1)
-            values[(section, key)] = value.strip()
+            value = value.strip()
+            previous = values.get((section, key), "")
+            if previous and value and key in {"After", "Wants", "Requires", "ExecCondition", "ExecStartPre", "ReadWritePaths", "CapabilityBoundingSet"}:
+                value = previous + "\n" + value
+            values[(section, key)] = value
     return values
 
 
@@ -44,15 +47,13 @@ def check_service(values, ha=False):
     for key, expected in [("ProtectSystem", "strict"), ("ProtectHome", "read-only"), ("UMask", "0077"), ("KillMode", "control-group")]:
         checks.append(finding(key, get(key) == expected, get(key) or "missing"))
     capabilities = set(get("CapabilityBoundingSet").upper().split())
-    checks.append(finding("bounded capabilities", capabilities == (HA_CAPABILITIES if ha else CAPABILITIES), " ".join(sorted(capabilities))))
+    checks.append(finding("bounded capabilities", capabilities == CAPABILITIES, " ".join(sorted(capabilities))))
     checks.append(finding("read-only host network namespace", get("OpenFile").split() == ["/proc/1/ns/net:riverlb-host-netns:read-only"], "A single read-only namespace descriptor permits firewall detection without broader capabilities"))
-    if ha:
-        checks.append(finding("HA provisioning privileges retained", False, "HA retains ownership, identity switching, and filesystem bypass capabilities for fixed pcs helpers and hacluster IPC. Separating provisioning requires further live qualification.", warning=True))
     families = set(get("RestrictAddressFamilies").split())
-    expected = {"AF_INET", "AF_INET6", "AF_UNIX", "AF_NETLINK"} | ({"AF_PACKET"} if ha else set())
+    expected = {"AF_INET", "AF_INET6", "AF_UNIX", "AF_NETLINK"}
     checks.append(finding("socket families", families == expected, " ".join(sorted(families))))
     write_paths = {p.lstrip("-") for p in get("ReadWritePaths").split()}
-    expected = {"/etc/riverlb", "/var/lib/riverlb", "/run/riverlb", "/mnt/riverlb-backups", "/run/riverlb-ha-deploy"} | ({"/etc/corosync", "/var/lib/pcsd", "/var/lib/pacemaker", "/dev/shm"} if ha else set())
+    expected = {"/etc/riverlb", "/var/lib/riverlb", "/run/riverlb", "/mnt/riverlb-backups"}
     checks.append(finding("writable path scope", write_paths == expected, " ".join(sorted(write_paths))))
     trust="/etc/riverlb-updater/update-trust.json"
     trust_writable=any(trust==path or trust.startswith(path.rstrip("/")+"/") for path in write_paths)
@@ -63,16 +64,17 @@ def check_service(values, ha=False):
     checks.append(finding("native syscall architecture", get("SystemCallArchitectures") == "native", get("SystemCallArchitectures")))
     inaccessible = {p.lstrip("-") for p in get("InaccessiblePaths").split()}
     shm_blocked = "/dev/shm" in inaccessible
-    if ha:
-        shm_blocked = "/dev/shm" in get("NoExecPaths").split() and not get("ExecPaths")
-        checks.append(finding("HA local IPC shared memory", get("BindPaths").split() == ["/dev/shm"] and "/dev/shm" not in inaccessible, "Pacemaker IPC requires the host shared-memory mount; execution remains prohibited"))
     checks.append(finding("executable-memory bypasses blocked", "memfd_create" in deny and shm_blocked, get("SystemCallFilter")))
-    checks.append(finding("root identity still required", get("User") != "root", "Root identity is retained for firewalld and HA integration. This is a bounded sandbox, not complete privilege separation.", warning=True))
+    checks.append(finding("dedicated non-root identity", get("User") == "riverlb" and get("Group") == "riverlb", get("User") + ":" + get("Group")))
+    checks.append(finding("ambient low-port binding only", set(get("AmbientCapabilities").upper().split()) == CAPABILITIES, get("AmbientCapabilities")))
+    checks.append(finding("helper-backed startup", "--privileged" in get("ExecStart").split() and "riverlb-privileged-prepare.service" in values.get(("Unit", "Requires"), "").split() and "riverlb-privileged.service" in values.get(("Unit", "After"), "").split(), "Installed service must require preparation and an authenticated helper"))
+    checks.append(finding("ownership repair before appliance readiness", get("ExecCondition").splitlines()[:1] == ["+/usr/libexec/riverlb/privileged/prepare.py"], "Repair RPM/restore ownership before conditions execute as the service account"))
+    checks.append(finding("protected helper state remains read-only", not any(protected == path or protected.startswith(path.rstrip("/") + "/") for path in write_paths for protected in ["/etc/riverlb-privileged", "/var/lib/riverlb-privileged", "/run/riverlb-privileged", "/var/lib/riverlb-updater"]), "Root policy, identities, ownership and recovery journals are outside application writes"))
     if not ha:
         requires = values.get(("Unit", "Requires"), "").split()
         after = values.get(("Unit", "After"), "").split()
         checks.append(finding("interrupted-update recovery before traffic", "riverlb-update-recovery.service" in requires and "riverlb-update-recovery.service" in after, "Recovery must run before the standalone daemon"))
-        checks.append(finding("preflight on every service start", get("ExecStartPre")=="+/usr/libexec/riverlb/riverlb-update preflight", get("ExecStartPre")))
+        checks.append(finding("preflight on every service start", "+/usr/libexec/riverlb/riverlb-update preflight" in get("ExecStartPre").splitlines(), get("ExecStartPre")))
     return checks
 
 
@@ -92,19 +94,21 @@ def runtime_checks(service):
     checks.append(finding("runtime ProtectSystem", values.get("ProtectSystem") == "strict", values.get("ProtectSystem", "missing")))
     checks.append(finding("runtime ProtectHome", values.get("ProtectHome") == "read-only", values.get("ProtectHome", "missing")))
     caps = {p.upper() for p in values.get("CapabilityBoundingSet", "").split()}
-    checks.append(finding("runtime capability bound", caps == (HA_CAPABILITIES if ha else CAPABILITIES), " ".join(sorted(caps))))
+    checks.append(finding("runtime capability bound", caps == CAPABILITIES, " ".join(sorted(caps))))
     pid = int(values.get("MainPID", "0"))
     checks.append(finding("service is running", values.get("ActiveState") == "active" and pid > 0, str(values)))
     if pid > 0:
         status = dict(line.split(":", 1) for line in Path(f"/proc/{pid}/status").read_text().splitlines() if ":" in line)
+        owner = pwd.getpwnam("riverlb").pw_uid
+        checks.append(finding("process uses dedicated non-root UID", owner > 0 and {int(value) for value in status.get("Uid", "0").split()} == {owner}, status.get("Uid", "missing").strip()))
         effective = int(status.get("CapEff", "0").strip(), 16)
-        checks.append(finding("process has no capabilities outside bound", effective & ~(HA_CAPABILITY_MASK if ha else CAPABILITY_MASK) == 0, f"CapEff={effective:016x}"))
+        checks.append(finding("process has no capabilities outside bound", effective & ~CAPABILITY_MASK == 0, f"CapEff={effective:016x}"))
         checks.append(finding("process no-new-privileges", status.get("NoNewPrivs", "").strip() == "1", status.get("NoNewPrivs", "missing").strip()))
     enforce = Path("/sys/fs/selinux/enforce")
     checks.append(finding("SELinux enforcing", enforce.exists() and enforce.read_text().strip() == "1", "The audit requires an enforcing AlmaLinux guest; it does not install a policy."))
     for path in [Path("/etc/riverlb"), Path("/var/lib/riverlb"), Path("/run/riverlb")]:
         info = path.lstat()
-        checks.append(finding("private " + str(path), stat.S_ISDIR(info.st_mode) and info.st_uid == 0 and stat.S_IMODE(info.st_mode) == 0o700, f"uid={info.st_uid} mode={stat.S_IMODE(info.st_mode):04o}"))
+        checks.append(finding("private " + str(path), stat.S_ISDIR(info.st_mode) and info.st_uid == pwd.getpwnam("riverlb").pw_uid and stat.S_IMODE(info.st_mode) == 0o700, f"uid={info.st_uid} mode={stat.S_IMODE(info.st_mode):04o}"))
     checks.append(finding("operational qualification still required", False, "Boot, real firewalld/network changes, HA fencing and ARP, SSH sync, update rollback, and SELinux AVC review must be exercised in a disposable appliance VM.", warning=True))
     return checks
 

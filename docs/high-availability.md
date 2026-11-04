@@ -82,7 +82,10 @@ failover on a particular deployment platform.
 
 ## Install dependencies and integration files (source deployments)
 
-On AlmaLinux 9/10, enable the `highavailability` repository and install the HA tools. Confirm package availability for the installed release using the AlmaLinux repository documentation above.
+Install the matching RiverLB core RPM first. Its dedicated account, root helper
+and preparation units are required by the installed HA service. On AlmaLinux 10,
+enable the `highavailability` repository and install the HA tools. Confirm package
+availability using the AlmaLinux repository documentation above.
 
 ```bash
 sudo dnf config-manager --set-enabled highavailability
@@ -91,7 +94,18 @@ cargo build --release --locked
 sudo deploy/ha/install.sh
 ```
 
-The installer copies the release binary, OCF agent, authority helper, cluster helper and `riverlb-ha.service`. It does not start services or create a cluster. Configure `/etc/riverlb/riverlb.toml`, create the initial administrator/database, and install a node-specific `/etc/riverlb/ha.json` with mode 0600. Use [node-a.example.json](../deploy/ha/node-a.example.json) as a starting point. The HA socket and state-file parent directories must be root-owned and not writable by other users. The service creates `/run/riverlb` and `/var/lib/riverlb` with mode 0700. Network changes and address announcements require `CAP_NET_ADMIN` and `CAP_NET_RAW`; firewalld changes also require authorization. The supplied service runs as root.
+The installer replaces the root-owned base executable while preserving its
+launcher, then installs the OCF/authority/cluster helpers, HA service and
+Pacemaker ordering drop-in. It does not start services or create a cluster.
+Configure `/etc/riverlb/riverlb.toml`, create the initial administrator/database,
+and save node-specific group settings through the GUI. Installed settings and
+SSH credentials belong under `/etc/riverlb-privileged`, with root-only ownership;
+see [privilege separation and legacy console migration](privileged-helper.md).
+Both daemons run as `riverlb`; the fixed helper owns privileged operations.
+The HA service signals readiness after withdrawal and control-socket setup,
+before Pacemaker may probe it. Keep the ordering drop-in installed during reboots.
+Source console installations change the packaged executable and need their own
+qualification; they are not accepted development RPM deployments.
 
 Use the exact Corosync node names in `node_id`/`peer_id`, matching their operating-system hostnames. On the second node, reverse those IDs and the SSH target. Keep `cluster_id`, the ordered `floating_self_ips` list and logical VLAN names identical. Configure different management addresses and different non-floating self IP addresses. A VIP cannot equal a non-floating self IP. HA listeners must use explicit, non-loopback IPs.
 
@@ -103,13 +117,19 @@ Generate a separate synchronization SSH key on each appliance and pin the peer h
 restrict,command="/usr/bin/riverlb ha --socket /run/riverlb/ha.sock receive" ssh-ed25519 <peer-sync-public-key>
 ```
 
-The forced command receives JSON on stdin; it cannot activate/deactivate the appliance or execute arbitrary shell commands. Keep keys and `/etc/riverlb` private. `ssh_program` normally defaults to `/usr/bin/ssh`; its configurable override exists for controlled test fixtures, not to bypass SSH verification in deployment. Do not disable SELinux to work around an installation error; validate the service and SSH/socket accesses under the site's enforced policy.
+The forced command receives JSON on stdin; it cannot activate/deactivate the appliance or execute arbitrary shell commands. Keep installed keys under the root-only `/etc/riverlb-privileged` directory. Installed services use fixed SSH paths; configurable executable overrides exist only for explicit legacy/source fixtures. Do not disable SELinux to work around an installation error; validate service and SSH/socket accesses under the enforced policy.
 
 ## GUI setup and operation
 
 Open **High Availability → HA Configuration** on each appliance. Enter the group name, local and peer Corosync names/IPs, floating self IP names, synchronization mode, and the IDs of operator-configured fencing resources. Reverse local/peer fields on the second appliance. Group membership and floating-address changes require standby and a service restart; synchronization mode applies immediately. Set the same mode on both appliances so it remains consistent after failover.
 
-For an initial GUI setup, start the installed binary with `sudo /usr/bin/riverlb serve --config /etc/riverlb/riverlb.toml --database /var/lib/riverlb/riverlb.db`, save the group, then stop that process and start `sudo systemctl enable --now riverlb-ha`. Do not run both processes against one database. Without an explicit `--ha-config`, RiverLB discovers `/etc/riverlb/ha.json` on startup. The installer creates its private directories. Each appliance retains its local GUI group settings; these settings and SSH/fencing credentials are not part of traffic synchronization.
+For initial installed GUI setup, start `riverlb.service`, save the group, and use
+the deployment stages above to switch to `riverlb-ha.service`. Both use the
+dedicated non-root account and authenticated helper. Do not run a second process
+against the same database. Installed discovery uses protected HA settings;
+legacy `/etc/riverlb/ha.json` requires stopped console migration before enabling
+the helper. Each appliance retains its local GUI group settings and SSH/fencing
+credentials; traffic synchronization does not copy them.
 
 For source deployments or older installations without GUI deployment, both nodes require the installed HA packages/integration, restricted SSH synchronization keys and pinned host keys, and platform-specific fencing credentials configured by the operator. Authenticate both pcs hosts first (for example `pcs host auth riverlb-a addr=NODE_A_IP riverlb-b addr=NODE_B_IP -u hacluster`, entering the cluster password interactively). These are installation/trust prerequisites, not traffic settings.
 

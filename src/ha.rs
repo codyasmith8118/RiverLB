@@ -131,6 +131,39 @@ impl Settings {
         Ok(())
     }
 }
+pub const PRIVILEGED_SETTINGS: &str = "/etc/riverlb-privileged/ha.json";
+
+pub async fn configured(path: &Path) -> Result<Option<Settings>> {
+    if crate::privileged::enabled() {
+        ensure!(
+            path == Path::new(PRIVILEGED_SETTINGS),
+            "Installed HA uses fixed privileged settings"
+        );
+        let value = crate::privileged::call(
+            "ha",
+            serde_json::json!({"operation":"settings_read","data":{}}),
+        )
+        .await?;
+        let settings: Option<Settings> = serde_json::from_value(value)?;
+        if let Some(settings) = &settings {
+            settings.validate()?;
+        }
+        return Ok(settings);
+    }
+    if path.exists() {
+        Ok(Some(Settings::load(path)?))
+    } else {
+        Ok(None)
+    }
+}
+fn state_owner() -> u32 {
+    if crate::privileged::enabled() {
+        unsafe { libc::geteuid() }
+    } else {
+        0
+    }
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Certificate {
@@ -275,8 +308,8 @@ impl State {
             use std::os::unix::fs::{MetadataExt, PermissionsExt};
             let metadata = std::fs::metadata(&settings.state_file)?;
             ensure!(
-                metadata.uid() == 0 && metadata.permissions().mode() & 0o077 == 0,
-                "HA checkpoint must be root-owned and private"
+                metadata.uid() == state_owner() && metadata.permissions().mode() & 0o077 == 0,
+                "HA checkpoint must be service-owned and private"
             );
             serde_json::from_slice::<Checkpoint>(&std::fs::read(&settings.state_file)?)?
         } else {
@@ -331,8 +364,8 @@ impl State {
         }
         let metadata = std::fs::metadata(&path)?;
         ensure!(
-            metadata.uid() == 0 && metadata.permissions().mode() & 0o077 == 0,
-            "HA ownership journal must be private and root-owned"
+            metadata.uid() == state_owner() && metadata.permissions().mode() & 0o077 == 0,
+            "HA ownership journal must be private and service-owned"
         );
         let journal: OwnershipJournal = serde_json::from_slice(&std::fs::read(&path)?)?;
         ensure!(
@@ -442,13 +475,18 @@ struct Authority {
     owner: Option<String>,
 }
 pub async fn authority(state: &State) -> Result<Option<String>> {
-    let output = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        tokio::process::Command::new(&state.settings.authority)
-            .kill_on_drop(true)
-            .output(),
-    )
-    .await??;
+    let output = if crate::privileged::enabled() {
+        crate::privileged::command("ha", serde_json::json!({"operation":"authority","data":{}}))
+            .await?
+    } else {
+        tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            tokio::process::Command::new(&state.settings.authority)
+                .kill_on_drop(true)
+                .output(),
+        )
+        .await??
+    };
     ensure!(
         output.status.success(),
         "HA ownership authority unavailable"
@@ -706,8 +744,8 @@ async fn send_inner(control: &Control, periodic: bool) -> Result<()> {
         use std::os::unix::fs::{MetadataExt, PermissionsExt};
         let metadata = std::fs::metadata(&path)?;
         ensure!(
-            metadata.uid() == 0 && metadata.permissions().mode() & 0o077 == 0,
-            "HA synchronized snapshot must be root-owned and private"
+            metadata.uid() == state_owner() && metadata.permissions().mode() & 0o077 == 0,
+            "HA synchronized snapshot must be service-owned and private"
         );
         let mut previous: Bundle = serde_json::from_slice(&std::fs::read(path)?)?;
         ensure!(
@@ -731,58 +769,77 @@ async fn send_inner(control: &Control, periodic: bool) -> Result<()> {
         settings.peer_binary.display(),
         settings.peer_socket.display()
     );
-    tokio::time::timeout(std::time::Duration::from_secs(60), async {
-        let mut child = tokio::process::Command::new(&settings.ssh_program)
-            .kill_on_drop(true)
-            .args([
-                "-F",
-                "/dev/null",
-                "-o",
-                "BatchMode=yes",
-                "-o",
-                "StrictHostKeyChecking=yes",
-                "-o",
-                "ConnectTimeout=5",
-                "-o",
-                "ServerAliveInterval=5",
-                "-o",
-                "ServerAliveCountMax=2",
-                "-o",
-            ])
-            .arg(format!(
-                "UserKnownHostsFile={}",
-                settings.ssh_known_hosts.display()
-            ))
-            .arg("-i")
-            .arg(&settings.ssh_identity)
-            .arg("-p")
-            .arg(settings.ssh_port.to_string())
-            .arg("--")
-            .arg(&settings.ssh_target)
-            .arg(remote)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()?;
-        child
-            .stdin
-            .take()
-            .context("SSH stdin")?
-            .write_all(&bytes)
-            .await?;
-        let output = child.wait_with_output().await?;
+    if crate::privileged::enabled() {
+        let outgoing = Path::new("/var/lib/riverlb/ha-outgoing.json");
+        private_write(outgoing, &bundle)?;
+        let delivered =
+            crate::privileged::command("ha", serde_json::json!({"operation":"sync","data":{}}))
+                .await;
+        let _ = std::fs::remove_file(outgoing);
+        let output = delivered?;
         ensure!(
             output.status.success(),
-            "peer synchronization rejected or SSH failed"
+            "Peer synchronization rejected or SSH failed"
         );
         let result: serde_json::Value = serde_json::from_slice(&output.stdout)?;
         ensure!(
             result["role"] == "standby",
-            "peer did not acknowledge standby state"
+            "Peer did not acknowledge standby state"
         );
-        anyhow::Ok(())
-    })
-    .await??;
+    } else {
+        tokio::time::timeout(std::time::Duration::from_secs(60), async {
+            let mut child = tokio::process::Command::new(&settings.ssh_program)
+                .kill_on_drop(true)
+                .args([
+                    "-F",
+                    "/dev/null",
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    "StrictHostKeyChecking=yes",
+                    "-o",
+                    "ConnectTimeout=5",
+                    "-o",
+                    "ServerAliveInterval=5",
+                    "-o",
+                    "ServerAliveCountMax=2",
+                    "-o",
+                ])
+                .arg(format!(
+                    "UserKnownHostsFile={}",
+                    settings.ssh_known_hosts.display()
+                ))
+                .arg("-i")
+                .arg(&settings.ssh_identity)
+                .arg("-p")
+                .arg(settings.ssh_port.to_string())
+                .arg("--")
+                .arg(&settings.ssh_target)
+                .arg(remote)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .spawn()?;
+            child
+                .stdin
+                .take()
+                .context("SSH stdin")?
+                .write_all(&bytes)
+                .await?;
+            let output = child.wait_with_output().await?;
+            ensure!(
+                output.status.success(),
+                "peer synchronization rejected or SSH failed"
+            );
+            let result: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+            ensure!(
+                result["role"] == "standby",
+                "peer did not acknowledge standby state"
+            );
+            anyhow::Ok(())
+        })
+        .await??;
+    }
     if state.active.load(Ordering::SeqCst) {
         {
             let mut status = state.status.lock().unwrap();

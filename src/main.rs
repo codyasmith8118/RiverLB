@@ -22,8 +22,10 @@ mod monitor;
 mod nat;
 mod network;
 mod operations;
+mod privileged;
 mod runtime;
 mod server_tls;
+mod service_notify;
 mod storage;
 mod tls;
 mod traffic;
@@ -46,6 +48,8 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Report the installed fixed-operation helper protocol supported by this binary.
+    PrivilegedProtocol,
     /// Manage live configuration and status over verified HTTPS.
     Manage(management_cli::Options),
     /// Verify a signed offline bundle against root-owned publisher trust. Does not install.
@@ -101,6 +105,11 @@ enum Command {
     },
     /// Run the TCP data plane and authenticated web dashboard.
     Serve {
+        /// Use the installed authenticated privileged broker; never fall back to root commands.
+        #[arg(long)]
+        privileged: bool,
+        #[arg(long, default_value = privileged::SOCKET, requires = "privileged")]
+        privileged_socket: PathBuf,
         #[arg(short, long, default_value = "examples/riverlb.toml")]
         config: PathBuf,
         /// Local node settings; starts in standby and delegates ownership to Pacemaker.
@@ -198,6 +207,7 @@ async fn main() -> Result<()> {
     }
     // Database WAL files and generated secrets inherit private permissions.
     match command {
+        Command::PrivilegedProtocol => println!("1"),
         Command::Manage(options) => {
             let code = management_cli::run(options).await;
             if code != 0 {
@@ -434,15 +444,30 @@ async fn main() -> Result<()> {
             println!("{}", serde_json::to_string(&result)?);
         }
         Command::Serve {
+            privileged,
+            privileged_socket,
             config,
             ha_config,
             manage_network,
             external_network,
             database,
         } => {
+            if privileged {
+                anyhow::ensure!(
+                    unsafe { libc::geteuid() } != 0,
+                    "The broker-backed daemon must run without root identity"
+                );
+                privileged::configure(privileged_socket)?;
+                privileged::ready().await?;
+            }
             let manage_network = manage_network || !external_network;
             let control =
                 control::Control::new(config, manage_network, database, ha_config).await?;
+            if let Err(error) = service_notify::ready() {
+                control.shutdown().await;
+                control.cleanup_network().await?;
+                return Err(error);
+            }
             tokio::select! { _ = shutdown() => {}, _ = control.stop.cancelled() => {} }
             control.shutdown().await;
             if tokio::time::timeout(Duration::from_secs(10), control.sessions.wait())

@@ -35,8 +35,8 @@ def run():
             text=response.read().decode();assert response.code==expected,(response.code,text);return json.loads(text)
     def apply(config): return api(body={'revision':api()['revision'],'config':config},method='PUT')
     def member():return api('/api/v1/status')['virtual_servers'][0]['members'][0]
-    try:
-        with tempfile.TemporaryDirectory(prefix='riverlb-server-tls-') as folder:
+    with tempfile.TemporaryDirectory(prefix='riverlb-server-tls-') as folder:
+        try:
             root=Path(folder);path=root/'config.toml';cert,key=root/'cert.pem',root/'key.pem'
             subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=localhost','-addext','subjectAltName=DNS:localhost,IP:127.0.0.1','-addext','basicConstraints=critical,CA:FALSE','-keyout',key,'-out',cert],check=True,capture_output=True)
             backend=http.server.ThreadingHTTPServer(('127.0.0.1',0),Handler)
@@ -111,8 +111,10 @@ members=["127.0.0.1:{backend.server_port}"]
                 wait_until(lambda:api()['revision']==revision);transfer(tls=True)
                 assert api()['config']['server_tls_profiles'][0]['name']=='home-https'
                 print('PASS server TLS: verified backend/SNI, TLS bridging, health/timeout, validation, reload and durable profiles')
-    finally:
-        if process and process.poll() is None:process.send_signal(signal.SIGTERM);process.wait(timeout=15)
-        if backend:backend.shutdown();backend.server_close()
+        finally:
+            # Stop database writers before TemporaryDirectory removes their
+            # files; SQLite can otherwise recreate sidecars during cleanup.
+            if process and process.poll() is None:process.send_signal(signal.SIGTERM);process.wait(timeout=15)
+            if backend:backend.shutdown();backend.server_close()
 
 if __name__=='__main__':run()

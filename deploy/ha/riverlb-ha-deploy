@@ -16,7 +16,7 @@ import tempfile
 import time
 import xml.etree.ElementTree as ET
 
-ROOT = Path('/etc/riverlb')
+ROOT = Path('/etc/riverlb-privileged')
 RUN = Path('/run/riverlb-ha-deploy')
 HOST = Path('/etc/ssh/ssh_host_riverlb_ha_ed25519_key')
 AUTHORIZED = Path('/etc/ssh/riverlb-ha-authorized-keys')
@@ -158,6 +158,19 @@ def fence_parameters(request):
         if name in normalized:raise ValueError('Supply each fencing parameter once')
         normalized[name]=value
     parameters=normalized
+    # Several reviewed SSH agents build a command string before shlex splitting.
+    # Metadata allowlisting alone must not let a connection field add SSH options.
+    for field in ('login', 'username'):
+        if field in parameters and not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.@\\-]{0,254}\$?', parameters[field]):
+            raise ValueError('Use a plain fencing username without command syntax')
+    for field in ('ipaddr', 'ip'):
+        if field not in parameters:continue
+        value=parameters[field]
+        try:
+            if str(ipaddress.ip_address(value))!=value:raise ValueError()
+        except ValueError:
+            if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,252}', value):
+                raise ValueError('Use a canonical fencing IP address or plain hostname') from None
     # Many agents test for a boolean option's presence, including ssl_insecure.
     # Omit false flags so a false value cannot accidentally enable insecure TLS.
     for field in metadata['parameters']:
@@ -178,9 +191,10 @@ def fence_parameters(request):
         try:
             info=path.lstat()
             safe=(path.is_absolute() and path.resolve().is_relative_to(ROOT.resolve())
+                and not any(c.isspace() or c in "'\"\\" for c in str(path))
                 and stat.S_ISREG(info.st_mode) and info.st_uid==0 and not info.st_mode&0o077 and info.st_size<=1048576)
         except OSError:safe=False
-        if not safe:raise ValueError('Credential and host-key files must be root-owned private regular files under /etc/riverlb')
+        if not safe:raise ValueError('Credential and host-key files must be root-owned private regular files under /etc/riverlb-privileged')
     arguments=(None,metadata['target_parameter']) if metadata['target_parameter'] else (None,'none')
     if parameters.get('pcmk_host_argument') not in arguments:
         raise ValueError('The appliance mapping must use the selected agent target field')

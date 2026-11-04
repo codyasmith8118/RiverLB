@@ -103,7 +103,7 @@ class InventoryTests(unittest.TestCase):
         for name in ('cargo-vendor/foo-1.0', 'wheels'):
             (self.inputs / name).mkdir(parents=True)
         shutil.copytree(ROOT / 'deploy/ha/vendor/fence-agents', self.root / 'deploy/ha/vendor/fence-agents')
-        for helper in ('riverlb-authority', 'riverlb-cluster', 'riverlb-traffic', 'riverlb-ha.service'):
+        for helper in ('riverlb-authority', 'riverlb-cluster', 'riverlb-traffic', 'riverlb-ha.service', 'pacemaker-riverlb.conf'):
             (self.root / 'deploy/ha' / helper).write_text('public helper\n')
         (self.root / 'Cargo.toml').write_text('[package]\nname="riverlb"\nversion="1.0.1"\nlicense="MIT"\n')
         (self.root / 'LICENSE').write_text('public first-party license\n')

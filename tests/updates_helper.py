@@ -16,6 +16,7 @@ import stat
 import subprocess
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 ROOT = RealPath(__file__).resolve().parents[1]
@@ -52,7 +53,9 @@ class Fixture:
                          DB=self.root / 'var/lib/riverlb/riverlb.db',
                          CONFIG=self.root / 'etc/riverlb/riverlb.toml',
                          UPDATER=self.root / 'var/lib/riverlb-updater',
+                         WORK=self.root / 'var/lib/riverlb-updater-work',
                          TRUST=self.root / 'etc/riverlb-updater/update-trust.json',
+                         BROKER_POLICY=self.root / 'etc/riverlb-privileged/policy.json',
                          HELPER=self.root / 'usr/libexec/riverlb/riverlb-update',
                          SOCKET=self.root / 'run/riverlb/operations.sock')
         constants.update(BUNDLE=constants['DB'].with_suffix('.update-bundle.json'),
@@ -66,6 +69,7 @@ class Fixture:
             value.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         if hasattr(self.helper, 'VERSIONS'):
             self.helper.VERSIONS = self.versions
+        self.helper.WORK.mkdir(mode=0o711)
         self.helper.BASE.write_bytes(b'baseline-reader-fixture')
         self.helper.BASE.chmod(0o755)
         self.helper.DB.write_bytes(self.original_database)
@@ -84,7 +88,7 @@ class Fixture:
     def safe_path(self, value):
         path = RealPath(value)
         for original in ('/usr/lib/riverlb', '/var/lib/riverlb', '/var/lib/riverlb-updater',
-                         '/etc/riverlb', '/etc/riverlb-updater', '/run/riverlb', '/proc'):
+                         '/etc/riverlb', '/etc/riverlb-updater', '/etc/riverlb-privileged', '/run/riverlb', '/proc'):
             if path == RealPath(original) or RealPath(original) in path.parents:
                 return self.root / str(path).lstrip('/')
         if path == RealPath('/etc/os-release'):
@@ -120,6 +124,8 @@ class Fixture:
         if args[1:] == ['--version']:
             assert self.versions in RealPath(args[0]).parents
             return 'riverlb 0.1.1\n'
+        if args[1:] == ['privileged-protocol']:
+            return '1\n'
         assert RealPath(args[0]) == self.helper.BASE or self.versions in RealPath(args[0]).parents, 'Execute only a validated application reader in this fixture'
         operation = args[1]
         if operation == 'update-verify':
@@ -209,6 +215,126 @@ class UpdateHelperTests(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(self.helper.CURRENT.resolve().stat().st_mode), 0o755,
                          'A non-root CLI must traverse the selected version despite updater umask 077')
         self.assertEqual(stat.S_IMODE((self.helper.CURRENT.resolve() / 'riverlb').stat().st_mode), 0o755)
+
+    def test_restore_renames_only_within_destination_mount(self):
+        replace = os.replace
+
+        def separate_mounts(source, destination):
+            if RealPath(source).parent != RealPath(destination).parent:
+                raise OSError(18, 'Invalid cross-device link')
+            return replace(source, destination)
+
+        with patch.object(self.helper, 'readiness', side_effect=RuntimeError('fixture not ready')), \
+             patch.object(self.helper.os, 'replace', side_effect=separate_mounts):
+            with self.assertRaisesRegex(RuntimeError, 'fixture not ready'):
+                self.helper.activate()
+        self.assertEqual(self.helper.DB.read_bytes(), self.fixture.original_database)
+        self.assertFalse(self.helper.JOURNAL.exists())
+        self.assertTrue(self.fixture.running)
+        self.assertEqual(list(self.helper.DB.parent.glob('.riverlb-restore-*')), [])
+
+    def test_restored_copy_refuses_links_and_size_overflow_without_replacing_database(self):
+        source = self.fixture.root / 'restored.db'
+        source.symlink_to(self.helper.DB)
+        with self.assertRaises(OSError):
+            self.helper.install_restored_file(source, self.helper.DB, os.geteuid())
+        source.unlink()
+        source.write_bytes(b'x' * 17)
+        source.chmod(0o600)
+        with patch.object(self.helper, 'MAX_CHECKPOINT', 16):
+            with self.assertRaisesRegex(RuntimeError, 'Unsafe restored database'):
+                self.helper.install_restored_file(source, self.helper.DB, os.geteuid())
+        self.assertEqual(self.helper.DB.read_bytes(), self.fixture.original_database)
+        self.assertEqual(list(self.helper.DB.parent.glob('.riverlb-restore-*')), [])
+
+    def test_installed_helper_protocol_checked_before_service_stop(self):
+        self.helper.write(self.helper.BROKER_POLICY, dict(uid=os.geteuid()))
+        execute = self.fixture.run
+
+        def unsupported(args):
+            if args[1:] == ['privileged-protocol']:
+                return '0\n'
+            return execute(args)
+
+        with patch.object(self.helper, 'run', side_effect=unsupported):
+            with self.assertRaisesRegex(RuntimeError, 'installed privileged protocol'):
+                self.helper.activate()
+        self.assertTrue(self.fixture.running)
+        self.assertFalse(self.helper.CURRENT.exists())
+        self.assertFalse(self.helper.JOURNAL.exists())
+        self.assertFalse(any(command[1:3] == ['stop', 'riverlb.service']
+                             for command in self.fixture.commands))
+
+    def test_service_identity_cannot_relax_root_state_ownership(self):
+        self.helper.write(self.helper.BROKER_POLICY, dict(uid=os.geteuid() + 1))
+        self.assertEqual(self.helper.service_owner(), os.geteuid() + 1)
+        with self.assertRaisesRegex(RuntimeError, 'Unsafe updater directory'):
+            self.helper.activate()
+        with patch.object(self.helper, 'OWNER', os.geteuid() + 1):
+            with self.assertRaisesRegex(RuntimeError, 'Unsafe updater directory'):
+                self.helper.state_read()
+
+    def test_untrusted_staging_is_copied_as_bytes_before_verification(self):
+        contents = b'not valid JSON: verifier must reject this'
+        self.helper.BUNDLE.write_bytes(contents)
+        original = self.fixture.run
+
+        def reject(args):
+            if args[1] == 'update-verify':
+                copy = RealPath(args[args.index('--bundle') + 1])
+                self.assertEqual(copy.read_bytes(), contents)
+                raise subprocess.CalledProcessError(1, args)
+            return original(args)
+
+        with patch.object(self.helper, 'run', side_effect=reject), \
+             patch.object(self.helper, 'load', wraps=self.helper.load) as parsed:
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.helper.activate()
+        self.assertFalse(any(call.args[0] == self.helper.BUNDLE for call in parsed.call_args_list))
+        self.assertTrue(self.fixture.running)
+        self.assertFalse(self.helper.JOURNAL.exists())
+
+    def test_staging_growth_after_metadata_check_is_bounded(self):
+        info = self.helper.BUNDLE.stat()
+        snapshot = SimpleNamespace(st_mode=info.st_mode, st_uid=info.st_uid,
+                                   st_nlink=1, st_size=0)
+        with patch.object(self.helper, 'MAX_BUNDLE', 32), \
+             patch.object(self.helper.os, 'fstat', return_value=snapshot):
+            with self.assertRaisesRegex(RuntimeError, 'grew beyond its bound'):
+                self.helper.copy_staged_bundle(self.helper.UPDATER / 'growth-fixture.json')
+
+    def test_installed_database_checkpoint_and_restore_use_service_identity(self):
+        self.helper.write(self.helper.BROKER_POLICY, dict(uid=os.geteuid(), gid=os.getegid()))
+        with patch.object(self.helper, 'run_application', side_effect=self.fixture.run) as application, \
+             patch.object(self.helper, 'readiness', side_effect=RuntimeError('fixture not ready')):
+            with self.assertRaisesRegex(RuntimeError, 'fixture not ready'):
+                self.helper.activate()
+        self.assertEqual([call.args[0][1] for call in application.call_args_list], ['backup', 'restore'])
+        self.assertEqual(self.helper.DB.read_bytes(), self.fixture.original_database)
+        self.assertFalse(self.helper.JOURNAL.exists())
+        self.assertEqual(list(self.helper.WORK.iterdir()), [])
+
+    def test_application_reader_drops_root_identity_and_groups(self):
+        self.helper.write(self.helper.BROKER_POLICY, dict(uid=1001, gid=1002))
+        with patch.object(self.helper.subprocess, 'run') as execute:
+            self.helper.run_application([self.helper.BASE, 'backup'])
+        options = execute.call_args.kwargs
+        self.assertEqual((options['user'], options['group'], options['extra_groups']), (1001, 1002, []))
+        self.assertTrue(options['close_fds'])
+        self.assertEqual(options['stdout'], subprocess.DEVNULL)
+
+    def test_preflight_removes_only_interrupted_owned_workspaces(self):
+        self.helper.write(self.helper.BROKER_POLICY, dict(uid=os.geteuid(), gid=os.getegid()))
+        stale = self.helper.WORK / 'operation-1234abcd'
+        stale.mkdir(mode=0o700)
+        (stale / 'private.json').write_bytes(b'private fixture')
+        self.helper.main('preflight')
+        self.assertEqual(list(self.helper.WORK.iterdir()), [])
+        unexpected = self.helper.WORK / 'unrelated'
+        unexpected.mkdir(mode=0o700)
+        with self.assertRaisesRegex(RuntimeError, 'console inspection'):
+            self.helper.main('preflight')
+        self.assertTrue(unexpected.is_dir())
 
     def test_failed_readiness_restores_database_wal_selector_and_monotonic_highwater(self):
         with patch.object(self.helper, 'readiness', side_effect=RuntimeError('fixture not ready')):

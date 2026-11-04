@@ -161,6 +161,11 @@ impl Monitor {
         device: Option<&str>,
     ) -> Result<()> {
         if matches!(self.check, Check::Icmp {}) {
+            if crate::privileged::enabled() {
+                let output = crate::privileged::command("ping", serde_json::json!({"target":address.ip(), "timeout_ms":self.timeout_ms, "source":source, "device":device})).await?;
+                anyhow::ensure!(output.status.success(), "Privileged ICMP echo failed");
+                return Ok(());
+            }
             let mut command = tokio::process::Command::new("/usr/bin/ping");
             command.kill_on_drop(true).env("LC_ALL", "C").args([
                 "-n",
