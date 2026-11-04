@@ -12,7 +12,10 @@ User=riverlb
 Group=riverlb
 UMask=0077
 WorkingDirectory=/var/lib/riverlb
-ExecStartPre=+/usr/libexec/riverlb/privileged/prepare.py
+# RPM replacement/console restore can reset directory ownership while the
+# preparation dependency remains active. Repair before appliance conditions,
+# which run as riverlb and need to enter the working directory.
+ExecCondition=+/usr/libexec/riverlb/privileged/prepare.py
 ExecStartPre=+/usr/libexec/riverlb/riverlb-update preflight
 ExecStart=/usr/bin/riverlb serve --privileged --config /etc/riverlb/riverlb.toml --database /var/lib/riverlb/riverlb.db
 Restart=on-failure

@@ -10,7 +10,8 @@ Type=simple
 User=riverlb
 Group=riverlb
 UMask=0077
-ExecStartPre=+/usr/libexec/riverlb/privileged/prepare.py
+# Repair restored/RPM-owned paths before non-root appliance conditions.
+ExecCondition=+/usr/libexec/riverlb/privileged/prepare.py
 ExecStart=/usr/bin/riverlb serve --privileged --config /etc/riverlb/riverlb.toml --database /var/lib/riverlb/riverlb.db --ha-config /etc/riverlb-privileged/ha.json
 Restart=on-failure
 RestartSec=2s

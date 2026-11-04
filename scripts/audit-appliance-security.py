@@ -29,7 +29,7 @@ def parse_unit(path):
             key, value = line.split("=", 1)
             value = value.strip()
             previous = values.get((section, key), "")
-            if previous and value and key in {"After", "Wants", "Requires", "ExecStartPre", "ReadWritePaths", "CapabilityBoundingSet"}:
+            if previous and value and key in {"After", "Wants", "Requires", "ExecCondition", "ExecStartPre", "ReadWritePaths", "CapabilityBoundingSet"}:
                 value = previous + "\n" + value
             values[(section, key)] = value
     return values
@@ -68,6 +68,7 @@ def check_service(values, ha=False):
     checks.append(finding("dedicated non-root identity", get("User") == "riverlb" and get("Group") == "riverlb", get("User") + ":" + get("Group")))
     checks.append(finding("ambient low-port binding only", set(get("AmbientCapabilities").upper().split()) == CAPABILITIES, get("AmbientCapabilities")))
     checks.append(finding("helper-backed startup", "--privileged" in get("ExecStart").split() and "riverlb-privileged-prepare.service" in values.get(("Unit", "Requires"), "").split() and "riverlb-privileged.service" in values.get(("Unit", "After"), "").split(), "Installed service must require preparation and an authenticated helper"))
+    checks.append(finding("ownership repair before appliance readiness", get("ExecCondition").splitlines()[:1] == ["+/usr/libexec/riverlb/privileged/prepare.py"], "Repair RPM/restore ownership before conditions execute as the service account"))
     checks.append(finding("protected helper state remains read-only", not any(protected == path or protected.startswith(path.rstrip("/") + "/") for path in write_paths for protected in ["/etc/riverlb-privileged", "/var/lib/riverlb-privileged", "/run/riverlb-privileged", "/var/lib/riverlb-updater"]), "Root policy, identities, ownership and recovery journals are outside application writes"))
     if not ha:
         requires = values.get(("Unit", "Requires"), "").split()

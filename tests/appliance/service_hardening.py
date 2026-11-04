@@ -2,6 +2,7 @@
 import copy
 import importlib.util
 from pathlib import Path
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("appliance_security", ROOT / "scripts/audit-appliance-security.py")
@@ -31,6 +32,18 @@ def run():
     ha = audit.parse_unit(ROOT / "deploy/ha/riverlb-ha.service")
     assert not failures(standalone)
     assert not failures(ha, True)
+    # Appliance drop-ins append readiness checks. Repair must stay first even
+    # when inspecting the combined installed unit; ExecStartPre runs too late.
+    with tempfile.TemporaryDirectory() as directory:
+        combined = Path(directory) / 'combined.service'
+        combined.write_text((ROOT / 'packaging/rpm/riverlb.service').read_text()
+                            + '\n' + (ROOT / 'appliance/firstboot/firstboot-gate.conf').read_text())
+        effective = audit.parse_unit(combined)
+        assert effective[('Service', 'ExecCondition')].splitlines() == [
+            '+/usr/libexec/riverlb/privileged/prepare.py',
+            '/usr/sbin/riverlb-setup --check-ready',
+        ]
+        assert not failures(effective)
     for field, bad, expected in [
         ("NoNewPrivileges", "false", "NoNewPrivileges"),
         ("CapabilityBoundingSet", "CAP_SYS_ADMIN CAP_NET_ADMIN", "bounded capabilities"),
@@ -42,6 +55,7 @@ def run():
         ("ProtectSystem", "false", "ProtectSystem"),
         ("SystemCallFilter", "@system-service", "dangerous syscall groups blocked"),
         ("ExecStartPre", "/usr/bin/true", "preflight on every service start"),
+        ("ExecCondition", "/usr/sbin/riverlb-setup --check-ready", "ownership repair before appliance readiness"),
     ]:
         altered = copy.deepcopy(standalone)
         altered[("Service", field)] = bad
