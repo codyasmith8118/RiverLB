@@ -28,6 +28,10 @@ use one filename per run. Do not disable TLS verification to make a test pass.
 The HTTP client does not retry, retain cookies, reuse connections or follow
 redirects. Backend identity is read from `X-Backend-Node`.
 
+The named ten-minute `soak` profile is a functional check, not the 24/72-hour
+release qualification in #37. See [platform qualification](../../docs/platform-qualification.md)
+for prerequisite scope and evidence gates.
+
 The qualification plan describes addresses, firewall rules, warmup/health-probe
 handling, results interpretation and cleanup. Neither starter TOML should
 replace an installed appliance's management/database configuration.

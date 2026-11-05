@@ -46,9 +46,10 @@ def validate_report(report, source, firmware):
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
     for key, expected in [('boot', module.BOOT_TESTS), ('installer', module.INSTALLER_TESTS)]:
         value = report[key]
-        if (set(value) != {'status', 'firmware', 'tests'} or value['status'] != 'passed' or value['firmware'] != firmware
-                or len(value['tests']) != len(expected) or set(value['tests']) != expected):
-            raise ValueError('Incomplete guest assertion evidence')
+        try:
+            module.fixture_data(value,firmware,expected)
+        except module.Rejected:
+            raise ValueError('Incomplete guest assertion/platform evidence') from None
     if set(report['artifacts']) != {'riverlb-image.iso', 'riverlb-installer.iso', 'riverlb.qcow2', 'riverlb.raw'}:
         raise ValueError('Unexpected qualification artifact inventory')
 

@@ -269,7 +269,7 @@ class InventoryTests(unittest.TestCase):
                 'inputs':{'lock_sha256':inv.sha256(self.root/'packaging/build-inputs.lock.json'),'snapshot_sha256':self.lock['sha256'],
                           'rpm_manifest_sha256':inv.sha256(self.output/'build-manifest.json'),'tools_image':self.lock['images']['tools']['id']},
                 'artifacts':{n:artifacts[n] for n in names[:4]},'software':{name:inv.sha256(self.output/name) for name in ('sbom.cdx.json','licenses.json','notices.tar.gz','payloads.json.gz','inventory-identity.json')},
-                'boot':{'status':'passed','firmware':'bios','tests':sorted(qualification.BOOT_TESTS)},
+                'boot':{'status':'passed','firmware':'bios','tests':sorted(qualification.BOOT_TESTS),'platform':json.loads((ROOT/'appliance/qualification/kvm-reference.json').read_text())},
                 'installer':{'status':'passed','firmware':'bios','tests':sorted(qualification.INSTALLER_TESTS)},'finished_at_utc':'2026-10-23T00:00:00Z'}
         path=self.root/'report.json';path.write_bytes(inv.canonical(report))
         shutil.copytree(ROOT/'packaging/schemas',self.root/'packaging/schemas')

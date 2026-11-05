@@ -12,6 +12,9 @@ counts, negative-run evidence and limits are retained in the
 [issue #10 evidence record](evidence/issue-10/README.md). This records that source;
 it does not substitute for qualification of later release candidates.
 
+For the declared #12 KVM profile, updated boot coverage and remaining platform
+cells, see [platform qualification](platform-qualification.md).
+
 ## Admission and environment protection
 
 `Isolated KVM appliance qualification` accepts manual dispatch only from this

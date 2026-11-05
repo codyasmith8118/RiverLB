@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "architecture": "x86_64",
+  "accelerator": "kvm",
+  "cpu_model": "host",
+  "machine_default": "pc-i440fx-rhel10.0.0",
+  "qemu_package": "qemu-kvm-core-10.1.0-16.el10_2.5.alma.1.x86_64",
+  "firmware_package": "edk2-ovmf-20251114-5.el10_2.2.alma.1.noarch",
+  "firmware": ["bios", "uefi"],
+  "cpus": 2,
+  "memory_mib": 4096,
+  "disk_gib": 16,
+  "disk_interface": "virtio",
+  "nic_model": "virtio-net-pci",
+  "boot_nics": 2,
+  "installer_nics": 1
+}
