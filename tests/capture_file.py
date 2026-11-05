@@ -104,6 +104,16 @@ class FileTests(unittest.TestCase):
                     with self.assertRaises(OSError):self.write()
                 self.assertFalse((self.directory/'capture.pcap').exists())
 
+    def test_close_failure_removes_output_and_closes_directory(self):
+        real_close=os.close;calls=[0]
+        def close(fd):
+            calls[0]+=1;real_close(fd)
+            if calls[0]==1:raise OSError(errno.EIO,'synthetic close failure')
+        with mock.patch.object(storage.os,'close',side_effect=close):
+            with self.assertRaises(OSError):self.write()
+        self.assertEqual(calls[0],2)
+        self.assertFalse((self.directory/'capture.pcap').exists())
+
     def test_symlinks_existing_files_and_unsafe_directory_are_rejected(self):
         target=self.directory/'existing';target.write_bytes(b'preserve')
         (self.directory/'capture.pcap').symlink_to(target)

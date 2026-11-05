@@ -97,13 +97,17 @@ def write(directory, request, receive, select_headers, stopped,
         os.fsync(parent)
         return dict(reason=reason, bytes=size, packets=packets, observed=observed)
     except BaseException:
-        if fd is not None:
-            os.close(fd)
-            fd = None
-        if created:
-            os.unlink('capture.pcap', dir_fd=parent)
+        try:
+            if fd is not None:
+                closing, fd = fd, None
+                os.close(closing)
+        finally:
+            if created:
+                os.unlink('capture.pcap', dir_fd=parent)
         raise
     finally:
-        if fd is not None:
-            os.close(fd)
-        os.close(parent)
+        try:
+            if fd is not None:
+                os.close(fd)
+        finally:
+            os.close(parent)

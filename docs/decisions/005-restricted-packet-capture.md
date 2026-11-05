@@ -14,7 +14,7 @@ and [#18](https://github.com/codyasmith8118/RiverLB/issues/18) (recent account p
 #16 is merged at `363e9cf160c43f43cb53da5479f485fd747a4825`; exact merged-commit
 RPM qualification and paired review-appliance delivery are still pending.
 #18 is implemented in [PR #100](https://github.com/codyasmith8118/RiverLB/pull/100),
-with local proof/export/restore tests passing and GitHub CI pending. Neither
+with local proof/export/restore tests and GitHub CI/security passing. Neither
 prerequisite is claimed complete here.
 
 The installed daemon now runs as `riverlb` with only the bind-service capability.
@@ -110,15 +110,26 @@ recording credentials, proof tokens or packet contents.
 | Installed policy | Packaged helper protocol, systemd sandbox and enforcing SELinux; prove the unprivileged daemon cannot open capture sockets or read capture storage directly |
 
 Current pure tests: `python3 tests/capture_policy.py` (five passed) and
-`python3 tests/capture_file.py` (six passed). They cover
+`python3 tests/capture_file.py` (seven passed) and
+`python3 tests/capture_worker.py` (six passed). They cover
 selector/interface/management exclusions, forbidden inputs and bounds, IPv4/IPv6
 TCP/UDP with zero/one/two VLAN tags, reverse endpoint matching, actual payload/
 option/padding removal, malformed/truncated packets and deterministic byte fuzz.
 The private PCAP writer additionally proves file ownership/mode, complete-record
 byte limits, late-receive deadline/cancellation, unmatched packet bounds, and
 cleanup on disk-full, short/zero writes and sync failure. Existing paths/links
-are never overwritten. These tests establish no operational socket worker,
-retention/export or traffic-impact qualification.
+are never overwritten. The uninstalled worker subscribes to link/address events before inventory and
+binding, cancels before reading packets when an event arrives, binds a protocol-
+zero packet socket only to the selected interface, and drops all remaining
+capabilities after setup. Its fixed entrypoint applies CPU/memory/file/descriptor
+limits and reads only a private root-owned request for an opaque job ID.
+
+`tests/capture_worker_network.py` passed actual IPv4/IPv6 TCP/UDP packet delivery,
+private PCAP output, payload/options removal, a one-second deadline and zero
+remaining capabilities inside a fresh disposable network namespace. It uses
+only synthetic veth traffic and replaces trusted management inventory; it does
+not test installed broker authorization, SELinux, retention/export, or traffic
+impact. No capture endpoint/helper dispatch or installed worker is enabled.
 
 Use private synthetic payloads and disposable interfaces for fixtures. Run actual
 IPv4/IPv6 capture/export and traffic-impact checks on an isolated installed
