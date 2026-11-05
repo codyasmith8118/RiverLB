@@ -170,6 +170,22 @@ members = ["127.0.0.1:9"]
             request("/api/v1/config", token=configure["token"])
             request("/api/v1/administrators", token=configure["token"], expected=403)
             request("/api/v1/security/settings", token=configure["token"], expected=403)
+            proof_request={"action":"private_backup","current_password":PASSWORD}
+            request("/api/v1/backup", {}, admin, expected=401)
+            request("/api/v1/security/proof", proof_request, reader, expected=403)
+            request("/api/v1/security/proof", proof_request, operator, expected=403)
+            request("/api/v1/security/proof", proof_request, configure["token"], expected=403)
+            request("/api/v1/backup", {}, configure["token"], expected=403)
+            request("/api/v1/security/proof", {**proof_request,"current_password":"wrong"}, admin, expected=401)
+            request("/api/v1/security/proof", {**proof_request,"action":"other"}, admin, expected=422)
+            proof,headers=request("/api/v1/security/proof",proof_request,admin)
+            assert headers.get("cache-control")=="no-store" and proof['expires_in']==60
+            other_admin=login("admin")
+            request("/api/v1/backup", {"proof":proof['proof']}, other_admin, expected=401)
+            snapshot,headers=request("/api/v1/backup", {"proof":proof['proof']}, admin)
+            assert headers.get("cache-control")=="no-store" and 'sensitive_proofs' not in snapshot['tables']
+            request("/api/v1/restore/stage",snapshot,admin)
+            request("/api/v1/backup", {"proof":proof['proof']}, admin, expected=401)
             request("/api/v1/security/settings", {"settings": {"idle_timeout_secs": 60, "source_allowlist": ["198.51.100.0/24"]}, "current_password": PASSWORD}, admin, expected=409, method="PUT")
             request("/api/v1/security/settings", {"settings": {"idle_timeout_secs": 60, "source_allowlist": ["127.0.0.1/32"]}, "current_password": PASSWORD}, admin, method="PUT")
             try:
@@ -189,6 +205,11 @@ members = ["127.0.0.1:9"]
             recovered = login("admin", codes[0])
             login("admin", codes[0], expected=401)
             assert request("/api/v1/security/mfa", token=recovered)[0]["recovery_codes_remaining"] == 9
+            request("/api/v1/security/proof",proof_request,recovered,expected=401)
+            request("/api/v1/security/proof",{**proof_request,"code":"invalid"},recovered,expected=401)
+            proof=request("/api/v1/security/proof",{**proof_request,"code":codes[2]},recovered)[0]
+            request("/api/v1/security/proof",{**proof_request,"code":codes[2]},recovered,expected=401)
+            request("/api/v1/backup",{"proof":proof['proof']},recovered)
             request("/api/v1/security/mfa/disable", {"current_password": PASSWORD, "code": codes[1]}, recovered)
             request("/api/v1/status", token=recovered, expected=401)
             admin = login("admin")

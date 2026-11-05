@@ -114,6 +114,11 @@ sni_certificates = { "photos.example.com" = "photos", "files.example.com" = "fil
 
 ## Private backups and restore
 
+Every private web download requires your current password and, when enrolled,
+a fresh authenticator or recovery code. The short-lived proof can authorize
+only one export from your current browser session. See
+[recent proof](security-and-database.md#recent-proof-for-private-backup-export).
+
 **System > Import / Export > Download private backup** creates a consistent logical
 database snapshot while the daemon runs. It includes configuration/history,
 managed certificates/private keys, administrator password hashes, audit/traffic

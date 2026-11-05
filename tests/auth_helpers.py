@@ -48,3 +48,8 @@ def management_tls_fixture(directory, addresses):
         "-addext", "subjectAltName=" + ",".join("IP:" + ip for ip in addresses)],
         check=True, capture_output=True)
     return cert, key, ssl.create_default_context(cafile=str(cert))
+
+
+def private_backup(api):
+    proof=api('/api/v1/security/proof', {'action':'private_backup','current_password':PASSWORD}, 'POST')
+    return api('/api/v1/backup', {'proof':proof['proof']}, 'POST')

@@ -2,7 +2,7 @@
 import base64, copy, hashlib, http.client, http.server, json, signal, socket, ssl
 import subprocess, tempfile, threading, urllib.error, urllib.request
 from pathlib import Path
-from auth_helpers import bootstrap
+from auth_helpers import private_backup, bootstrap
 from smoke import BINARY, free_port, wait_until
 
 
@@ -147,7 +147,7 @@ max_body_bytes=1048576
                 bad=copy.deepcopy(config);bad['virtual_servers'][0]['sni_certificates']={'wrong.home.test':'b'};api('/api/v1/config/validate',bad,'POST',422)
                 api('/api/v1/certificates/b',{},'DELETE',409)
                 # Authenticated live logical snapshot includes keys, never active sessions.
-                snapshot=api('/api/v1/backup',{},'POST');assert 'sessions' not in snapshot['tables'];assert len(snapshot['tables']['certificates'])==2
+                snapshot=private_backup(api);assert 'sessions' not in snapshot['tables'];assert len(snapshot['tables']['certificates'])==2
                 bad=copy.deepcopy(snapshot);bad['tables']['certificates'][0][1]='corrupted';api('/api/v1/restore/stage',bad,'POST',422)
                 wrong_format=copy.deepcopy(snapshot);wrong_format['format']=999;api('/api/v1/restore/stage',wrong_format,'POST',422)
                 api('/api/v1/restore/stage',snapshot,'POST')

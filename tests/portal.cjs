@@ -15,6 +15,7 @@ let current = {
     virtual_servers: [{ name: 'existing', listen: '127.0.0.1:8080', algorithm: 'round_robin', members: ['127.0.0.1:8001'] }]
 };
 let revision = 1, saved;
+let backupProofRequest,backupExports=0,denyBackupProof=false;
 let adapterTrial={pending:false},adapterRequest;
 const adapterSettings={ifname:'eth1',uuid:null,mtu:1500,route_metric:600,autoconnect:true,ipv4:{method:'disabled',addresses:[],gateway:null,dns:[],default_route:false},ipv6:{method:'disabled',addresses:[],gateway:null,dns:[],default_route:false}};
 let eth1Available = true;
@@ -43,6 +44,16 @@ window.fetch = async (url, options = {}) => {
         return {ok:true,text:async()=>JSON.stringify({installed:true,identity:{sync_public_key:'ssh-ed25519 SYNC',host_public_key:'ssh-ed25519 HOST',host_fingerprint:'SHA256:verified',fence_agents:['fence_ipmilan']},job:null})};
     }
     if(url==='/api/v1/network/adapter-change')return {ok:true,text:async()=>JSON.stringify(adapterTrial)};
+    if(url==='/api/v1/security/proof'){
+        backupProofRequest=JSON.parse(options.body);
+        return denyBackupProof?{ok:false,status:401,text:async()=>JSON.stringify({error:'Invalid password or authenticator code'})}:{ok:true,text:async()=>JSON.stringify({proof:'backup-fixture-proof',expires_in:60})};
+    }
+    if(url==='/api/v1/backup'){
+        assert.equal(JSON.parse(options.body).proof,'backup-fixture-proof');
+        assert.equal(window.document.getElementById('backup-password').value,'');
+        assert.equal(window.document.getElementById('backup-code').value,'');backupExports++;
+        return {ok:true,text:async()=>JSON.stringify({format:3,tables:{},sha256:'fixture'})};
+    }
     if(url.startsWith('/api/v1/network/adapter-change/')){assert.equal(JSON.parse(options.body).token,adapterTrial.token);adapterTrial={pending:false};return {ok:true,text:async()=>JSON.stringify({pending:false,message:'Interface configuration applied'})};}
     if(url.startsWith('/api/v1/network/adapters/'))return {ok:true,text:async()=>JSON.stringify({settings:adapterSettings,editing_supported:true,active:false})};
     if(url==='/api/v1/network/adapters'){adapterRequest=JSON.parse(options.body);adapterTrial={pending:true,token:'fixture-token',ifname:adapterRequest.ifname,seconds_remaining:90};return {ok:true,text:async()=>JSON.stringify(adapterTrial)};}
@@ -571,6 +582,16 @@ async function ready() {
     assert.deepEqual(renewalJobs[0].settings.domains,['app.home','files.home']);
     assert.match(id('renewal-list').textContent,/home.*Queued/);
     id('renewal-list').querySelector('button').click();assert.equal(id('renewal-name').value,'home');
+    window.URL.createObjectURL=()=> 'blob:fixture';window.URL.revokeObjectURL=()=>{};
+    const originalClick=window.HTMLAnchorElement.prototype.click;window.HTMLAnchorElement.prototype.click=()=>{};
+    id('backup-password').value='backup-password-fixture';id('backup-code').value='123456';
+    await id('backup-download').onclick();
+    assert.deepEqual(backupProofRequest,{action:'private_backup',current_password:'backup-password-fixture',code:'123456'});
+    assert.equal(backupExports,1);assert.equal(id('backup-password').value,'');assert.equal(id('backup-code').value,'');
+    denyBackupProof=true;id('backup-password').value='wrong';id('backup-code').value='wrong';
+    await id('backup-download').onclick();assert.equal(backupExports,1);
+    assert.equal(id('backup-password').value,'');assert.equal(id('backup-code').value,'');
+    denyBackupProof=false;window.HTMLAnchorElement.prototype.click=originalClick;
     Object.defineProperty(id('backup-file'),'files',{value:[{size:100,text:async()=>JSON.stringify({format:1,tables:{},sha256:'fixture'})}]});
     await id('backup-stage').onclick();assert.equal(stagedBackup.format,1);assert.match(id('backup-message').textContent,/offline/);
     assert.equal(saved.cookie_profiles[0].settings.name,'HOME');

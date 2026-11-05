@@ -40,6 +40,48 @@ pub async fn hash_password(password: String) -> Result<String> {
     })
     .await?
 }
+async fn backup_snapshot(conn: &turso::Connection) -> Result<crate::backup::Snapshot> {
+    let mut tables = std::collections::BTreeMap::new();
+    for (table, types) in crate::backup::TABLES {
+        let mut rows = conn.query(&format!("SELECT * FROM {table}"), ()).await?;
+        let mut values = Vec::new();
+        while let Some(row) = rows.next().await? {
+            let mut fields = Vec::new();
+            for (i, ty) in types.bytes().enumerate() {
+                fields.push(if ty == b'i' {
+                    serde_json::json!(row.get::<i64>(i)?)
+                } else {
+                    serde_json::json!(row.get::<String>(i)?)
+                });
+            }
+            values.push(fields);
+        }
+        tables.insert(table.to_string(), values);
+    }
+    crate::backup::Snapshot::seal(tables)
+}
+
+async fn administrator_session(
+    conn: &turso::Connection,
+    actor: &str,
+    session: &str,
+) -> Result<bool> {
+    if session.len() != 64 || !session.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Ok(false);
+    }
+    let mut rows = conn.query("SELECT sessions.username, last_seen FROM sessions JOIN administrators ON administrators.username=sessions.username JOIN auth_session_activity ON auth_session_activity.token_hash=sessions.token_hash WHERE sessions.token_hash=?1 AND expires>?2",turso::params![digest(session),now()]).await?;
+    let valid = match rows.next().await? {
+        Some(row) => {
+            row.get::<String>(0)? == actor
+                && row.get::<i64>(1)? + security_settings(conn).await?.idle_timeout_secs as i64
+                    > now()
+        }
+        None => false,
+    };
+    drop(rows);
+    Ok(valid && account_security(conn, actor).await?.role == crate::auth::Role::Administrator)
+}
+
 async fn migrate_device_certificates(conn: &turso::Connection) -> Result<()> {
     let mut rows = conn.query("SELECT json FROM configurations", ()).await?;
     let mut names = std::collections::HashSet::new();
@@ -285,30 +327,58 @@ impl Store {
             token_scope: Some(scope),
         }))
     }
+    /// A one-use grant protects against stolen sessions; it is never backed up.
+    pub async fn issue_backup_proof(
+        &self,
+        actor: &str,
+        session: &str,
+        password: String,
+        code: Option<&str>,
+    ) -> Result<Option<String>> {
+        let verified = self.verified_credentials(actor, password, code).await?;
+        let conn = self.connection.lock().await;
+        auth_transaction(&conn,async {
+            let mut valid = administrator_session(&conn,actor,session).await?;
+            if let Some((hash,secret)) = verified {
+                let mut rows=conn.query("SELECT password_hash FROM administrators WHERE username=?1",[actor]).await?;
+                valid &= rows.next().await?.is_some_and(|r| r.get::<String>(0).is_ok_and(|h|h==hash));
+                drop(rows);
+                valid &= account_security(&conn,actor).await?.mfa_secret==secret;
+            } else { valid=false; }
+            conn.execute("INSERT INTO audit (created,actor,action) VALUES (?1,?2,?3)",turso::params![now(),actor,if valid {"private backup proof accepted"} else {"private backup proof denied"}]).await?;
+            if !valid { return Ok(None); }
+            conn.execute("DELETE FROM sensitive_proofs WHERE expires<=?1 OR session_hash=?2 OR session_hash NOT IN (SELECT token_hash FROM sessions)",turso::params![now(),digest(session)]).await?;
+            let token=crate::auth::random_hex(32);
+            conn.execute("INSERT INTO sensitive_proofs VALUES (?1,?2,?3,'private_backup',?4)",turso::params![digest(&token),actor,digest(session),now()+60]).await?;
+            Ok(Some(token))
+        }).await
+    }
+    /// Consume proof and take the snapshot under the same transaction/connection
+    /// lock as account changes, preventing reuse and revocation/export races.
+    pub async fn private_backup(
+        &self,
+        actor: &str,
+        session: &str,
+        proof: &str,
+    ) -> Result<Option<crate::backup::Snapshot>> {
+        let conn = self.connection.lock().await;
+        auth_transaction(&conn,async {
+            let mut rows=conn.query("SELECT expires FROM sensitive_proofs WHERE token_hash=?1 AND username=?2 AND session_hash=?3 AND action='private_backup'",turso::params![digest(proof),actor,digest(session)]).await?;
+            let valid=rows.next().await?.is_some_and(|r|r.get::<i64>(0).is_ok_and(|e|e>now()));drop(rows);
+            let valid=valid && proof.len()==64 && administrator_session(&conn,actor,session).await?;
+            if !valid {
+                conn.execute("INSERT INTO audit (created,actor,action) VALUES (?1,?2,'private backup export denied')",turso::params![now(),actor]).await?;
+                return Ok(None);
+            }
+            conn.execute("DELETE FROM sensitive_proofs WHERE token_hash=?1",[digest(proof)]).await?;
+            conn.execute("INSERT INTO audit (created,actor,action) VALUES (?1,?2,'private backup downloaded')",turso::params![now(),actor]).await?;
+            Ok(Some(backup_snapshot(&conn).await?))
+        }).await
+    }
     pub async fn backup(&self) -> Result<crate::backup::Snapshot> {
         let conn = self.connection.lock().await;
         conn.execute("BEGIN", ()).await?;
-        let result = async {
-            let mut tables = std::collections::BTreeMap::new();
-            for (table, types) in crate::backup::TABLES {
-                let mut rows = conn.query(&format!("SELECT * FROM {table}"), ()).await?;
-                let mut values = Vec::new();
-                while let Some(row) = rows.next().await? {
-                    let mut fields = Vec::new();
-                    for (i, ty) in types.bytes().enumerate() {
-                        fields.push(if ty == b'i' {
-                            serde_json::json!(row.get::<i64>(i)?)
-                        } else {
-                            serde_json::json!(row.get::<String>(i)?)
-                        });
-                    }
-                    values.push(fields);
-                }
-                tables.insert(table.to_string(), values);
-            }
-            crate::backup::Snapshot::seal(tables)
-        }
-        .await;
+        let result = backup_snapshot(&conn).await;
         let _ = conn.execute("ROLLBACK", ()).await;
         result
     }
@@ -341,6 +411,7 @@ impl Store {
                 }
             }
             if snapshot.format == 1 { migrate_device_certificates(&conn).await?; }
+            conn.execute("DELETE FROM sensitive_proofs",()).await?;
             conn.execute("DELETE FROM sessions",()).await?;
             conn.execute("DELETE FROM api_tokens",()).await?;
             conn.execute("DELETE FROM auth_session_activity",()).await?;
@@ -994,6 +1065,7 @@ impl Store {
         for sql in [
             "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)",
             "CREATE TABLE IF NOT EXISTS administrators (username TEXT PRIMARY KEY, password_hash TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS sensitive_proofs (token_hash TEXT PRIMARY KEY, username TEXT NOT NULL, session_hash TEXT NOT NULL, action TEXT NOT NULL, expires INTEGER NOT NULL)",
             "CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, username TEXT NOT NULL, expires INTEGER NOT NULL)",
             "CREATE TABLE IF NOT EXISTS configurations (revision INTEGER PRIMARY KEY, json TEXT NOT NULL, created INTEGER NOT NULL, actor TEXT NOT NULL)",
             "CREATE TABLE IF NOT EXISTS audit (id INTEGER PRIMARY KEY AUTOINCREMENT, created INTEGER NOT NULL, actor TEXT NOT NULL, action TEXT NOT NULL)",
@@ -1012,6 +1084,9 @@ impl Store {
         ] {
             connection.execute(sql, ()).await?;
         }
+        connection
+            .execute("DELETE FROM sensitive_proofs", ())
+            .await?;
         let mut versions = connection
             .query("SELECT version FROM schema_version", ())
             .await?;
@@ -1662,6 +1737,363 @@ mod auth_release_tests {
             .unwrap();
         store.set_admin("admin", PASSWORD.into()).await.unwrap();
         (directory, store)
+    }
+    async fn proof_fixture() -> (tempfile::TempDir, Store, String) {
+        let (dir, store) = fixture().await;
+        store
+            .save(
+                &Config::load(Path::new("examples/riverlb.toml")).unwrap(),
+                1,
+                "fixture",
+            )
+            .await
+            .unwrap();
+        let session = store
+            .login("admin", PASSWORD.into())
+            .await
+            .unwrap()
+            .unwrap();
+        (dir, store, session)
+    }
+    #[tokio::test]
+    async fn private_backup_requires_bound_unexpired_single_use_proof() {
+        let (_dir, store, session) = proof_fixture().await;
+        assert!(
+            store
+                .private_backup("admin", &session, "")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            store
+                .issue_backup_proof("admin", &session, "wrong".into(), None)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let proof = store
+            .issue_backup_proof("admin", &session, PASSWORD.into(), None)
+            .await
+            .unwrap()
+            .unwrap();
+        let other = store
+            .login("admin", PASSWORD.into())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            store
+                .private_backup("admin", &other, &proof)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            store
+                .private_backup("other", &session, &proof)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let (a, b) = tokio::join!(
+            store.private_backup("admin", &session, &proof),
+            store.private_backup("admin", &session, &proof)
+        );
+        assert_eq!(
+            usize::from(a.unwrap().is_some()) + usize::from(b.unwrap().is_some()),
+            1
+        );
+        assert!(
+            store
+                .private_backup("admin", &session, &proof)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let proof = store
+            .issue_backup_proof("admin", &session, PASSWORD.into(), None)
+            .await
+            .unwrap()
+            .unwrap();
+        store
+            .connection
+            .lock()
+            .await
+            .execute("UPDATE sensitive_proofs SET expires=?1", [now()])
+            .await
+            .unwrap();
+        assert!(
+            store
+                .private_backup("admin", &session, &proof)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let proof = store
+            .issue_backup_proof("admin", &session, PASSWORD.into(), None)
+            .await
+            .unwrap()
+            .unwrap();
+        store
+            .connection
+            .lock()
+            .await
+            .execute("UPDATE sensitive_proofs SET action='other'", ())
+            .await
+            .unwrap();
+        assert!(
+            store
+                .private_backup("admin", &session, &proof)
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+    #[tokio::test]
+    async fn private_backup_rechecks_session_role_credentials_and_restore_revokes_proof() {
+        let (_dir, store, session) = proof_fixture().await;
+        let proof = store
+            .issue_backup_proof("admin", &session, PASSWORD.into(), None)
+            .await
+            .unwrap()
+            .unwrap();
+        store.logout(&session).await.unwrap();
+        assert!(
+            store
+                .private_backup("admin", &session, &proof)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            store
+                .issue_backup_proof("admin", &session, PASSWORD.into(), None)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let session = store
+            .login("admin", PASSWORD.into())
+            .await
+            .unwrap()
+            .unwrap();
+        let proof = store
+            .issue_backup_proof("admin", &session, PASSWORD.into(), None)
+            .await
+            .unwrap()
+            .unwrap();
+        store
+            .set_admin("admin", "replacement-password-123".into())
+            .await
+            .unwrap();
+        assert!(
+            store
+                .private_backup("admin", &session, &proof)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let session = store
+            .login("admin", "replacement-password-123".into())
+            .await
+            .unwrap()
+            .unwrap();
+        let proof = store
+            .issue_backup_proof("admin", &session, "replacement-password-123".into(), None)
+            .await
+            .unwrap()
+            .unwrap();
+        {
+            let conn = store.connection.lock().await;
+            let mut security = account_security(&conn, "admin").await.unwrap();
+            security.role = Role::Operator;
+            save_account_security(&conn, "admin", &security)
+                .await
+                .unwrap();
+        }
+        assert!(
+            store
+                .private_backup("admin", &session, &proof)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            store
+                .issue_backup_proof("admin", &session, "replacement-password-123".into(), None)
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+    #[tokio::test]
+    async fn private_backup_rejects_expired_idle_and_removed_accounts() {
+        let (_dir, store, session) = proof_fixture().await;
+        let proof = store
+            .issue_backup_proof("admin", &session, PASSWORD.into(), None)
+            .await
+            .unwrap()
+            .unwrap();
+        store
+            .connection
+            .lock()
+            .await
+            .execute("UPDATE sessions SET expires=?1", [now()])
+            .await
+            .unwrap();
+        assert!(
+            store
+                .private_backup("admin", &session, &proof)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let session = store
+            .login("admin", PASSWORD.into())
+            .await
+            .unwrap()
+            .unwrap();
+        let proof = store
+            .issue_backup_proof("admin", &session, PASSWORD.into(), None)
+            .await
+            .unwrap()
+            .unwrap();
+        store
+            .connection
+            .lock()
+            .await
+            .execute("UPDATE auth_session_activity SET last_seen=0", ())
+            .await
+            .unwrap();
+        assert!(
+            store
+                .private_backup("admin", &session, &proof)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let session = store
+            .login("admin", PASSWORD.into())
+            .await
+            .unwrap()
+            .unwrap();
+        let proof = store
+            .issue_backup_proof("admin", &session, PASSWORD.into(), None)
+            .await
+            .unwrap()
+            .unwrap();
+        store
+            .connection
+            .lock()
+            .await
+            .execute("DELETE FROM administrators WHERE username='admin'", ())
+            .await
+            .unwrap();
+        assert!(
+            store
+                .private_backup("admin", &session, &proof)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            store
+                .issue_backup_proof("admin", &session, PASSWORD.into(), None)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let audit = serde_json::to_string(&store.audit_since(0, 200).await.unwrap()).unwrap();
+        assert!(!audit.contains(&proof) && !audit.contains(PASSWORD));
+        assert!(audit.contains("private backup export denied"));
+    }
+    #[tokio::test]
+    async fn private_backup_mfa_proof_export_restore_and_restart() {
+        let (dir, store, session) = proof_fixture().await;
+        let enrolled = store.enroll_mfa("admin").await.unwrap();
+        let secret = enrolled["secret"].as_str().unwrap();
+        let codes = store
+            .confirm_mfa("admin", &crate::auth::totp_at(secret, now() / 30).unwrap())
+            .await
+            .unwrap();
+        assert!(
+            store
+                .issue_backup_proof("admin", &session, PASSWORD.into(), None)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let session = store
+            .login_with_mfa("admin", PASSWORD.into(), Some(&codes[0]))
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            store
+                .issue_backup_proof("admin", &session, PASSWORD.into(), None)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            store
+                .issue_backup_proof("admin", &session, PASSWORD.into(), Some("wrong"))
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let proof = store
+            .issue_backup_proof("admin", &session, PASSWORD.into(), Some(&codes[1]))
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            store
+                .issue_backup_proof("admin", &session, PASSWORD.into(), Some(&codes[1]))
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let snapshot = store
+            .private_backup("admin", &session, &proof)
+            .await
+            .unwrap()
+            .unwrap();
+        snapshot.validate().unwrap();
+        assert!(!snapshot.tables.contains_key("sensitive_proofs"));
+        let pending = store
+            .issue_backup_proof("admin", &session, PASSWORD.into(), Some(&codes[2]))
+            .await
+            .unwrap()
+            .unwrap();
+        store.restore(&snapshot).await.unwrap();
+        assert!(
+            store
+                .private_backup("admin", &session, &pending)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let session = store
+            .login_with_mfa("admin", PASSWORD.into(), Some(&codes[2]))
+            .await
+            .unwrap()
+            .unwrap();
+        let pending = store
+            .issue_backup_proof("admin", &session, PASSWORD.into(), Some(&codes[3]))
+            .await
+            .unwrap()
+            .unwrap();
+        drop(store);
+        let store = Store::open(&dir.path().join("auth.db")).await.unwrap();
+        assert!(
+            store
+                .private_backup("admin", &session, &pending)
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
     #[tokio::test]
     async fn audit_cursor_survives_all_row_pruning_and_legacy_table_migration() {

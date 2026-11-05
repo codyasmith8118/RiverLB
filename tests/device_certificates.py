@@ -2,7 +2,7 @@
 import copy, hashlib, http.client, http.server, json, signal, socket, ssl, subprocess
 import tempfile, threading, time, urllib.error, urllib.request
 from pathlib import Path
-from auth_helpers import bootstrap, opener, jar, session_token
+from auth_helpers import private_backup, bootstrap, opener, jar, session_token
 from smoke import BINARY, free_port, wait_until
 
 class App(http.server.BaseHTTPRequestHandler):
@@ -65,7 +65,7 @@ members=["127.0.0.1:{backend.server_port}"]
                     wrong=api(base+'/shared-name/pem');api(base+'/requests/external/complete',{'certificate':wrong},'POST',422)
                     assert len(api(base+'/requests'))==1
                 assert api(bases[0])[0]['fingerprint_sha256']!=api(bases[1])[0]['fingerprint_sha256']
-                snapshot=api('/api/v1/backup',{},'POST');assert snapshot['format']==3 and len(snapshot['tables']['certificate_requests'])==2
+                snapshot=private_backup(api);assert snapshot['format']==3 and len(snapshot['tables']['certificate_requests'])==2
                 api('/api/v1/restore/stage',snapshot,'POST')  # Also validates CSR signatures and retained key pairs.
                 assert 'PRIVATE KEY' not in json.dumps(api())
                 process.send_signal(signal.SIGINT);process.wait(timeout=15);process=start()
@@ -115,7 +115,7 @@ members=["127.0.0.1:{backend.server_port}"]
                 wait_until(lambda:api()['config']['management_protocol']=='http');backend_ok()
                 api('/api/v1/config/confirm',{'revision':api()['revision']},'POST')
                 # Restore a format-1 backup: a formerly shared management certificate is migrated into the device store.
-                legacy=api('/api/v1/backup',{},'POST');legacy['format']=1;legacy['tables'].pop('device_certificates');legacy['tables'].pop('certificate_requests');legacy['tables'].pop('auth_accounts');legacy['tables'].pop('auth_settings')
+                legacy=private_backup(api);legacy['format']=1;legacy['tables'].pop('device_certificates');legacy['tables'].pop('certificate_requests');legacy['tables'].pop('auth_accounts');legacy['tables'].pop('auth_settings')
                 latest=max(legacy['tables']['configurations'],key=lambda row:row[0]);old_config=json.loads(latest[1]);old_config.pop('management_protocol',None);old_config['management_certificate']='shared-name';latest[1]=json.dumps(old_config,separators=(',',':'))
                 legacy['sha256']=hashlib.sha256(json.dumps([legacy['format'],legacy['created'],legacy['tables']],sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
                 legacy_file=root/'legacy.json';legacy_file.write_text(json.dumps(legacy));fresh=root/'legacy.db'
