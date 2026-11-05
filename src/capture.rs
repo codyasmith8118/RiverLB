@@ -176,7 +176,8 @@ async fn start(
     Json(body): Json<Start>,
 ) -> ApiResult {
     admitted(async move {
-        if control.pending_configuration.lock().await.is_some() {
+        let _changes = control.change_gate.lock().await;
+        if control.pending_configuration.lock().await.is_some() || crate::interfaces::has_pending().await {
             return Err(error(StatusCode::CONFLICT,"Confirm or revert pending configuration before capture"));
         }
         let management_port=control.generation.lock().await.runtime.config.management.port();
