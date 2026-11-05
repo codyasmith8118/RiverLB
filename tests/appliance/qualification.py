@@ -449,6 +449,18 @@ class Qualification(unittest.TestCase):
                 channel.close(); writer.join(timeout=6)
             self.assertFalse(channel.reader.is_alive())
 
+    def test_multiline_guest_metadata_executes_as_one_uart_command(self):
+        import installer as fixture
+        serial = self.root / 'metadata.serial'
+        marker = 'riverlb_status_' + 'c'*16
+        # Preserve Python newlines, quotes and shell metacharacters literally.
+        source = "value = \"quotes '\\\" and $HOME $(false) `false`\"\nprint(value)\n"
+        program = fixture.inline_program(source)
+        self.assertNotIn('\n', program)
+        command = fixture.status_command(program, marker, serial)
+        subprocess.run(['bash', '-c', command], check=True, timeout=5)
+        self.assertEqual(serial.read_text(), "quotes '\" and $HOME $(false) `false`\n" + marker + '_0\n')
+
     def test_probe_source_is_read_from_media_not_typed(self):
         import installer as fixture
         marker = 'riverlb_probe_done_' + 'a'*16

@@ -12,14 +12,13 @@ import re
 from pathlib import Path
 import socket
 import socketserver
-import shlex
 import shutil
 import ssl
 import subprocess
 import threading
 import time
 from vnc import Console
-from installer import SerialChannel, shell_status
+from installer import SerialChannel, shell_status, inline_program
 from platform_identity import reference, measure
 from package_inventory import RPM_QUERY_FORMAT, parse_rpm_query
 
@@ -168,7 +167,7 @@ data['service_uid']=int(fields['Uid'].split()[0]);data['service_caps']=int(field
 data['rpm_inventory']=out(['rpm','-qa','--qf',{RPM_QUERY_FORMAT!r}])
 print('RIVERLB_BOOT_METADATA='+json.dumps(data))
 """
-        command='python3 -c '+shlex.quote(code)
+        command=inline_program(code)
         status,output=shell_status(self.channel,self.serial,command,seconds=30)
         assert status==0,'Guest metadata probe failed'
         match=re.search(r'RIVERLB_BOOT_METADATA=(\{[^\r\n]+\})',output)

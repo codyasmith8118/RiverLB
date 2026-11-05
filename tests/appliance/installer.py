@@ -103,6 +103,11 @@ def prepare_probe_media():
             '-o', str(OUTPUT / 'probe.iso'), str(source))
 
 
+def inline_program(script):
+    """Encode Python source as one UART command without changing its contents."""
+    return 'python3 -c ' + shlex.quote('exec(' + repr(script) + ')')
+
+
 def status_command(command, marker, serial_device='/dev/ttyS0'):
     if not re.fullmatch(r'riverlb_(?:status|probe_done)_[a-f0-9]{16}', marker):
         raise ValueError('Invalid probe marker')
