@@ -58,7 +58,7 @@ class JobsTests(unittest.TestCase):
     def finish(self,identifier):
         path=self.root/identifier
         (path/'capture.pcap').write_bytes(jobs.pcap.PCAP_HEADER);(path/'capture.pcap').chmod(0o600)
-        (path/'status.json').write_text(json.dumps(dict(state='complete',reason='time_limit',bytes=24,packets=0,observed=0)));(path/'status.json').chmod(0o600)
+        (path/'status.json').write_text(json.dumps(dict(state='complete',reason='time_limit',bytes=24,packets=0,observed=0,kernel_received=0,kernel_dropped=0)));(path/'status.json').chmod(0o600)
         self.state='inactive'
 
     def test_start_private_configuration_and_one_job_bound(self):

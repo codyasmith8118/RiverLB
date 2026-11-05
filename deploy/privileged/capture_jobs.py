@@ -164,12 +164,15 @@ class Capture:
                     self.policy.fields(value, {'state', 'reason'})
                     self.policy.require(value['reason'] == 'worker_failed')
                 else:
-                    self.policy.fields(value, {'state', 'reason', 'bytes', 'packets', 'observed'})
+                    self.policy.fields(value, {'state', 'reason', 'bytes', 'packets', 'observed', 'kernel_received', 'kernel_dropped'})
                     self.policy.require(value['state'] == 'complete'
                                         and value['reason'] in {'canceled', 'time_limit', 'byte_limit', 'packet_limit', 'network_changed'})
                     self.policy.require(all(type(value[k]) is int for k in ['bytes', 'packets', 'observed'])
                                         and 24 <= value['bytes'] <= job['request']['max_bytes']
                                         and 0 <= value['packets'] <= value['observed'] <= 200000)
+                    self.policy.require(all(type(value[k]) is int and 0 <= value[k] <= 0xffffffff
+                                            for k in ['kernel_received', 'kernel_dropped'])
+                                        and value['kernel_dropped'] <= value['kernel_received'])
                 age = max(0, self.wall() - path.stat().st_mtime)
                 job['finished'] = self.clock() - min(RETENTION, age)
                 job.update(value)
@@ -185,7 +188,8 @@ class Capture:
         if job['finished'] is not None and not job.get('audited', False):
             syslog.syslog(syslog.LOG_AUTHPRIV | syslog.LOG_INFO, json.dumps(dict(
                 service='riverlb-capture', event='stopped', id=job['id'], reason=job['reason'],
-                bytes=job.get('bytes',0), packets=job.get('packets',0))))
+                bytes=job.get('bytes',0), packets=job.get('packets',0),
+                kernel_dropped=job.get('kernel_dropped',0))))
             job['audited']=True
         if job['state'] == 'complete' and not (self.root/job['id']).exists():
             self.job = None
@@ -201,6 +205,7 @@ class Capture:
         remaining = (job['finished'] + RETENTION - self.clock()) if job['finished'] is not None else None
         return dict(id=job['id'], state=job['state'], reason=job.get('reason'), request=dict(job['request']),
                     bytes=job.get('bytes', 0), packets=job.get('packets', 0),
+                    kernel_received=job.get('kernel_received', 0), kernel_dropped=job.get('kernel_dropped', 0),
                     retention_seconds=max(0, int(remaining)) if remaining is not None else None)
 
     def start(self, owner, value, extra):

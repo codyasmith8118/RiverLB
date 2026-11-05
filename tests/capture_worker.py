@@ -21,6 +21,9 @@ class Socket:
     def __exit__(self,*_):self.closed=True
     def bind(self,address):self.bound=address
     def setblocking(self,blocking):self.blocking=blocking
+    def getsockopt(self,level,option,size):
+        assert (level,option,size)==(263,6,8)
+        return worker.struct.pack('II',10,2)
     def recvfrom(self,size):
         frame,address=next(self.frames)
         assert size==capture.MAX_FRAME
@@ -55,6 +58,7 @@ class WorkerTests(unittest.TestCase):
             return {'reason':'time_limit','packets':1}
         result=self.run_worker(write,frames=[(raw,('ens3',3,0,0,b'')),(raw,('ens4',3,0,0,b''))])
         self.assertEqual(result['packets'],1)
+        self.assertEqual((result['kernel_received'],result['kernel_dropped']),(10,2))
 
     def test_network_event_takes_priority_and_cancels_before_packet(self):
         def write(directory,request,receive,headers,stopped):

@@ -1,7 +1,7 @@
 #!/usr/bin/python3 -I
-"""Fixed private capture worker; not installed/enabled by the foundation PR.
+"""Fixed private capture worker for the installed privileged broker.
 
-The future broker supplies only a random job ID and a root-owned request file.
+The broker supplies only a random job ID and a root-owned request file.
 There is no caller-selected command, path, namespace, filter or output descriptor.
 """
 import ctypes
@@ -15,6 +15,7 @@ import select
 import signal
 import socket
 import stat
+import struct
 import subprocess
 import sys
 import threading
@@ -130,6 +131,10 @@ def run(directory, configuration, policy, files, stop):
             result = files.write(directory, request, receive,
                                  lambda frame: policy.headers(frame, request, networks, protected),
                                  lambda: changed or stop.is_set())
+            # Linux AF_PACKET v1 counters include filtered and kernel-dropped
+            # packets; reading them never changes forwarding state.
+            received, dropped = struct.unpack('II', packets.getsockopt(263, 6, 8))
+            result.update(kernel_received=received, kernel_dropped=dropped)
             if changed:
                 result['reason'] = 'network_changed'
             return result

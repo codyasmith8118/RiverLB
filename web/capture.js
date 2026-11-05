@@ -24,7 +24,7 @@
         job=value;
         const reasons={time_limit:'Time limit reached',byte_limit:'File size limit reached',packet_limit:'Packet processing limit reached',network_changed:'Interface or address changed',canceled:'Stopped by request',worker_failed:'Capture failed'};
         let text=job.state==='idle'?'No capture is retained.':job.state==='busy'?'Another browser session owns a capture. Wait for its expiry.':job.state==='unavailable'?'Capture is unavailable.':
-            [job.state==='running'?'Capturing headers':job.state==='complete'?'Capture complete':'Capture failed',reasons[job.reason],job.state==='complete'?`${job.packets} packets · ${job.bytes} bytes · ${job.retention_seconds} seconds remaining`:null].filter(Boolean).join(' · ');
+            [job.state==='running'?'Capturing headers':job.state==='complete'?'Capture complete':'Capture failed',reasons[job.reason],job.state==='complete'?`${job.packets} packets · ${job.bytes} bytes · ${job.kernel_dropped||0} diagnostic drops · ${job.retention_seconds} seconds remaining`:null].filter(Boolean).join(' · ');
         byId('capture-status').textContent=text;controls();
     }
     async function response(url,method='GET',body,interactive=false){

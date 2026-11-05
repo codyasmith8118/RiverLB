@@ -7,6 +7,7 @@ import importlib.util
 import os
 from pathlib import Path
 import socket
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -30,9 +31,19 @@ def run():
         # Initial IPv6 link-local creation is a real network change; let setup
         # settle before measuring the worker's normal deadline behavior.
         time.sleep(2)
-        for family in ['4','6']:
-            for protocol in ['tcp','udp']:
-                subprocess.run(['setpriv','--bounding-set=-all,+net_raw',sys.executable,__file__,'--case',family,protocol],check=True)
+        # GitHub's checkout ancestors belong to the runner and may be 0700.
+        # With only NET_RAW, root must not need DAC override to read fixtures.
+        with tempfile.TemporaryDirectory(prefix='riverlb-capture-fixture-',dir='/tmp') as folder:
+            root=Path(folder);(root/'tests').mkdir();(root/'deploy/privileged').mkdir(parents=True)
+            source=Path(__file__).resolve().parents[1]
+            for name in ['tests/capture_worker_network.py','tests/capture_policy.py',
+                         'deploy/privileged/capture_policy.py','deploy/privileged/capture_file.py',
+                         'deploy/privileged/capture_worker.py']:
+                shutil.copyfile(source/name,root/name)
+            for family in ['4','6']:
+                for protocol in ['tcp','udp']:
+                    subprocess.run(['setpriv','--bounding-set=-all,+net_raw',sys.executable,
+                                    str(root/'tests/capture_worker_network.py'),'--case',family,protocol],check=True)
         return
     assert len(sys.argv)==4 and sys.argv[1]=='--case' and sys.argv[2] in {'4','6'} and sys.argv[3] in {'tcp','udp'}
     assert {name for _,name in socket.if_nameindex()}=={'lo','cap0','cap1'}
@@ -59,6 +70,7 @@ def run():
             result=worker.run(directory,config,capture,files,threading.Event())
         sender.join(timeout=2);assert not sender.is_alive()
         assert result['reason']=='time_limit' and result['packets']>0,result
+        assert result['kernel_received']>=result['observed'] and result['kernel_dropped']==0,result
         data=(Path(directory)/'capture.pcap').read_bytes()
         assert data.startswith(files.PCAP_HEADER) and len(data)==result['bytes']
         assert b'private-synthetic' not in data and b'opts' not in data
