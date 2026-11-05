@@ -88,8 +88,13 @@ class Capture:
     def reset_unit(self, identifier):
         result = self.process('/usr/bin/systemctl', ['reset-failed', self.unit(identifier)], timeout=5)
         if result['code'] != 0:
-            text = self.systemctl('show', self.unit(identifier), '--property=LoadState')
-            self.policy.require('LoadState=not-found' in text)
+            text = self.systemctl('show', self.unit(identifier), '--property=LoadState,ActiveState,MainPID,ControlPID')
+            values = dict(line.split('=', 1) for line in text.splitlines() if '=' in line)
+            # A collected template instance is "not loaded" to reset-failed,
+            # while show can load its template and report loaded/inactive.
+            self.policy.require(values.get('LoadState') == 'not-found'
+                                or (values.get('ActiveState') == 'inactive'
+                                    and values.get('MainPID') == '0' and values.get('ControlPID') == '0'))
 
     def management_networks(self):
         links = json.loads(self.success(self.process('/usr/sbin/ip', ['-j', 'address', 'show']))['stdout'])

@@ -61,6 +61,20 @@ class JobsTests(unittest.TestCase):
         (path/'status.json').write_text(json.dumps(dict(state='complete',reason='time_limit',bytes=24,packets=0,observed=0,kernel_received=0,kernel_dropped=0)));(path/'status.json').chmod(0o600)
         self.state='inactive'
 
+    def test_collected_template_instance_cleanup_accepts_only_inactive_zero_pids(self):
+        identifier=self.start();self.finish(identifier)
+        original=self.manager.process
+        def process(program,args,**kwargs):
+            if args[0]=='reset-failed':return dict(code=1,stdout='')
+            return original(program,args,**kwargs)
+        self.manager.process=process
+        self.assertEqual(self.call('delete',owner=OWNER,id=identifier)['state'],'idle')
+        self.assertFalse((self.root/identifier).exists())
+        def running(program,args,**kwargs):
+            return dict(code=1,stdout='') if args[0]=='reset-failed' else dict(code=0,stdout='LoadState=loaded\nActiveState=active\nMainPID=42\nControlPID=0\n')
+        self.manager.process=running
+        with self.assertRaises(ValueError):self.manager.reset_unit(identifier)
+
     def test_start_private_configuration_and_one_job_bound(self):
         identifier=self.start();path=self.root/identifier
         value=json.loads((path/'request.json').read_text())
