@@ -14,6 +14,7 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
+PROFILE=json.loads((ROOT/'appliance/qualification/kvm-reference.json').read_text())
 spec = importlib.util.spec_from_file_location('qualify', ROOT / 'scripts/qualify-appliance.py')
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
@@ -110,7 +111,7 @@ class Qualification(unittest.TestCase):
 
     def test_public_reports_accept_only_known_fixture_labels(self):
         path = self.root / 'report.json'
-        valid = dict(status='passed',firmware='bios',tests=sorted(m.BOOT_TESTS))
+        valid = dict(status='passed',firmware='bios',tests=sorted(m.BOOT_TESTS),platform=PROFILE)
         path.write_text(json.dumps(valid))
         self.assertEqual(m.fixture_report(path,'bios',m.BOOT_TESTS),valid)
         for change in ({'password':'do-not-publish'}, {'tests':['do-not-publish']}, {'firmware':'uefi'}, {'status':'failed'}):
@@ -121,6 +122,16 @@ class Qualification(unittest.TestCase):
         path.symlink_to('/etc/passwd')
         with self.assertRaises(m.Rejected):
             m.fixture_report(path,'bios',m.BOOT_TESTS)
+
+    def test_platform_identity_is_required_typed_and_redacted(self):
+        base=dict(status='passed',firmware='bios',tests=sorted(m.BOOT_TESTS),platform=PROFILE)
+        for change in [None,{**PROFILE,'cpus':True},{**PROFILE,'memory_mib':4096.0},
+                       {**PROFILE,'password':'do-not-publish'},{**PROFILE,'machine_default':'other'},
+                       {**PROFILE,'qemu_package':'unexpected-tool-build'}]:
+            value=dict(base)
+            if change is None:value.pop('platform')
+            else:value['platform']=change
+            with self.subTest(change=change),self.assertRaises(m.Rejected):m.fixture_data(value,'bios',m.BOOT_TESTS)
 
     def test_later_failure_preserves_validated_identity_and_boot_evidence(self):
         # Controller regression only: synthetic files are not guest qualification.
@@ -135,7 +146,7 @@ class Qualification(unittest.TestCase):
             (self.root / 'dist/iso' / name).write_bytes(b'synthetic media')
         for name in ('riverlb.qcow2', 'riverlb.raw'):
             (self.root / 'dist/image' / name).write_bytes(b'synthetic disk')
-        (self.root / 'dist/test-vm/report.json').write_text(json.dumps(dict(status='passed',firmware='bios',tests=sorted(m.BOOT_TESTS))))
+        (self.root / 'dist/test-vm/report.json').write_text(json.dumps(dict(status='passed',firmware='bios',tests=sorted(m.BOOT_TESTS),platform=PROFILE)))
         report = dict(status='ready',source=self.env['GITHUB_SHA'],firmware='bios',stages={})
         def execute(args, *_):
             if args[-1] == 'scripts/test-installer.sh':
@@ -437,6 +448,18 @@ class Qualification(unittest.TestCase):
             finally:
                 channel.close(); writer.join(timeout=6)
             self.assertFalse(channel.reader.is_alive())
+
+    def test_multiline_guest_metadata_executes_as_one_uart_command(self):
+        import installer as fixture
+        serial = self.root / 'metadata.serial'
+        marker = 'riverlb_status_' + 'c'*16
+        # Preserve Python newlines, quotes and shell metacharacters literally.
+        source = "value = \"quotes '\\\" and $HOME $(false) `false`\"\nprint(value)\n"
+        program = fixture.inline_program(source)
+        self.assertNotIn('\n', program)
+        command = fixture.status_command(program, marker, serial)
+        subprocess.run(['bash', '-c', command], check=True, timeout=5)
+        self.assertEqual(serial.read_text(), "quotes '\" and $HOME $(false) `false`\n" + marker + '_0\n')
 
     def test_probe_source_is_read_from_media_not_typed(self):
         import installer as fixture

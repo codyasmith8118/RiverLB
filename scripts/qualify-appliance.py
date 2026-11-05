@@ -23,6 +23,7 @@ LABEL = 'io.riverlb.qualification'
 BOOT_TESTS = {'console setup', 'verified HTTPS login', 'real firewalld VIP TCP forwarding',
     'clean shutdown', 'reboot configuration/account/certificate persistence',
     'persisted traffic statistics', 'independent clone certificates and machine IDs',
+    'two completed-appliance reboots', 'separate management and traffic NICs',
     'SELinux enforcing', 'SSH disabled', 'console recovery login', 'private database permissions'}
 INSTALLER_TESTS = {'RiverLB graphical summary and accessible installation destination',
     'text-console storage selection', 'native text Quit requested before installation',
@@ -167,14 +168,26 @@ def bounded_command(argv, log, env, timeout):
 def fixture_report(path, firmware, expected):
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 65536:
         raise Rejected('fixture-report-missing-or-unsafe')
-    data = json.loads(path.read_text())
-    if (set(data) != {'status', 'firmware', 'tests'} or data['status'] != 'passed'
-            or data['firmware'] != firmware or not isinstance(data['tests'], list)
-            or any(not isinstance(item, str) for item in data['tests'])
-            or set(data['tests']) != expected or len(data['tests']) != len(expected)):
+    return fixture_data(json.loads(path.read_text()),firmware,expected)
+
+
+def fixture_data(data,firmware,expected):
+    fields={'status','firmware','tests'} | ({'platform'} if expected==BOOT_TESTS else set())
+    if (type(data) is not dict or set(data)!=fields or data['status']!='passed'
+            or data['firmware']!=firmware or not isinstance(data['tests'],list)
+            or any(not isinstance(item,str) for item in data['tests'])
+            or set(data['tests'])!=expected or len(data['tests'])!=len(expected)):
         raise Rejected('fixture-report-invalid')
-    # Rebuild the public object from constants, never forward arbitrary guest text.
-    return dict(status='passed', firmware=firmware, tests=sorted(expected))
+    public=dict(status='passed',firmware=firmware,tests=sorted(expected))
+    if expected==BOOT_TESTS:
+        import importlib.util
+        spec=importlib.util.spec_from_file_location('qualification_platform',ROOT/'tests/appliance/platform_identity.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        try:
+            public['platform']=module.validate(data['platform'],module.reference(ROOT/'appliance/qualification/kvm-reference.json'))
+        except (ValueError,TypeError,KeyError):
+            raise Rejected('fixture-platform-invalid') from None
+    return public
 
 
 def installer_failure(path, firmware):
