@@ -67,6 +67,21 @@ class WorkerTests(unittest.TestCase):
             return {'reason':'canceled','packets':0}
         self.assertEqual(self.run_worker(write,ready='events')['reason'],'network_changed')
 
+    def test_cancel_marker_before_setup_produces_valid_empty_pcap(self):
+        spec=importlib.util.spec_from_file_location('early_cancel_files',Path(__file__).resolve().parents[1]/'deploy/privileged/capture_file.py')
+        files=importlib.util.module_from_spec(spec);spec.loader.exec_module(files)
+        with tempfile.TemporaryDirectory() as folder:
+            directory=Path(folder);directory.chmod(0o700);(directory/'cancel').touch(mode=0o600)
+            events,packets=Socket(),Socket()
+            with mock.patch.object(worker.socket,'socket',side_effect=[events,packets]), \
+                    mock.patch.object(worker,'inventory',return_value=([{'ifname':'ens4','ifindex':4}],NETWORKS)), \
+                    mock.patch.object(worker,'drop_capabilities'):
+                writer=SimpleNamespace(write=lambda *args:files.write(*args,owner_uid=os.getuid()))
+                value=worker.run(directory,self.configuration(),capture,writer,threading.Event())
+            self.assertEqual(value['reason'],'canceled');self.assertEqual(value['packets'],0)
+            self.assertEqual((directory/'capture.pcap').read_bytes(),files.PCAP_HEADER)
+            self.assertTrue(events.closed and packets.closed)
+
     def test_interface_replacement_and_bad_config_fail_before_packet_socket(self):
         for config in [{}, {**self.configuration(),'interface_index':True}, {**self.configuration(),'request':'bad'},self.configuration()]:
             with self.subTest(config=config),mock.patch.object(worker.socket,'socket',return_value=Socket()) as factory, \

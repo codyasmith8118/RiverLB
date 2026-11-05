@@ -3,6 +3,7 @@ import base64
 import importlib.util
 import json
 import os
+import stat
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
@@ -111,7 +112,10 @@ class JobsTests(unittest.TestCase):
         self.now=600;self.assertEqual(self.call('status',owner=OWNER)['state'],'idle')
         self.assertFalse((self.root/identifier).exists())
         identifier=self.start();self.call('cancel',owner=OWNER,id=identifier)
-        self.assertEqual(self.state,'inactive')
+        self.assertEqual(self.state,'active')
+        marker=self.root/identifier/'cancel';self.assertTrue(marker.is_file());self.assertEqual(marker.stat().st_size,0);self.assertEqual(stat.S_IMODE(marker.stat().st_mode),0o600)
+        self.call('cancel',owner=OWNER,id=identifier)  # Idempotent before worker readiness.
+        self.assertFalse(any(args[0]=='kill' for _,args in self.calls))
         self.call('delete',owner=OWNER,id=identifier);self.assertEqual(list(self.root.iterdir()),[])
         self.start()
         broker=self.manager.broker

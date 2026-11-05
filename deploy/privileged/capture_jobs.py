@@ -16,7 +16,7 @@ import time
 
 
 ROOT = Path('/run/riverlb-captures')
-FILES = {'request.json', 'status.json', 'capture.pcap', '.status.new'}
+FILES = {'request.json', 'status.json', 'capture.pcap', '.status.new', 'cancel'}
 RETENTION = 600
 
 
@@ -324,7 +324,15 @@ class Capture:
                 return self.export(parameters.get('offset'))
             if operation == 'cancel':
                 if self.job['finished'] is None:
-                    self.systemctl('kill', '--kill-whom=main', '--signal=USR1', self.unit(identifier))
+                    # The worker may still be importing Python modules. A
+                    # private marker survives setup; an early signal would use
+                    # its default disposition before handlers are installed.
+                    path=self.root/identifier/'cancel'
+                    try:
+                        fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+                    except FileExistsError:
+                        fd,info=self.file(path,0)
+                    os.close(fd)
                 self.refresh()
                 return self.view()
             if operation == 'delete':

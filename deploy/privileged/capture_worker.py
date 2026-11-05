@@ -130,7 +130,7 @@ def run(directory, configuration, policy, files, stop):
 
             result = files.write(directory, request, receive,
                                  lambda frame: policy.headers(frame, request, networks, protected),
-                                 lambda: changed or stop.is_set())
+                                 lambda: changed or stop.is_set() or (Path(directory)/'cancel').exists())
             # Linux AF_PACKET v1 counters include filtered and kernel-dropped
             # packets; reading them never changes forwarding state.
             received, dropped = struct.unpack('II', packets.getsockopt(263, 6, 8))
@@ -220,7 +220,7 @@ def cleanup(directory):
     info = directory.lstat()
     if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or stat.S_IMODE(info.st_mode) != 0o700:
         raise ValueError('Unsafe capture cleanup directory')
-    allowed = {'request.json', 'status.json', 'capture.pcap', '.status.new'}
+    allowed = {'request.json', 'status.json', 'capture.pcap', '.status.new', 'cancel'}
     children = list(directory.iterdir())
     for path in children:
         info = path.lstat()

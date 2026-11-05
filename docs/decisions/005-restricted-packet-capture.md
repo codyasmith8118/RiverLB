@@ -97,8 +97,8 @@ Use `/run/riverlb-captures` and per-job systemd runtime directories: reboot,
 helper stop and worker exit remove ephemeral files. A worker closes its packet
 sockets before a fixed ten-minute retention wait, then deletes its own private
 files. The template unit provides independent runtime-directory cleanup and a
-hard runtime bound. Cancel uses a fixed signal to finish a valid capture while
-retaining it; delete/helper stop terminates the worker cgroup and removes output.
+hard runtime bound. Cancel uses a private fixed marker checked after setup and during collection,
+so stopping before worker readiness still produces a valid empty PCAP; delete/helper stop terminates the worker cgroup and removes output.
 Captures are excluded from application backups and HA synchronization.
 
 Create helper-owned private directories/files (0700/0600), with unpredictable
@@ -125,7 +125,7 @@ recording credentials, proof tokens or packet contents.
 
 Current pure tests: `python3 tests/capture_policy.py` (five passed) and
 `python3 tests/capture_file.py` (seven passed),
-`python3 tests/capture_worker.py` (seven passed) and
+`python3 tests/capture_worker.py` (eight passed) and
 `python3 tests/capture_jobs.py` (ten passed). They cover
 selector/interface/management exclusions, forbidden inputs and bounds, IPv4/IPv6
 TCP/UDP with zero/one/two VLAN tags, reverse endpoint matching, actual payload/
