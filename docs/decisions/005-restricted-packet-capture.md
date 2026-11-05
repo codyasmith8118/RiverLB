@@ -1,20 +1,22 @@
 # Restricted diagnostic packet capture
 
-Status: implementation in progress; installed capture qualification and paired
-delivery remain pending.
-Updated November 4, 2026 for [task #55](https://github.com/codyasmith8118/RiverLB/issues/55).
-The source implements capture UI/API, action/request-bound proof, a fixed helper
-job lifecycle and a separate worker. Installed package/SELinux and traffic-impact
-qualification are still required; source tests alone do not enable review-lab
-collection or establish completion.
+Status: implemented architecture. Delivery and installed evidence are tracked in
+[PR #101](https://github.com/codyasmith8118/RiverLB/pull/101) and
+[task #55](https://github.com/codyasmith8118/RiverLB/issues/55).
+Updated November 5, 2026.
+
+The implementation includes capture UI/API, action/request-bound proof, a fixed
+helper job lifecycle and a separate worker. Installed package/SELinux and
+traffic-impact evidence are required alongside source tests; the design itself
+does not establish delivery or qualification.
 
 ## Prerequisites and observed baseline
 
 Task #55 explicitly depends on
 [#16](https://github.com/codyasmith8118/RiverLB/issues/16) (privilege separation)
 and [#18](https://github.com/codyasmith8118/RiverLB/issues/18) (recent account proof).
-#16 and #18 are complete and delivered on both review appliances. The current
-accepted integration baseline is `b70f96d812dd72b94415756c3387374fe0aaafae`;
+#16 and #18 are complete and delivered on both review appliances. The accepted prerequisite
+integration baseline is `b70f96d812dd72b94415756c3387374fe0aaafae`;
 [PR #100](https://github.com/codyasmith8118/RiverLB/pull/100) records #18's
 actual enforcing-SELinux proof/export/restore qualification and delivery receipt.
 
@@ -124,7 +126,7 @@ recording credentials, proof tokens or packet contents.
 Current pure tests: `python3 tests/capture_policy.py` (five passed) and
 `python3 tests/capture_file.py` (seven passed),
 `python3 tests/capture_worker.py` (seven passed) and
-`python3 tests/capture_jobs.py` (nine passed). They cover
+`python3 tests/capture_jobs.py` (ten passed). They cover
 selector/interface/management exclusions, forbidden inputs and bounds, IPv4/IPv6
 TCP/UDP with zero/one/two VLAN tags, reverse endpoint matching, actual payload/
 option/padding removal, malformed/truncated packets and deterministic byte fuzz.
@@ -136,13 +138,18 @@ binding, cancels before reading packets when an event arrives, binds a protocol-
 zero packet socket only to the selected interface, and drops all remaining
 capabilities after setup. Its fixed entrypoint applies CPU/memory/file/descriptor
 limits and reads only a private root-owned request for an opaque job ID.
+Linux packet-socket receive/drop counters expose diagnostic pressure separately
+from stored packet counts. Dropped diagnostic packets are not forwarding drops.
+The lifecycle tests include the systemd case where a collected template instance
+is not loaded for reset-failed but show reports it as loaded/inactive with zero
+main/control PIDs; cleanup accepts that safe state and rejects a running worker.
 
 `tests/capture_worker_network.py` passed actual IPv4/IPv6 TCP/UDP packet delivery,
 private PCAP output, payload/options removal, a one-second deadline and zero
 remaining capabilities inside a fresh disposable network namespace. It uses
 only synthetic veth traffic and replaces trusted management inventory; it does
 not test installed broker authorization, SELinux, retention/export, or traffic
-impact. Installed qualification remains pending. No #55 deployment to the review pair is claimed.
+impact. For installed results and paired deployment receipts, consult PR #101 and #55.
 
 Use private synthetic payloads and disposable interfaces for fixtures. Run actual
 IPv4/IPv6 capture/export and traffic-impact checks on an isolated installed

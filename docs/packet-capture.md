@@ -41,7 +41,9 @@ on success, denial and navigation. Downloads are private, bounded streams and
 recheck session/account validity while transferring. An expired/deleted file or
 revoked session can interrupt a download; repeat collection if needed.
 
-Audit records cover authorization, collection, stop reason, export and deletion
+The completed status includes diagnostic kernel receive/drop counters. A busy
+capture worker can drop diagnostic copies; this does not indicate forwarding
+loss. Audit records cover authorization, collection, stop reason, export and deletion
 without packet contents or credentials. Root-owned files use private permissions;
 the application neither opens a capture socket nor reads those files directly.
 The helper accepts only fixed operations and controls a fixed worker template.
