@@ -1006,14 +1006,26 @@ async fn protect(
         };
         if let Some(principal) = user {
             if !principal.permits(request.method().as_str(), request.uri().path()) {
-                if matches!(
+                let audit = if request
+                    .uri()
+                    .path()
+                    .starts_with("/api/v1/diagnostics/captures")
+                {
+                    Some("diagnostic capture authorization denied")
+                } else if matches!(
                     request.uri().path(),
                     "/api/v1/backup" | "/api/v1/security/proof"
-                ) && control
-                    .store
-                    .record_audit(&principal.username, "private backup authorization denied")
-                    .await
-                    .is_err()
+                ) {
+                    Some("sensitive operation authorization denied")
+                } else {
+                    None
+                };
+                if let Some(label) = audit
+                    && control
+                        .store
+                        .record_audit(&principal.username, label)
+                        .await
+                        .is_err()
                 {
                     return error(StatusCode::SERVICE_UNAVAILABLE, "Audit unavailable".into())
                         .into_response();
@@ -1045,6 +1057,10 @@ async fn protect(
         && !request.uri().path().starts_with("/api/v1/ha")
         && !request.uri().path().starts_with("/api/v1/security/")
         && !request.uri().path().starts_with("/api/v1/operations/")
+        && !request
+            .uri()
+            .path()
+            .starts_with("/api/v1/diagnostics/captures")
         && !request.uri().path().starts_with("/api/v1/updates/")
         && !request
             .uri()
@@ -1299,6 +1315,7 @@ pub fn router(control: Arc<Control>, address: SocketAddr, secure: bool) -> Route
         .merge(crate::ha_deploy::router())
         .merge(crate::updates::router())
         .merge(crate::auth::router())
+        .merge(crate::capture::router())
         .merge(crate::confirmation::router())
         .merge(crate::operations::router())
         .route("/healthz", get(|| async { "ok" }))

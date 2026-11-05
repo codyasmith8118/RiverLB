@@ -53,6 +53,7 @@ function updateHealthBadges() {
     }
 }
 const pages = {
+    capture:['Packet Capture','System'],
     administrators:['Local Administrators','System'],
     'system-health':['System Health','System'],alerts:['Alerts','System'],backups:['Backups & Recovery','System'],'audit-events':['Audit Events','System'],security:['Security','System'],updates:['Application Updates','System'],
     ha:['HA Configuration','High Availability'],'ha-sync':['Configuration Sync','High Availability'],
@@ -231,7 +232,7 @@ function say(text, failed = false) {
 }
 function updateApplyBar() {
     const route=document.querySelector('[data-page]:not([hidden])')?.dataset.page;
-    const independent=['ha','ha-sync','administrators','system-health','alerts','backups','audit-events','security','updates','interface-editor'].includes(route);
+    const independent=['capture','ha','ha-sync','administrators','system-health','alerts','backups','audit-events','security','updates','interface-editor'].includes(route);
     const readOnly=['overview','profiles','interfaces','statistics','certificates','device-certificates','certificate-detail','certificate-request-detail','certificate-import','certificate-generate','renewals','renewal-editor'].includes(route);
     form.querySelector('.apply-bar').hidden=independent||(!dirty&&readOnly);
 }

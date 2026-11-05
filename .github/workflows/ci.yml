@@ -46,6 +46,10 @@ jobs:
           python3 tests/appliance/service_hardening.py
           python3 tests/updates_helper.py
           python3 tests/privileged_helper.py
+          python3 tests/capture_policy.py
+          python3 tests/capture_file.py
+          python3 tests/capture_worker.py
+          python3 tests/capture_jobs.py
           python3 tests/privileged_prepare.py
           cargo clippy --locked --all-targets -- -D warnings
   linux:
@@ -81,6 +85,7 @@ jobs:
       - run: python3 tests/ha_hyperv_fencing.py
       - run: sudo unshare --net -- python3 tests/ha_failover.py
       - run: sudo unshare --net -- python3 tests/ha_startup_network.py
+      - run: sudo env RIVERLB_CAPTURE_TEST_PARENT_NETNS="$(readlink /proc/self/ns/net)" unshare --net -- python3 tests/capture_worker_network.py
       - run: python3 tests/security.py
       - run: python3 tests/admin_accounts.py
       - run: python3 tests/auth_release.py

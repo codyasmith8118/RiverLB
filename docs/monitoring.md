@@ -63,3 +63,5 @@ System Health and Alerts provide local CPU, memory, filesystem, interface and
 application health views; see [appliance operations](appliance-operations.md).
 Those views are distinct from the traffic Prometheus families. SNMP and packet-level
 instrumentation are not implemented.
+
+Administrator diagnostic collection is described in [packet headers](packet-capture.md).

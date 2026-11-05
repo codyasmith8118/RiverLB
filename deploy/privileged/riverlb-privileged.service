@@ -8,6 +8,8 @@ Before=riverlb.service riverlb-ha.service
 Type=simple
 User=root
 UMask=0077
+RuntimeDirectory=riverlb-captures
+RuntimeDirectoryMode=0700
 ExecStart=/usr/libexec/riverlb/privileged/riverlb-privileged serve
 Restart=on-failure
 RestartSec=2s
@@ -16,7 +18,7 @@ KillMode=control-group
 NoNewPrivileges=yes
 ProtectHome=yes
 ProtectSystem=strict
-ReadWritePaths=/etc/riverlb-privileged /var/lib/riverlb-privileged /run/riverlb-privileged /run/riverlb-ha-deploy -/etc/corosync -/var/lib/pcsd -/var/lib/pacemaker /dev/shm
+ReadWritePaths=/run/riverlb-captures /etc/riverlb-privileged /var/lib/riverlb-privileged /run/riverlb-privileged /run/riverlb-ha-deploy -/etc/corosync -/var/lib/pcsd -/var/lib/pacemaker /dev/shm
 # Fixed HA pcs helpers require hacluster state and IPC. None of these capabilities
 # or paths are granted to the application daemon.
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_CHOWN CAP_FOWNER CAP_SETUID CAP_SETGID CAP_DAC_OVERRIDE

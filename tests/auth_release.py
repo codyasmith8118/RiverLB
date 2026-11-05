@@ -155,6 +155,14 @@ members = ["127.0.0.1:9"]
             request("/api/v1/backup", {}, reader, expected=403)
             request("/api/v1/statistics/reset", {}, reader, expected=403)
             request("/api/v1/statistics/reset", {}, operator)
+            for principal in [reader,operator]:
+                request("/api/v1/diagnostics/captures",token=principal,expected=403)
+            capture_request={"interface":"ens4","host":"10.77.10.100","port":8080,"protocol":"tcp","duration_seconds":1,"max_bytes":4096,"consent":True}
+            request("/api/v1/diagnostics/captures/start",{"request":capture_request,"proof":""},admin,expected=401)
+            request("/api/v1/diagnostics/captures/"+"a"*32+"/export",{"proof":""},admin,expected=401)
+            assert request("/api/v1/diagnostics/captures/interfaces",token=admin)[0]["available"] is False
+            request("/api/v1/security/proof",{"action":"capture_start","current_password":PASSWORD,"request":{**capture_request,"filter":"port 80"}},admin,expected=422)
+
             request("/api/v1/ha", {}, operator, expected=403, method="PUT")
             request("/api/v1/administrators", {"username": "admin", "action": "role", "role": "read_only", "current_password": PASSWORD}, admin, expected=409)
             monitoring = request("/api/v1/security/tokens", {"name": "prometheus", "scope": "monitoring", "lifetime_secs": 3600, "current_password": PASSWORD}, admin)[0]
@@ -168,6 +176,7 @@ members = ["127.0.0.1:9"]
             request("/metrics", token=raw, expected=401)
             configure = request("/api/v1/security/tokens", {"name": "automation", "scope": "configure", "lifetime_secs": 3600, "current_password": PASSWORD}, admin)[0]
             request("/api/v1/config", token=configure["token"])
+            request("/api/v1/diagnostics/captures",token=configure["token"],expected=403)
             request("/api/v1/administrators", token=configure["token"], expected=403)
             request("/api/v1/security/settings", token=configure["token"], expected=403)
             proof_request={"action":"private_backup","current_password":PASSWORD}

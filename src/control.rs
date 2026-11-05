@@ -35,6 +35,7 @@ pub struct Control {
     pub store: crate::storage::Store,
     pub login_budget: Mutex<management::LoginBudget>,
     pub login_slots: Arc<tokio::sync::Semaphore>,
+    pub capture_exports: Arc<tokio::sync::Semaphore>,
     admin_slots: Arc<tokio::sync::Semaphore>,
     pub admin_body_slots: Arc<tokio::sync::Semaphore>,
     pub administrator_budget: Mutex<(std::time::Instant, u32)>,
@@ -196,6 +197,7 @@ impl Control {
             store,
             login_budget: Mutex::new(Default::default()),
             login_slots: Arc::new(tokio::sync::Semaphore::new(4)),
+            capture_exports: Arc::new(tokio::sync::Semaphore::new(1)),
             admin_slots: Arc::new(tokio::sync::Semaphore::new(64)),
             admin_body_slots: Arc::new(tokio::sync::Semaphore::new(256)),
             administrator_budget: Mutex::new((std::time::Instant::now(), 0)),
@@ -496,6 +498,9 @@ impl Control {
             old.revision == revision,
             "configuration changed; reload before applying"
         );
+        if config.management != old.runtime.config.management {
+            crate::capture::management_change().await?;
+        }
         for vs in config.virtual_servers.iter().filter(|v| v.enabled) {
             if let Some(previous) = old.runtime.config.virtual_servers.iter().find(|v| {
                 v.enabled

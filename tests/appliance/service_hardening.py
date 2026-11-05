@@ -33,6 +33,21 @@ def run():
         assert set(updater[('Service', 'CapabilityBoundingSet')].split()) == {
             'CAP_CHOWN', 'CAP_DAC_OVERRIDE', 'CAP_FOWNER', 'CAP_SETUID', 'CAP_SETGID'}
         assert set(updater[('Service', 'AmbientCapabilities')].split()) == {'CAP_SETUID', 'CAP_SETGID'}
+    capture = audit.parse_unit(ROOT / 'deploy/privileged/riverlb-capture@.service')
+    assert capture[('Service','CapabilityBoundingSet')] == 'CAP_NET_RAW'
+    assert capture[('Service','NoNewPrivileges')] == 'yes'
+    assert capture[('Service','RestrictAddressFamilies')] == 'AF_NETLINK AF_PACKET'
+    assert capture[('Service','ReadWritePaths')] == '/run/riverlb-captures/%i'
+    assert capture[('Service','RuntimeDirectory')] == 'riverlb-captures/%i'
+    assert capture[('Service','RuntimeMaxSec')] == '670s'
+    assert capture[('Service','CPUQuota')] == '10%'
+    assert capture[('Service','MemoryMax')] == '128M'
+    assert capture[('Service','TimeoutStopSec')] == '2s'
+    assert capture[('Service','KillMode')] == 'control-group'
+    assert capture[('Unit','BindsTo')] == 'riverlb-privileged.service'
+    for path in ['/run/riverlb-privileged','/var/lib/riverlb','/etc/riverlb-privileged']:
+        assert '-'+path in capture[('Service','InaccessiblePaths')].split()
+    assert 'privileged/capture_worker.py' in rpm and '%{_unitdir}/riverlb-capture@.service' in rpm
     standalone = audit.parse_unit(ROOT / "packaging/rpm/riverlb.service")
     ha = audit.parse_unit(ROOT / "deploy/ha/riverlb-ha.service")
     assert not failures(standalone)

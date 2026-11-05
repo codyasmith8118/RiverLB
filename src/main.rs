@@ -3,6 +3,7 @@ mod acme;
 mod admission;
 mod auth;
 mod backup;
+mod capture;
 mod certificates;
 mod config;
 mod confirmation;

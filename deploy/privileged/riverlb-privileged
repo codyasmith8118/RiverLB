@@ -32,6 +32,10 @@ ha_spec = importlib.util.spec_from_file_location('riverlb_privileged_ha', Path(_
 ha_module = importlib.util.module_from_spec(ha_spec)
 ha_spec.loader.exec_module(ha_module)
 
+capture_spec = importlib.util.spec_from_file_location('riverlb_capture_jobs', Path(__file__).with_name('capture_jobs.py'))
+capture_module = importlib.util.module_from_spec(capture_spec)
+capture_spec.loader.exec_module(capture_module)
+
 SOCKET = Path('/run/riverlb-privileged/control.sock')
 POLICY = Path('/etc/riverlb-privileged/policy.json')
 STATE = Path('/var/lib/riverlb-privileged/ownership.json')
@@ -134,6 +138,7 @@ class Broker:
         self.checkpoint()
         self.nm = nm_module.NetworkManager(self, policy, process, success)
         self.ha = ha_module.HA(self, policy, load, save, process, success)
+        self.capture = capture_module.Capture(self, policy, process, success)
 
     def mutable(self):
         policy.require(self.state.get('intent') is None,
@@ -323,7 +328,7 @@ class Broker:
     def dispatch(self, action, parameters, peer):
         if action == 'status':
             policy.fields(parameters, set())
-            return dict(protocol=1, uid=self.configuration['uid'])
+            return dict(protocol=1, uid=self.configuration['uid'], features=['capture_headers_v1'] if self.capture.available else [])
         if action == 'update_status':
             policy.fields(parameters, set())
             path = Path('/var/lib/riverlb-updater/status.json')
@@ -331,6 +336,8 @@ class Broker:
             policy.require(type(value.get('highest_sequence')) is int and value['highest_sequence'] >= 0
                            and type(value.get('history')) is list and len(value['history']) <= 100)
             return {key: value[key] for key in ['highest_sequence', 'history']}
+        if action == 'capture':
+            return self.capture.dispatch(parameters, peer)
         if action == 'ha':
             return self.ha.dispatch(parameters, peer)
         if action == 'network_manager':
@@ -410,7 +417,7 @@ def client(connection, broker, slots):
         policy.require(type(request['version']) is int and request['version'] == 1
                        and request['nonce'] == nonce, 'Invalid or replayed privileged request')
         policy.require(type(request['action']) is str and len(request['action']) <= 32)
-        action = request['action'] if request['action'] in {'network', 'firewall', 'ping', 'network_manager', 'lifecycle', 'ha', 'status', 'update_status'} else 'invalid'
+        action = request['action'] if request['action'] in {'network', 'firewall', 'ping', 'network_manager', 'lifecycle', 'ha', 'capture', 'status', 'update_status'} else 'invalid'
         result = broker.dispatch(request['action'], request['parameters'], (pid, uid, gid))
         if isinstance(result, dict) and result.get('changed') is True:
             syslog.syslog(syslog.LOG_AUTHPRIV | syslog.LOG_INFO, json.dumps({'service':'riverlb-privileged', 'uid':uid, 'pid':pid, 'action':action, 'outcome':'accepted'}))
