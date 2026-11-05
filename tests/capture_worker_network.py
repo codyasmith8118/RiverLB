@@ -32,11 +32,13 @@ def run():
         time.sleep(2)
         for family in ['4','6']:
             for protocol in ['tcp','udp']:
-                subprocess.run([sys.executable,__file__,'--case',family,protocol],check=True)
+                subprocess.run(['setpriv','--bounding-set=-all,+net_raw',sys.executable,__file__,'--case',family,protocol],check=True)
         return
     assert len(sys.argv)==4 and sys.argv[1]=='--case' and sys.argv[2] in {'4','6'} and sys.argv[3] in {'tcp','udp'}
     assert {name for _,name in socket.if_nameindex()}=={'lo','cap0','cap1'}
     family,protocol=int(sys.argv[2]),sys.argv[3]
+    cap_fields=dict(line.split(':',1) for line in Path('/proc/self/status').read_text().splitlines() if ':' in line)
+    assert int(cap_fields['CapEff'].strip(),16)==1<<13, 'Worker setup must need only CAP_NET_RAW'
     modules={}
     for name in ['capture_worker','capture_file']:
         spec=importlib.util.spec_from_file_location('fixture_'+name,Path(__file__).resolve().parents[1]/'deploy/privileged'/f'{name}.py')
@@ -45,7 +47,7 @@ def run():
     # Supply the selected index and independent fixture exclusions; raw socket
     # binding, kernel delivery, capability drop and PCAP writes remain real.
     index=socket.if_nametoindex('cap0')
-    config={'request':{**request(),'interface':'cap0','duration_seconds':1,'protocol':protocol,'host':'10.88.10.100' if family==4 else 'fd88:16::100'},'interface_index':index,'management_interfaces':['cap1']}
+    config={'request':{**request(),'interface':'cap0','duration_seconds':1,'protocol':protocol,'host':'10.88.10.100' if family==4 else 'fd88:16::100'},'interface_index':index,'management_interfaces':['cap1'],'protected_ports':[18090]}
     with tempfile.TemporaryDirectory(prefix='riverlb-capture-worker-') as directory, socket.socket(socket.AF_PACKET,socket.SOCK_RAW,0) as injector:
         Path(directory).chmod(0o700)
         injector.bind(('cap1',3))

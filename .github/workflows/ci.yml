@@ -49,6 +49,7 @@ jobs:
           python3 tests/capture_policy.py
           python3 tests/capture_file.py
           python3 tests/capture_worker.py
+          python3 tests/capture_jobs.py
           python3 tests/privileged_prepare.py
           cargo clippy --locked --all-targets -- -D warnings
   linux:

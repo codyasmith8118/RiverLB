@@ -1,34 +1,34 @@
 # Restricted diagnostic packet capture
 
-Status: implementation in progress; capture remains disabled pending prerequisite
-delivery and installed qualification.
+Status: implementation in progress; installed capture qualification and paired
+delivery remain pending.
 Updated November 4, 2026 for [task #55](https://github.com/codyasmith8118/RiverLB/issues/55).
-The initial selector/header policy and synthetic tests open no sockets and write
-no capture files. They do not enable a capture endpoint or lab collection.
+The source implements capture UI/API, action/request-bound proof, a fixed helper
+job lifecycle and a separate worker. Installed package/SELinux and traffic-impact
+qualification are still required; source tests alone do not enable review-lab
+collection or establish completion.
 
 ## Prerequisites and observed baseline
 
 Task #55 explicitly depends on
 [#16](https://github.com/codyasmith8118/RiverLB/issues/16) (privilege separation)
 and [#18](https://github.com/codyasmith8118/RiverLB/issues/18) (recent account proof).
-#16 is merged at `363e9cf160c43f43cb53da5479f485fd747a4825`; exact merged-commit
-RPM qualification and paired review-appliance delivery are still pending.
-#18 is implemented in [PR #100](https://github.com/codyasmith8118/RiverLB/pull/100),
-with local proof/export/restore tests and GitHub CI/security passing. Neither
-prerequisite is claimed complete here.
+#16 and #18 are complete and delivered on both review appliances. The current
+accepted integration baseline is `b70f96d812dd72b94415756c3387374fe0aaafae`;
+[PR #100](https://github.com/codyasmith8118/RiverLB/pull/100) records #18's
+actual enforcing-SELinux proof/export/restore qualification and delivery receipt.
 
-The installed daemon now runs as `riverlb` with only the bind-service capability.
+The installed daemon runs as `riverlb` with only the bind-service capability.
 The root-owned helper authenticates kernel peer credentials and independently
-validates delegated operations. #18 adds a one-use, actor/session/action-bound
-proof with a 60-second expiry, enforced by the authentication database.
+validates delegated operations. Recent proof is one-use, actor/session/action-
+bound with a 60-second expiry, enforced by the authentication database.
 
 Do not substitute a daemon-spawned shell/tcpdump command, additional daemon
 capabilities, an administrator checkbox, or a generic login session for these
-prerequisites. Complete their boundaries before activating capture on either
-appliance. Their implementation/review must settle the trusted proof-verification
-interface; this proposal does not invent an already implemented authority.
+prerequisites. The implemented proof-verification boundary comes from #18 and
+is extended with separate canonical-request and capture-ID scopes.
 
-## Proposed behavior
+## Capture behavior
 
 An administrator reviews an interface, narrow traffic selector, capture mode,
 time/byte limits, retention and sensitive-data warning, then explicitly consents
@@ -66,7 +66,11 @@ address and port must match the same packet endpoint in either direction. Reject
 CIDRs, unspecified/loopback/link-local/multicast/reserved addresses, scoped IPv6,
 free-form BPF, shell text, offsets, executable options and unknown fields.
 The helper uses its trusted traffic-interface registry and independently derived
-management network exclusions; requests cannot supply those inventories. Reject
+management network exclusions; requests cannot supply those inventories. The
+authenticated server adds its actual management ports as mandatory additional
+exclusions; those can only narrow the root policy. A management binding change
+stops existing capture before reconfiguration, and capture cannot start during
+pending confirmation. Reject
 loopback, management interfaces and protected management/SSH/HA ports, including
 packets whose opposite endpoint uses a protected port. Stop on interface identity
 or address/link changes.
@@ -86,6 +90,14 @@ memory, descriptors, execution time, output and queue; drop diagnostic packets
 under pressure rather than blocking traffic. Do not enable promiscuous mode or
 change firewall, routes, addresses, interface state or traffic ownership. The
 main daemon must neither gain raw capture privileges nor receive a capture socket.
+
+Use `/run/riverlb-captures` and per-job systemd runtime directories: reboot,
+helper stop and worker exit remove ephemeral files. A worker closes its packet
+sockets before a fixed ten-minute retention wait, then deletes its own private
+files. The template unit provides independent runtime-directory cleanup and a
+hard runtime bound. Cancel uses a fixed signal to finish a valid capture while
+retaining it; delete/helper stop terminates the worker cgroup and removes output.
+Captures are excluded from application backups and HA synchronization.
 
 Create helper-owned private directories/files (0700/0600), with unpredictable
 IDs and no user-supplied output path. Enforce size before writing each complete
@@ -110,15 +122,16 @@ recording credentials, proof tokens or packet contents.
 | Installed policy | Packaged helper protocol, systemd sandbox and enforcing SELinux; prove the unprivileged daemon cannot open capture sockets or read capture storage directly |
 
 Current pure tests: `python3 tests/capture_policy.py` (five passed) and
-`python3 tests/capture_file.py` (seven passed) and
-`python3 tests/capture_worker.py` (six passed). They cover
+`python3 tests/capture_file.py` (seven passed),
+`python3 tests/capture_worker.py` (seven passed) and
+`python3 tests/capture_jobs.py` (nine passed). They cover
 selector/interface/management exclusions, forbidden inputs and bounds, IPv4/IPv6
 TCP/UDP with zero/one/two VLAN tags, reverse endpoint matching, actual payload/
 option/padding removal, malformed/truncated packets and deterministic byte fuzz.
 The private PCAP writer additionally proves file ownership/mode, complete-record
 byte limits, late-receive deadline/cancellation, unmatched packet bounds, and
 cleanup on disk-full, short/zero writes and sync failure. Existing paths/links
-are never overwritten. The uninstalled worker subscribes to link/address events before inventory and
+are never overwritten. The worker source subscribes to link/address events before inventory and
 binding, cancels before reading packets when an event arrives, binds a protocol-
 zero packet socket only to the selected interface, and drops all remaining
 capabilities after setup. Its fixed entrypoint applies CPU/memory/file/descriptor
@@ -129,7 +142,7 @@ private PCAP output, payload/options removal, a one-second deadline and zero
 remaining capabilities inside a fresh disposable network namespace. It uses
 only synthetic veth traffic and replaces trusted management inventory; it does
 not test installed broker authorization, SELinux, retention/export, or traffic
-impact. No capture endpoint/helper dispatch or installed worker is enabled.
+impact. Installed qualification remains pending. No #55 deployment to the review pair is claimed.
 
 Use private synthetic payloads and disposable interfaces for fixtures. Run actual
 IPv4/IPv6 capture/export and traffic-impact checks on an isolated installed
@@ -143,3 +156,27 @@ captures, keys, proof material, credentials or VM disks. Run relevant regression
 and exact-commit GitHub CI/security/RPM qualification, then follow the
 [paired development delivery procedure](../development-lab.md). A design review,
 fixture result or generic HTTP smoke test alone does not complete #55.
+
+## Implemented resource and export boundary
+
+The template worker keeps only `CAP_NET_RAW` for setup and drops every capability
+after opening its bound packet socket. It cannot open Unix IPC sockets or reach
+the privileged helper, application database or credential directories. CPU quota,
+CPU time, memory, file size and descriptor limits are fixed, separate from the
+forwarding daemon. The helper controls only generated capture template instances;
+there is no caller-selected unit, executable or signal.
+
+Capture ownership is bound to the current browser session, not merely a reusable
+account name. Signing out, session expiry or credential changes make old captures
+unavailable to a replacement session; expiry still removes them. Export requires
+a separate capture-ID-bound proof, streams bounded chunks under one download
+permit held until the response is dropped, checks file integrity and rechecks
+account/session validity while streaming. Slow/disconnected clients do not cause
+unbounded buffering or extend root file retention.
+
+The helper restricts application peers to the kernel-authenticated main PID of
+`riverlb.service` or `riverlb-ha.service`, with PID 1 confirming the fixed account,
+host network namespace and namespace restrictions. It does not need ptrace
+privileges to inspect another account’s `/proc` namespace links. Root console
+peers must share the helper’s network namespace. These checks are independent of
+caller-supplied selectors and session ownership.

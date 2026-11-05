@@ -40,6 +40,28 @@ pub async fn hash_password(password: String) -> Result<String> {
     })
     .await?
 }
+fn sensitive_scope(scope: &str) -> Result<&'static str> {
+    if scope == "private_backup" {
+        return Ok("private backup");
+    }
+    for (prefix, length, label) in [
+        ("capture_start:", 64, "capture start"),
+        ("capture_export:", 32, "capture export"),
+    ] {
+        if let Some(subject) = scope.strip_prefix(prefix) {
+            ensure!(
+                subject.len() == length
+                    && subject
+                        .bytes()
+                        .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)),
+                "Invalid sensitive action scope"
+            );
+            return Ok(label);
+        }
+    }
+    anyhow::bail!("Invalid sensitive action scope")
+}
+
 async fn backup_snapshot(conn: &turso::Connection) -> Result<crate::backup::Snapshot> {
     let mut tables = std::collections::BTreeMap::new();
     for (table, types) in crate::backup::TABLES {
@@ -335,6 +357,18 @@ impl Store {
         password: String,
         code: Option<&str>,
     ) -> Result<Option<String>> {
+        self.issue_sensitive_proof(actor, session, password, code, "private_backup")
+            .await
+    }
+    pub async fn issue_sensitive_proof(
+        &self,
+        actor: &str,
+        session: &str,
+        password: String,
+        code: Option<&str>,
+        scope: &str,
+    ) -> Result<Option<String>> {
+        let label = sensitive_scope(scope)?;
         let verified = self.verified_credentials(actor, password, code).await?;
         let conn = self.connection.lock().await;
         auth_transaction(&conn,async {
@@ -345,12 +379,34 @@ impl Store {
                 drop(rows);
                 valid &= account_security(&conn,actor).await?.mfa_secret==secret;
             } else { valid=false; }
-            conn.execute("INSERT INTO audit (created,actor,action) VALUES (?1,?2,?3)",turso::params![now(),actor,if valid {"private backup proof accepted"} else {"private backup proof denied"}]).await?;
+            conn.execute("INSERT INTO audit (created,actor,action) VALUES (?1,?2,?3)",turso::params![now(),actor,format!("{label} proof {}", if valid {"accepted"} else {"denied"})]).await?;
             if !valid { return Ok(None); }
             conn.execute("DELETE FROM sensitive_proofs WHERE expires<=?1 OR session_hash=?2 OR session_hash NOT IN (SELECT token_hash FROM sessions)",turso::params![now(),digest(session)]).await?;
             let token=crate::auth::random_hex(32);
-            conn.execute("INSERT INTO sensitive_proofs VALUES (?1,?2,?3,'private_backup',?4)",turso::params![digest(&token),actor,digest(session),now()+60]).await?;
+            conn.execute("INSERT INTO sensitive_proofs VALUES (?1,?2,?3,?4,?5)",turso::params![digest(&token),actor,digest(session),scope,now()+60]).await?;
             Ok(Some(token))
+        }).await
+    }
+    pub async fn consume_sensitive_proof(
+        &self,
+        actor: &str,
+        session: &str,
+        proof: &str,
+        scope: &str,
+    ) -> Result<bool> {
+        let label = sensitive_scope(scope)?;
+        ensure!(
+            scope != "private_backup",
+            "Private backup proof is consumed with its snapshot"
+        );
+        let conn = self.connection.lock().await;
+        auth_transaction(&conn,async {
+            let mut rows=conn.query("SELECT expires FROM sensitive_proofs WHERE token_hash=?1 AND username=?2 AND session_hash=?3 AND action=?4",turso::params![digest(proof),actor,digest(session),scope]).await?;
+            let valid=rows.next().await?.is_some_and(|r|r.get::<i64>(0).is_ok_and(|e|e>now()));drop(rows);
+            let valid=valid && proof.len()==64 && administrator_session(&conn,actor,session).await?;
+            if valid {conn.execute("DELETE FROM sensitive_proofs WHERE token_hash=?1",[digest(proof)]).await?;}
+            conn.execute("INSERT INTO audit (created,actor,action) VALUES (?1,?2,?3)",turso::params![now(),actor,format!("{label} authorization {}",if valid {"accepted"} else {"denied"})]).await?;
+            Ok(valid)
         }).await
     }
     /// Consume proof and take the snapshot under the same transaction/connection
@@ -1754,6 +1810,87 @@ mod auth_release_tests {
             .unwrap()
             .unwrap();
         (dir, store, session)
+    }
+    #[tokio::test]
+    async fn capture_proof_cannot_substitute_request_action_session_or_backup() {
+        let (_dir, store, session) = proof_fixture().await;
+        let scope = format!("capture_start:{}", "a".repeat(64));
+        let other_scope = format!("capture_start:{}", "b".repeat(64));
+        let grant = store
+            .issue_sensitive_proof("admin", &session, PASSWORD.into(), None, &scope)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            store
+                .private_backup("admin", &session, &grant)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            !store
+                .consume_sensitive_proof("admin", &session, &grant, &other_scope)
+                .await
+                .unwrap()
+        );
+        assert!(
+            !store
+                .consume_sensitive_proof(
+                    "admin",
+                    &session,
+                    &grant,
+                    &format!("capture_export:{}", "a".repeat(32))
+                )
+                .await
+                .unwrap()
+        );
+        let other = store
+            .login("admin", PASSWORD.into())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            !store
+                .consume_sensitive_proof("admin", &other, &grant, &scope)
+                .await
+                .unwrap()
+        );
+        let (a, b) = tokio::join!(
+            store.consume_sensitive_proof("admin", &session, &grant, &scope),
+            store.consume_sensitive_proof("admin", &session, &grant, &scope)
+        );
+        assert_eq!(usize::from(a.unwrap()) + usize::from(b.unwrap()), 1);
+        let backup = store
+            .issue_backup_proof("admin", &session, PASSWORD.into(), None)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            !store
+                .consume_sensitive_proof("admin", &session, &backup, &scope)
+                .await
+                .unwrap()
+        );
+        assert!(
+            store
+                .private_backup("admin", &session, &backup)
+                .await
+                .unwrap()
+                .is_some()
+        );
+        for invalid in [
+            "capture_start:../../../root",
+            "capture_export:bad",
+            "shell:id",
+        ] {
+            assert!(
+                store
+                    .issue_sensitive_proof("admin", &session, PASSWORD.into(), None, invalid)
+                    .await
+                    .is_err()
+            );
+        }
     }
     #[tokio::test]
     async fn private_backup_requires_bound_unexpired_single_use_proof() {

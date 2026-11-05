@@ -28,7 +28,7 @@ class Socket:
 
 
 class WorkerTests(unittest.TestCase):
-    def configuration(self):return {'request':request(),'interface_index':4,'management_interfaces':['ens3']}
+    def configuration(self):return {'request':request(),'interface_index':4,'management_interfaces':['ens3'],'protected_ports':[18090]}
 
     def run_worker(self,write,ready='packets',frames=()):
         events,packets=Socket(),Socket(frames)
@@ -98,6 +98,35 @@ class WorkerTests(unittest.TestCase):
                 mock.patch.object(worker.os,'nice'):
             worker.limits()
             self.assertEqual([c.args[1] for c in limits.call_args_list],[(5,5),(128*1024*1024,)*2,(16*1024*1024,)*2,(32,32),(0,0)])
+
+    def test_main_retention_is_fixed_and_cleanup_runs_on_success_and_failure(self):
+        class Event:
+            def __init__(self):self.set_value=False;self.waited=[]
+            def set(self):self.set_value=True
+            def is_set(self):return self.set_value
+            def wait(self,seconds):self.waited.append(seconds);return False
+        for failed in [False,True]:
+            events=[];handlers={};statuses=[]
+            def event():value=Event();events.append(value);return value
+            def signal(kind,handler):handlers[kind]=handler
+            def run(*args):
+                if failed:raise OSError('secret-synthetic-packet-error')
+                handlers[worker.signal.SIGUSR1]()
+                self.assertTrue(events[0].is_set());self.assertFalse(events[1].is_set())
+                return dict(reason='canceled',bytes=24,packets=0,observed=0)
+            with self.subTest(failed=failed),mock.patch.object(worker.os,'geteuid',return_value=0), \
+                    mock.patch.object(worker.sys,'argv',['worker','a'*32]), \
+                    mock.patch.object(worker,'read_configuration',return_value=self.configuration()), \
+                    mock.patch.object(worker,'load_module',return_value=object()), \
+                    mock.patch.object(worker,'limits'),mock.patch.object(worker.threading,'Event',side_effect=event), \
+                    mock.patch.object(worker.signal,'signal',side_effect=signal), \
+                    mock.patch.object(worker,'run',side_effect=run), \
+                    mock.patch.object(worker,'status',side_effect=lambda _,value:statuses.append(value)), \
+                    mock.patch.object(worker,'cleanup') as cleanup:
+                self.assertEqual(worker.main(),1 if failed else 0)
+                cleanup.assert_called_once()
+                self.assertNotIn('secret',json.dumps(statuses))
+                if not failed:self.assertEqual(events[1].waited,[600])
 
     def test_resource_limits_are_lowered_never_raised(self):
         with mock.patch.object(worker.resource,'getrlimit',return_value=(10,10)), \

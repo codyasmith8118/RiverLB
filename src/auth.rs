@@ -45,6 +45,7 @@ impl Principal {
         let private = path.starts_with("/api/v1/administrators")
             || path.starts_with("/api/v1/security/")
             || path.starts_with("/api/v1/backup")
+            || path.starts_with("/api/v1/diagnostics/captures")
             || path.starts_with("/api/v1/restore")
             || path.starts_with("/api/v1/audit")
             || (path.starts_with("/api/v1/operations/") && !path.ends_with("/health"))
@@ -365,6 +366,10 @@ struct SecurityChange {
 #[serde(deny_unknown_fields)]
 struct BackupProof {
     action: BackupAction,
+    #[serde(default)]
+    request: Option<crate::capture::Request>,
+    #[serde(default)]
+    capture_id: Option<String>,
     current_password: String,
     #[serde(default)]
     code: Option<String>,
@@ -373,6 +378,8 @@ struct BackupProof {
 #[serde(rename_all = "snake_case")]
 enum BackupAction {
     PrivateBackup,
+    CaptureStart,
+    CaptureExport,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -445,11 +452,25 @@ pub fn router() -> axum::Router<std::sync::Arc<crate::control::Control>> {
         .route("/accounts.js",get(||async { ([("content-type","text/javascript; charset=utf-8")],include_str!("../web/accounts.js")) }))
         .route("/api/v1/auth/me",get(|Extension(principal):Extension<Principal>|async move{Json(json!(principal))}))
         .route("/api/v1/security/proof",post(|State(c):State<Shared>,Extension(actor):Extension<String>,Extension(session):Extension<BrowserSession>,Json(proof):Json<BackupProof>|async move{admitted(async move {
-            let BackupAction::PrivateBackup=proof.action;
+            let scope=match proof.action {
+                BackupAction::PrivateBackup=>{if proof.request.is_some() || proof.capture_id.is_some(){return Err(failure(anyhow::anyhow!("Private backup has no capture subject")));} "private_backup".to_owned()},
+                BackupAction::CaptureStart=>{
+                    if proof.capture_id.is_some(){return Err(failure(anyhow::anyhow!("Invalid capture proof subject")));}
+                    let request=proof.request.as_ref().ok_or_else(||failure(anyhow::anyhow!("Capture request required")))?;
+                    request.validate().map_err(failure)?;
+                    if !crate::privileged::enabled(){return Err(failure(anyhow::anyhow!("Capture unavailable")));}
+                    request.scope().map_err(failure)?
+                },
+                BackupAction::CaptureExport=>{
+                    if proof.request.is_some(){return Err(failure(anyhow::anyhow!("Invalid capture proof subject")));}
+                    let id=proof.capture_id.as_deref().ok_or_else(||failure(anyhow::anyhow!("Capture ID required")))?;
+                    crate::capture::export_scope(id).map_err(failure)?
+                }
+            };
             security_budget(&c).await.map_err(failure)?;
-            let token=c.store.issue_backup_proof(&actor,&session.0,proof.current_password,proof.code.as_deref()).await.map_err(|_|failure(anyhow::anyhow!("Authentication unavailable")))?;
+            let token=if scope=="private_backup" {c.store.issue_backup_proof(&actor,&session.0,proof.current_password,proof.code.as_deref()).await} else {c.store.issue_sensitive_proof(&actor,&session.0,proof.current_password,proof.code.as_deref(),&scope).await}.map_err(|_|failure(anyhow::anyhow!("Authentication unavailable")))?;
             let Some(token)=token else { return Err((axum::http::StatusCode::UNAUTHORIZED,Json(json!({"error":"Invalid password, authenticator code or session"})))); };
-            Ok(([("cache-control","no-store")],Json(json!({"proof":token,"expires_in":60,"action":"private_backup"}))))
+            Ok(([("cache-control","no-store")],Json(json!({"proof":token,"expires_in":60,"action":scope.split(':').next().unwrap_or("private_backup")}))))
         }).await}))
         .route("/api/v1/security/settings",get(|State(c):State<Shared>|async move{c.store.security_settings().await.map(|s|Json(json!(s))).map_err(failure)}).put(|State(c):State<Shared>,Extension(actor):Extension<String>,Extension(peer):Extension<std::net::SocketAddr>,Json(change):Json<SecurityChange>|async move{admitted(async move{
             reauthenticate(&c,&actor,change.current_password,change.code.as_deref()).await.map_err(failure)?;

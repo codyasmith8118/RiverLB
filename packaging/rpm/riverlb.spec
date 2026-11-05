@@ -82,9 +82,9 @@ install -D -m 0755 riverlb-audit-security %{buildroot}%{_libexecdir}/riverlb/riv
 install -D -m 0755 riverlb-update %{buildroot}%{_libexecdir}/riverlb/riverlb-update
 install -d -m 0755 %{buildroot}%{_libexecdir}/riverlb/privileged
 install -m 0755 privileged/riverlb-privileged privileged/prepare.py %{buildroot}%{_libexecdir}/riverlb/privileged/
-install -m 0644 privileged/policy.py privileged/network_manager.py privileged/ha.py %{buildroot}%{_libexecdir}/riverlb/privileged/
+install -m 0644 privileged/policy.py privileged/network_manager.py privileged/ha.py privileged/capture_policy.py privileged/capture_file.py privileged/capture_worker.py privileged/capture_jobs.py %{buildroot}%{_libexecdir}/riverlb/privileged/
 install -d -m 0755 %{buildroot}%{_unitdir}
-install -m 0644 privileged/riverlb-privileged.service privileged/riverlb-privileged-prepare.service %{buildroot}%{_unitdir}/
+install -m 0644 privileged/riverlb-privileged.service privileged/riverlb-privileged-prepare.service privileged/riverlb-capture@.service %{buildroot}%{_unitdir}/
 install -d -m 0700 %{buildroot}%{_sysconfdir}/riverlb-privileged %{buildroot}%{_localstatedir}/lib/riverlb-privileged
 install -d -m 0711 %{buildroot}%{_localstatedir}/lib/riverlb-updater-work
 install -D -m 0644 riverlb-update.service %{buildroot}%{_unitdir}/riverlb-update.service
@@ -178,6 +178,7 @@ fi
 %{_libexecdir}/riverlb/privileged/
 %{_unitdir}/riverlb-privileged.service
 %{_unitdir}/riverlb-privileged-prepare.service
+%{_unitdir}/riverlb-capture@.service
 %dir %attr(0700,root,root) %{_sysconfdir}/riverlb-privileged
 %dir %attr(0700,root,root) %{_localstatedir}/lib/riverlb-privileged
 %dir %attr(0711,root,root) %{_localstatedir}/lib/riverlb-updater-work

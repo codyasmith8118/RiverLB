@@ -4,7 +4,7 @@
     <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
     <title>RiverLB · Traffic management</title>
     <script src="/appearance.js"></script>
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script><script src="/fencing.js" defer></script><script src="/statistics.js" defer></script><script src="/accounts.js" defer></script><script src="/operations.js" defer></script><script src="/release.js" defer></script>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script><script src="/fencing.js" defer></script><script src="/statistics.js" defer></script><script src="/accounts.js" defer></script><script src="/operations.js" defer></script><script src="/release.js" defer></script><script src="/capture.js" defer></script>
 </head>
 <body>
     <a href="#page-content" id="skip-content" class="skip-link">Skip to content</a>
@@ -37,7 +37,7 @@
             <a href="#certificates" data-route="certificates">Virtual Server Certificates</a><a href="#device-certificates" data-route="device-certificates">Device Certificates</a><a href="#renewals" data-route="renewals">Certificate Renewals</a>
             <a href="#settings" data-route="settings">Settings</a><a href="#administrators" data-route="administrators">Local Administrators</a>
             <a href="#statistics" data-route="statistics">Statistics</a>
-            <a href="#system-health" data-route="system-health">System Health</a><a href="#alerts" data-route="alerts">Alerts</a><a href="#backups" data-route="backups">Backups &amp; Recovery</a><a href="#audit-events" data-route="audit-events">Audit Events</a><a href="#security" data-route="security">Security</a><a href="#updates" data-route="updates">Updates</a>
+            <a href="#capture" data-route="capture">Packet Capture</a><a href="#system-health" data-route="system-health">System Health</a><a href="#alerts" data-route="alerts">Alerts</a><a href="#backups" data-route="backups">Backups &amp; Recovery</a><a href="#audit-events" data-route="audit-events">Audit Events</a><a href="#security" data-route="security">Security</a><a href="#updates" data-route="updates">Updates</a>
             <a href="#configuration-files" data-route="configuration-files">Import / Export</a>
         </nav>
         <button type="button" id="logout">Sign out</button><small class="sidebar-note"><span id="product-version">RiverLB development build</span><br><span id="account-identity"></span></small>
@@ -251,6 +251,29 @@
                 <div class="actions"><button type="button" class="secondary" id="reload">Discard and reload</button><button type="button" class="secondary" id="validate">Validate draft</button><button type="submit" id="apply">Save and apply all changes</button></div>
             </footer>
         </form>
+        <section class="page" data-page="capture" hidden>
+            <div class="section-heading"><div><h2>Diagnostic packet headers</h2><p>Collect one traffic endpoint on this appliance. Transport payload is removed; captures still contain private addresses, ports and traffic identifiers. Store downloads privately.</p></div><button type="button" id="capture-refresh" class="secondary">Refresh capture</button></div>
+            <p id="capture-message" role="status" aria-live="polite"></p>
+            <div id="capture-controls" class="editor">
+                <p>Only approved traffic interfaces are available. Management traffic, fragments and unsupported packet formats are excluded. One capture is retained per appliance for ten minutes; restarting, signing out or changing credentials can make it unavailable to this browser.</p>
+                <div class="grid">
+                    <label><span>Traffic interface</span><select id="capture-interface"></select></label>
+                    <label><span>Endpoint IP address</span><input id="capture-host" placeholder="10.77.10.100" autocomplete="off" maxlength="45"></label>
+                    <label><span>Endpoint port</span><input id="capture-port" type="number" min="1" max="65535" value="8080"></label>
+                    <label><span>Protocol</span><select id="capture-protocol"><option value="tcp">TCP</option><option value="udp">UDP</option></select></label>
+                    <label><span>Duration (1–60 seconds)</span><input id="capture-seconds" type="number" min="1" max="60" value="15"></label>
+                    <label><span>Maximum file size</span><select id="capture-limit"><option value="1048576">1 MiB</option><option value="4194304" selected>4 MiB</option><option value="16777216">16 MiB</option></select></label>
+                </div>
+                <label><input id="capture-consent" type="checkbox">I consent to collecting private traffic headers for this endpoint.</label>
+                <div class="grid">
+                    <label><span>Current administrator password</span><input id="capture-password" type="password" autocomplete="current-password" maxlength="1024"></label>
+                    <label><span>Unused authenticator or recovery code (if enabled)</span><input id="capture-code" autocomplete="one-time-code" maxlength="64"></label>
+                </div>
+                <p>Starting and downloading each require fresh password and MFA proof. A start proof cannot authorize a download.</p>
+                <div class="actions"><button type="button" id="capture-start" class="primary">Start capture</button><button type="button" id="capture-cancel" class="secondary">Stop capture</button><button type="button" id="capture-export" class="secondary">Download PCAP</button><button type="button" id="capture-delete" class="danger">Delete capture</button></div>
+                <p id="capture-status" role="status" aria-live="polite">No capture loaded.</p>
+            </div>
+        </section>
         </main>
     </div>
 </body>

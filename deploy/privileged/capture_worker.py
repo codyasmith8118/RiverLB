@@ -21,7 +21,7 @@ import threading
 import time
 
 
-ROOT = Path('/var/lib/riverlb-captures')
+ROOT = Path('/run/riverlb-captures')
 ENV = {'PATH': '/usr/sbin:/usr/bin', 'LANG': 'C.UTF-8', 'LC_ALL': 'C'}
 
 
@@ -87,7 +87,7 @@ def inventory(management_interfaces):
 
 def run(directory, configuration, policy, files, stop):
     if (type(configuration) is not dict
-            or set(configuration) != {'request', 'interface_index', 'management_interfaces'}
+            or set(configuration) != {'request', 'interface_index', 'management_interfaces', 'protected_ports'}
             or type(configuration['request']) is not dict
             or type(configuration['interface_index']) is not int
             or configuration['interface_index'] <= 0):
@@ -102,7 +102,11 @@ def run(directory, configuration, policy, files, stop):
         link = next((link for link in links if link.get('ifname') == interface), None)
         if link is None or link.get('ifindex') != configuration['interface_index']:
             raise ValueError('Capture interface changed')
-        request = policy.validate(configuration['request'], {interface}, networks)
+        extra = configuration['protected_ports']
+        if type(extra) is not list or len(extra)>16 or any(type(p) is not int or not 1<=p<=65535 for p in extra):
+            raise ValueError('Invalid management port exclusions')
+        protected = policy.DEFAULT_PROTECTED_PORTS | set(extra)
+        request = policy.validate(configuration['request'], {interface}, networks, protected)
         # Protocol zero avoids receiving from every NIC between creation/bind.
         with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, 0) as packets:
             packets.bind((request.interface, 3))  # ETH_P_ALL, bound interface only.
@@ -124,7 +128,7 @@ def run(directory, configuration, policy, files, stop):
                 return frame if address[0] == request.interface else None
 
             result = files.write(directory, request, receive,
-                                 lambda frame: policy.headers(frame, request, networks),
+                                 lambda frame: policy.headers(frame, request, networks, protected),
                                  lambda: changed or stop.is_set())
             if changed:
                 result['reason'] = 'network_changed'
@@ -177,10 +181,19 @@ def main():
         files = load_module('riverlb_capture_file', 'capture_file.py')
         limits()
         stop = threading.Event()
+        ending = threading.Event()
+        signal.signal(signal.SIGUSR1, lambda *_: stop.set())
+        def terminate(*_):
+            stop.set()
+            ending.set()
         for kind in [signal.SIGTERM, signal.SIGINT]:
-            signal.signal(kind, lambda *_: stop.set())
+            signal.signal(kind, terminate)
         result = run(directory, configuration, policy, files, stop)
         status(directory, dict(state='complete', **result))
+        # Keep only the private file, not a packet socket, for a fixed retention
+        # interval. A cancel signal cannot renew this timer. Unit stop/removal
+        # interrupts retention and systemd also removes the runtime directory.
+        ending.wait(600)
         return 0
     except Exception:
         # Never include exception/packet/request bytes in diagnostics.
@@ -190,6 +203,28 @@ def main():
             except Exception:
                 pass
         return 1
+    finally:
+        if trusted:
+            try:
+                cleanup(directory)
+            except Exception:
+                pass  # RuntimeDirectory cleanup provides an independent bound.
+
+
+def cleanup(directory):
+    info = directory.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or stat.S_IMODE(info.st_mode) != 0o700:
+        raise ValueError('Unsafe capture cleanup directory')
+    allowed = {'request.json', 'status.json', 'capture.pcap', '.status.new'}
+    children = list(directory.iterdir())
+    for path in children:
+        info = path.lstat()
+        if (path.name not in allowed or not stat.S_ISREG(info.st_mode) or info.st_uid != 0
+                or stat.S_IMODE(info.st_mode) != 0o600 or info.st_nlink != 1):
+            raise ValueError('Unsafe capture cleanup file')
+    for path in children:
+        path.unlink()
+    directory.rmdir()
 
 
 if __name__ == '__main__':sys.exit(main())
